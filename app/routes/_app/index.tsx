@@ -1,3 +1,21 @@
+import type { RouteHandle } from "~/lib/route-handle";
+
+export const handle = {
+  title: "Workspace",
+  iconNavActions: [
+    {
+      icon: "mdi:view-dashboard",
+      label: "Dashboard",
+      to: "/",
+    },
+    {
+      icon: "mdi:key-plus",
+      label: "Register device",
+      to: "/register",
+    },
+  ],
+} satisfies RouteHandle;
+
 export default function AppIndexRoute() {
   return (
     <div className="grid gap-6 md:grid-cols-2">
