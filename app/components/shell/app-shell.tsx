@@ -114,9 +114,7 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
             ))}
           </div>
         </header>
-        <section className="space-y-4 pb-6">
-          <Outlet />
-        </section>
+        <Outlet />
       </div>
     </main>
   );

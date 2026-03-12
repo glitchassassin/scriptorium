@@ -81,6 +81,11 @@ export async function createAuthenticatedSession(passkeyId: string) {
   return sessionCookie.serialize(sessionId);
 }
 
+export function destroySessionsForPasskey(passkeyId: string) {
+  const db = getOrm();
+  db.delete(sessions).where(eq(sessions.passkeyId, passkeyId)).run();
+}
+
 export async function destroyAuthenticatedSession(request: Request) {
   const db = getOrm();
   const sessionId = await getSessionId(request);
