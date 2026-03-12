@@ -4,6 +4,33 @@
   --font-sans: Charter, "Bitstream Charter", Georgia, serif;
   --font-mono: "Fira Code", ui-monospace, monospace;
 
+  --text-xs: 0.84375rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.984375rem;
+  --text-sm--line-height: 1.40625rem;
+  --text-base: 1.125rem;
+  --text-base--line-height: 1.6875rem;
+  --text-lg: 1.265625rem;
+  --text-lg--line-height: 1.828125rem;
+  --text-xl: 1.40625rem;
+  --text-xl--line-height: 1.828125rem;
+  --text-2xl: 1.6875rem;
+  --text-2xl--line-height: 2.109375rem;
+  --text-3xl: 2.109375rem;
+  --text-3xl--line-height: 2.53125rem;
+  --text-4xl: 2.53125rem;
+  --text-4xl--line-height: 2.953125rem;
+  --text-5xl: 3.375rem;
+  --text-5xl--line-height: 1;
+  --text-6xl: 4.21875rem;
+  --text-6xl--line-height: 1;
+  --text-7xl: 5.0625rem;
+  --text-7xl--line-height: 1;
+  --text-8xl: 6.75rem;
+  --text-8xl--line-height: 1;
+  --text-9xl: 9rem;
+  --text-9xl--line-height: 1;
+
   --color-accent-dark-gray: #404040;
   --color-accent-mid-gray: #808080;
   --color-accent-light-gray: #c0c0c0;
