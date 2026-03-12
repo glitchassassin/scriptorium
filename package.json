@@ -5,6 +5,8 @@
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "start": "react-router-serve ./build/server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -13,19 +15,25 @@
   "dependencies": {
     "@react-router/node": "7.12.0",
     "@react-router/serve": "7.12.0",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.0",
+    "drizzle-orm": "^1.0.0-beta.17-8a36f93",
     "isbot": "^5.1.31",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router": "7.12.0"
+    "react-router": "7.12.0",
+    "react-router-auto-routes": "^0.8.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@react-router/dev": "7.12.0",
     "@tailwindcss/vite": "^4.1.13",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "^22",
+    "@types/node": "^24.12.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^1.0.0-beta.17-8a36f93",
     "jsdom": "^28.1.0",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",

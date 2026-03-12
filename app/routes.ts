@@ -1,3 +1,3 @@
-import { type RouteConfig, index } from "@react-router/dev/routes";
+import { autoRoutes } from "react-router-auto-routes";
 
-export default [index("routes/home.tsx")] satisfies RouteConfig;
+export default autoRoutes();

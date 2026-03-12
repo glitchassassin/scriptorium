@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-sans: Charter, "Bitstream Charter", Georgia, serif;
+  --font-mono: "Fira Code", ui-monospace, monospace;
 
   --color-accent-dark-gray: #404040;
   --color-accent-mid-gray: #808080;
@@ -22,9 +22,27 @@
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
+  background: #fff;
+  color: #000;
+  font-family: Charter, "Bitstream Charter", Georgia, serif;
+}
 
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
-  }
+body {
+  min-height: 100vh;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: #000;
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
 }
