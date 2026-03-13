@@ -85,6 +85,15 @@ textarea {
   text-shadow: none;
 }
 
+.code-viewer .code-viewer-scroll-pane {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.code-viewer .code-viewer-scroll-pane::-webkit-scrollbar {
+  display: none;
+}
+
 .code-viewer .token.comment,
 .code-viewer .token.block-comment,
 .code-viewer .token.prolog,

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, type MouseEvent, type PointerEvent } from "react";
 import Prism from "prismjs";
 import "prismjs/components/prism-bash";
 import "prismjs/components/prism-clike";
@@ -36,6 +36,20 @@ type ViewLine = {
   chunkStartTone: ChunkTone;
   chunkEndTone: ChunkTone;
 };
+
+type ChangeMarker = {
+  kind: "addition" | "deletion";
+  top: number;
+  height: number;
+};
+
+type IndicatorDragState = {
+  offsetY: number;
+  pointerId: number;
+};
+
+const MIN_INDICATOR_THUMB_HEIGHT = 24;
+const MIN_MARKER_HEIGHT_RATIO = 0.015;
 
 type CodeViewerProps = {
   content: string;
@@ -258,6 +272,84 @@ function getPrismMarkup(line: string, language: string | null) {
   return Prism.highlight(line, Prism.languages[language], language);
 }
 
+function buildChangeMarkers(lines: ViewLine[]): ChangeMarker[] {
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const markers: ChangeMarker[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    if (line?.kind !== "addition" && line?.kind !== "deletion") {
+      continue;
+    }
+
+    const startIndex = index;
+    const kind = line.kind;
+
+    while (index + 1 < lines.length && lines[index + 1]?.kind === kind) {
+      index += 1;
+    }
+
+    const blockLength = index - startIndex + 1;
+    markers.push({
+      kind,
+      top: startIndex / lines.length,
+      height: Math.max(blockLength / lines.length, MIN_MARKER_HEIGHT_RATIO),
+    });
+  }
+
+  return markers;
+}
+
+function measureIndicatorMetrics(scrollEl: HTMLElement, railEl: HTMLElement) {
+  const railHeight = railEl.clientHeight;
+  const maxScrollTop = Math.max(scrollEl.scrollHeight - scrollEl.clientHeight, 0);
+
+  if (railHeight <= 0 || maxScrollTop <= 0 || scrollEl.scrollHeight <= scrollEl.clientHeight) {
+    return { topPx: 0, heightPx: railHeight };
+  }
+
+  const visibleRatio = scrollEl.clientHeight / scrollEl.scrollHeight;
+  const heightPx = Math.min(Math.max(railHeight * visibleRatio, MIN_INDICATOR_THUMB_HEIGHT), railHeight);
+  const availableTrack = Math.max(railHeight - heightPx, 0);
+  const topPx = availableTrack * (scrollEl.scrollTop / maxScrollTop);
+
+  return { topPx, heightPx };
+}
+
+function applyIndicatorMetrics(thumbEl: HTMLElement, scrollEl: HTMLElement, railEl: HTMLElement) {
+  const { topPx, heightPx } = measureIndicatorMetrics(scrollEl, railEl);
+  thumbEl.style.top = `${topPx}px`;
+  thumbEl.style.height = `${heightPx}px`;
+}
+
+function scrollToIndicatorOffset(scrollEl: HTMLElement, railEl: HTMLElement, thumbTop: number) {
+  const railHeight = railEl.clientHeight;
+  const maxScrollTop = Math.max(scrollEl.scrollHeight - scrollEl.clientHeight, 0);
+
+  if (railHeight <= 0 || maxScrollTop <= 0) {
+    scrollEl.scrollTo({ top: 0 });
+    return;
+  }
+
+  const { heightPx } = measureIndicatorMetrics(scrollEl, railEl);
+  const availableTrack = Math.max(railHeight - heightPx, 0);
+  const clampedTop = Math.min(Math.max(thumbTop, 0), availableTrack);
+  const ratio = availableTrack > 0 ? clampedTop / availableTrack : 0;
+
+  scrollEl.scrollTo({ top: ratio * maxScrollTop });
+}
+
+function scrollToRailPosition(scrollEl: HTMLElement, railEl: HTMLElement, clientY: number) {
+  const railRect = railEl.getBoundingClientRect();
+  const { heightPx } = measureIndicatorMetrics(scrollEl, railEl);
+  const clickOffset = clientY - railRect.top;
+  scrollToIndicatorOffset(scrollEl, railEl, clickOffset - heightPx / 2);
+}
+
 function CodeCell({ content, language }: { content: string; language: string | null }) {
   const markup = getPrismMarkup(content, language);
 
@@ -328,6 +420,12 @@ export function CodeViewer({
   showLineNumbers = true,
   showDiffMarkers = true,
 }: CodeViewerProps) {
+  const scrollPaneRef = useRef<HTMLDivElement | null>(null);
+  const indicatorRailRef = useRef<HTMLButtonElement | null>(null);
+  const indicatorThumbRef = useRef<HTMLSpanElement | null>(null);
+  const indicatorFrameRef = useRef<number | null>(null);
+  const indicatorDragRef = useRef<IndicatorDragState | null>(null);
+  const suppressRailClickRef = useRef(false);
   const detectedLanguage = useMemo(() => language ?? detectCodeLanguage(fileName ?? ""), [fileName, language]);
   const lines = useMemo(() => {
     if (mode === "diff" && diffContent) {
@@ -336,6 +434,7 @@ export function CodeViewer({
 
     return buildTextLines(content);
   }, [content, diffContent, diffSide, mode]);
+  const changeMarkers = useMemo(() => (mode === "diff" ? buildChangeMarkers(lines) : []), [lines, mode]);
 
   const showMarkers = mode === "diff" && showDiffMarkers;
   const showDualGutters = mode === "diff";
@@ -345,47 +444,215 @@ export function CodeViewer({
       : "3.5rem 3.5rem minmax(0, 1fr)"
     : "3.5rem minmax(0, 1fr)";
 
+  const scheduleIndicatorSync = useCallback(() => {
+    if (indicatorFrameRef.current !== null) {
+      cancelAnimationFrame(indicatorFrameRef.current);
+    }
+
+    indicatorFrameRef.current = requestAnimationFrame(() => {
+      indicatorFrameRef.current = null;
+
+      const scrollEl = scrollPaneRef.current;
+      const railEl = indicatorRailRef.current;
+      const thumbEl = indicatorThumbRef.current;
+
+      if (!scrollEl || !railEl || !thumbEl) {
+        return;
+      }
+
+      applyIndicatorMetrics(thumbEl, scrollEl, railEl);
+    });
+  }, []);
+
+  const handleIndicatorClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    if (suppressRailClickRef.current) {
+      suppressRailClickRef.current = false;
+      return;
+    }
+
+    const scrollEl = scrollPaneRef.current;
+    const railEl = indicatorRailRef.current;
+
+    if (!scrollEl || !railEl) {
+      return;
+    }
+
+    scrollToRailPosition(scrollEl, railEl, event.clientY);
+    scheduleIndicatorSync();
+  }, [scheduleIndicatorSync]);
+
+  const handleIndicatorDragMove = useCallback((event: globalThis.PointerEvent) => {
+    const dragState = indicatorDragRef.current;
+    const scrollEl = scrollPaneRef.current;
+    const railEl = indicatorRailRef.current;
+
+    if (!dragState || dragState.pointerId !== event.pointerId || !scrollEl || !railEl) {
+      return;
+    }
+
+    const railRect = railEl.getBoundingClientRect();
+    scrollToIndicatorOffset(scrollEl, railEl, event.clientY - railRect.top - dragState.offsetY);
+    scheduleIndicatorSync();
+  }, [scheduleIndicatorSync]);
+
+  const stopIndicatorDrag = useCallback(() => {
+    indicatorDragRef.current = null;
+    suppressRailClickRef.current = true;
+    window.removeEventListener("pointermove", handleIndicatorDragMove);
+    window.removeEventListener("pointerup", stopIndicatorDrag);
+    window.removeEventListener("pointercancel", stopIndicatorDrag);
+  }, [handleIndicatorDragMove]);
+
+  const handleIndicatorThumbPointerDown = useCallback((event: PointerEvent<HTMLSpanElement>) => {
+    const railEl = indicatorRailRef.current;
+    const thumbEl = indicatorThumbRef.current;
+
+    if (!railEl || !thumbEl) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const thumbRect = thumbEl.getBoundingClientRect();
+    indicatorDragRef.current = {
+      offsetY: event.clientY - thumbRect.top,
+      pointerId: event.pointerId,
+    };
+    suppressRailClickRef.current = false;
+
+    window.addEventListener("pointermove", handleIndicatorDragMove);
+    window.addEventListener("pointerup", stopIndicatorDrag);
+    window.addEventListener("pointercancel", stopIndicatorDrag);
+  }, [handleIndicatorDragMove, stopIndicatorDrag]);
+
+  useEffect(() => {
+    const scrollEl = scrollPaneRef.current;
+    const railEl = indicatorRailRef.current;
+
+    if (!scrollEl || !railEl) {
+      return;
+    }
+
+    scheduleIndicatorSync();
+
+    const handleScroll = () => {
+      scheduleIndicatorSync();
+    };
+
+    scrollEl.addEventListener("scroll", handleScroll, { passive: true });
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            scheduleIndicatorSync();
+          });
+
+    resizeObserver?.observe(scrollEl);
+    resizeObserver?.observe(railEl);
+    window.addEventListener("resize", scheduleIndicatorSync);
+
+    return () => {
+      stopIndicatorDrag();
+      scrollEl.removeEventListener("scroll", handleScroll);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", scheduleIndicatorSync);
+
+      if (indicatorFrameRef.current !== null) {
+        cancelAnimationFrame(indicatorFrameRef.current);
+        indicatorFrameRef.current = null;
+      }
+    };
+  }, [lines, scheduleIndicatorSync, stopIndicatorDrag]);
+
   return (
-    <section className="code-viewer overflow-x-auto bg-white text-sm leading-6">
-      <div className="inline-block min-w-full w-max font-mono align-top">
-        {lines.map((line) => (
-          <div className={rowClassName(line)} key={line.key} style={{ gridTemplateColumns }}>
-            {showDualGutters ? (
-              <>
-                {showMarkers ? (
+    <section className="code-viewer relative flex min-h-0 min-w-0 flex-1 bg-white text-sm leading-6">
+      <div className="relative flex min-h-0 min-w-0 flex-1">
+        <div ref={scrollPaneRef} className="code-viewer-scroll-pane min-h-0 min-w-0 flex-1 overflow-auto pr-6">
+          <div className="inline-block min-w-full w-max align-top">
+            {lines.map((line) => (
+              <div className={rowClassName(line)} key={line.key} style={{ gridTemplateColumns }}>
+                {showDualGutters ? (
+                  <>
+                    {showMarkers ? (
+                      <span
+                        aria-hidden="true"
+                        className={`${gutterCellClassName(line.kind, "center")} font-bold ${markerClassName(line.kind)}`}
+                      >
+                        {line.marker || " "}
+                      </span>
+                    ) : null}
+                    <span
+                      aria-hidden="true"
+                      className={gutterCellClassName(line.kind, "right")}
+                    >
+                      {showLineNumbers ? formatLineNumber(line.leftLine) : ""}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className={gutterCellClassName(line.kind, "right")}
+                    >
+                      {showLineNumbers ? formatLineNumber(line.rightLine) : ""}
+                    </span>
+                  </>
+                ) : (
                   <span
                     aria-hidden="true"
-                    className={`${gutterCellClassName(line.kind, "center")} font-bold ${markerClassName(line.kind)}`}
+                    className={`pr-2 text-right text-sm leading-6 opacity-60 ${showLineNumbers ? "" : "sr-only"}`}
                   >
-                    {line.marker || " "}
+                    {formatLineNumber(showLineNumbers ? line.leftLine : null)}
                   </span>
-                ) : null}
-                <span
-                  aria-hidden="true"
-                  className={gutterCellClassName(line.kind, "right")}
-                >
-                  {showLineNumbers ? formatLineNumber(line.leftLine) : ""}
+                )}
+                <span className={codeCellClassName(line.kind)}>
+                  <CodeCell content={line.content} language={detectedLanguage} />
                 </span>
-                <span
-                  aria-hidden="true"
-                  className={gutterCellClassName(line.kind, "right")}
-                >
-                  {showLineNumbers ? formatLineNumber(line.rightLine) : ""}
-                </span>
-              </>
-            ) : (
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-10 pb-4">
+          <button
+            type="button"
+            ref={indicatorRailRef}
+            data-testid="code-viewer-scroll-indicator"
+            className="pointer-events-auto relative h-full min-h-11 w-full p-0"
+            aria-label="Scroll to a position in the file"
+            onClick={handleIndicatorClick}
+          >
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute top-0 bottom-0 left-1/2 w-3 -translate-x-1/2 border-2 border-black bg-white"
+            />
+            {mode === "diff"
+              ? changeMarkers.map((marker, index) => (
+                  <span
+                    key={`${marker.kind}-${index}`}
+                    data-testid={`code-viewer-change-marker-${marker.kind}`}
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute top-0 left-1/2 block min-h-1.5 w-3 -translate-x-1/2 border-y-2 border-black ${
+                      marker.kind === "addition"
+                        ? "bg-[var(--color-accent-green)]"
+                        : "bg-[var(--color-accent-red)]"
+                    }`}
+                    style={{ top: `${marker.top * 100}%`, height: `${marker.height * 100}%` }}
+                  />
+                ))
+              : null}
+            <span
+              ref={indicatorThumbRef}
+              data-testid="code-viewer-scroll-thumb"
+              className="absolute top-0 left-1/2 block w-8 -translate-x-1/2 cursor-grab touch-none active:cursor-grabbing"
+              onPointerDown={handleIndicatorThumbPointerDown}
+            >
               <span
                 aria-hidden="true"
-                className={`pr-2 text-right text-sm leading-6 opacity-60 ${showLineNumbers ? "" : "sr-only"}`}
-              >
-                {formatLineNumber(showLineNumbers ? line.leftLine : null)}
-              </span>
-            )}
-            <span className={codeCellClassName(line.kind)}>
-              <CodeCell content={line.content} language={detectedLanguage} />
+                className="pointer-events-none absolute inset-y-0 left-1/2 w-5 -translate-x-1/2 border-2 border-black bg-transparent"
+              />
             </span>
-          </div>
-        ))}
+          </button>
+        </div>
       </div>
     </section>
   );
