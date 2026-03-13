@@ -77,3 +77,26 @@ export const sessions = sqliteTable(
   },
   (table) => [index("idx_sessions_expires_at").on(table.expiresAt)],
 );
+
+export const instances = sqliteTable(
+  "instances",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    directory: text("directory").notNull(),
+    port: integer("port").notNull(),
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    lastStartedAt: text("last_started_at"),
+    lastExitAt: text("last_exit_at"),
+    lastError: text("last_error"),
+  },
+  (table) => [
+    index("idx_instances_status").on(table.status),
+    check(
+      "instances_status_check",
+      sql`${table.status} in ('starting', 'running', 'stopped', 'error')`,
+    ),
+  ],
+);

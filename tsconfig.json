@@ -1,10 +1,13 @@
 {
   "include": [
-    "**/*",
-    "**/.server/**/*",
-    "**/.client/**/*",
+    "app/**/*",
+    "drizzle.config.ts",
+    "react-router.config.ts",
+    "vite.config.ts",
+    "vitest.setup.ts",
     ".react-router/types/**/*"
   ],
+  "exclude": ["references/**/*"],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "types": ["node", "vite/client", "vitest/globals"],

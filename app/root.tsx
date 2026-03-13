@@ -11,8 +11,14 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { ensureStarted } from "~/lib/instances/runtime.server";
 
 export const links: Route.LinksFunction = () => [];
+
+export async function loader() {
+  await ensureStarted();
+  return null;
+}
 
 export function Layout({ children }: { children: ReactNode }) {
   return (

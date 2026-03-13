@@ -4,7 +4,13 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [tailwindcss(), !process.env.VITEST && reactRouter(), tsconfigPaths()],
+  plugins: [
+    tailwindcss(),
+    !process.env.VITEST && reactRouter(),
+    tsconfigPaths({
+      projects: ["tsconfig.json"],
+    }),
+  ],
   server: {
     port: 5174,
   },

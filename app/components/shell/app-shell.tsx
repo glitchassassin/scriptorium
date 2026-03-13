@@ -13,11 +13,14 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const matches = useMatches();
-  const metadata = [...matches]
-    .reverse()
-    .map((match) => match.handle as RouteHandle | undefined)
-    .find((handle) => handle?.title || handle?.iconNavActions) ?? { title: "Scriptorium" };
-  const actions = metadata.iconNavActions ?? [];
+  const metadata = [...matches].reverse().find((match) => {
+    const handle = match.handle as RouteHandle | undefined;
+    return handle?.title || handle?.iconNavActions;
+  });
+  const handle = metadata?.handle as RouteHandle | undefined;
+  const title = typeof handle?.title === "function"
+    ? handle.title({ data: metadata?.data, params: metadata?.params ?? {} })
+    : handle?.title;
 
   const toggleIcon = isSidebarOpen ? "mdi:menu-open" : "mdi:menu";
 
@@ -44,7 +47,7 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
   }, [isSidebarOpen]);
 
   return (
-    <main className="relative min-h-screen bg-white px-6 text-black sm:px-8">
+    <main className="relative h-screen bg-white px-6 text-black sm:px-8">
       {isSidebarOpen ? (
         <>
           <button
@@ -86,7 +89,7 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
           </aside>
         </>
       ) : null}
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-5xl flex-col gap-8">
+      <div className="mx-auto flex h-full max-w-5xl flex-col">
         <header className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b-2 border-black/50">
           <button
             aria-label="Toggle navigation"
@@ -97,15 +100,16 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
             <Icon className="size-6" icon={toggleIcon} />
           </button>
           <div>
-            <h1 className="text-2xl font-bold">{metadata.title}</h1>
+            <h1 className="text-2xl font-bold">{title ?? "Scriptorium"}</h1>
           </div>
           <div className="flex items-center">
-            {actions.map((action) => (
+            {(handle?.iconNavActions ?? []).map((action) => (
               <NavLink
                 aria-label={action.label}
                 className={({ isActive }) =>
                   `inline-flex min-h-11 min-w-11 items-center justify-center ${isActive ? "bg-black text-white" : "bg-white text-black"}`
                 }
+                end={action.end}
                 key={action.to}
                 to={action.to}
               >
