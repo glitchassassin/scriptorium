@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -65,10 +65,14 @@ describe("git helpers", () => {
 
     writeFileSync(join(root, "tracked.txt"), "v2\n");
     writeFileSync(join(root, "new.txt"), "new file\n");
+    writeFileSync(join(root, "added.txt"), "added file\n");
+    mkdirSync(join(root, "dir"), { recursive: true });
+    writeFileSync(join(root, "dir/nested-new.ts"), "export const value = 1;\n");
     writeFileSync(join(root, "renamed-from.txt"), "renamed\n");
     git(root, ["add", "renamed-from.txt"]);
     git(root, ["commit", "-qm", "add rename source"]);
     git(root, ["mv", "renamed-from.txt", "renamed-to.txt"]);
+    git(root, ["add", "added.txt"]);
 
     const listing = getGitChangedFiles(root);
 
@@ -90,6 +94,18 @@ describe("git helpers", () => {
           indexStatus: "?",
           workingTreeStatus: "?",
           changeType: "untracked",
+        }),
+        expect.objectContaining({
+          path: "dir/nested-new.ts",
+          indexStatus: "?",
+          workingTreeStatus: "?",
+          changeType: "untracked",
+        }),
+        expect.objectContaining({
+          path: "added.txt",
+          indexStatus: "A",
+          workingTreeStatus: " ",
+          changeType: "added",
         }),
       ]),
     );

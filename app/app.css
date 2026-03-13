@@ -119,13 +119,19 @@ textarea {
 .code-viewer .token.keyword,
 .code-viewer .token.atrule,
 .code-viewer .token.attr-value,
-.code-viewer .token.function,
 .code-viewer .token.variable,
 .code-viewer .token.parameter,
 .code-viewer .token.url {
-  color: #000;
+  color: var(--color-accent-dark-gray);
   font-style: normal;
-  font-weight: 400;
+  font-weight: 700;
+}
+
+.code-viewer .token.function,
+.code-viewer .token.function-name {
+  color: var(--color-accent-navy);
+  font-style: normal;
+  font-weight: 700;
 }
 
 .code-viewer .token.bold {

@@ -231,4 +231,28 @@ describe("CodeViewer", () => {
 
     expect(thumb).toHaveStyle({ top: "0px", height: "160px" });
   });
+
+  it("highlights multiline syntax using the full rendered block", () => {
+    const { container } = render(
+      <CodeViewer
+        content={`/* comment start\ncomment end */\nconst value = 1;`}
+        language="javascript"
+      />,
+    );
+
+    const codeCells = Array.from(container.querySelectorAll("code"));
+
+    expect(codeCells[0]?.innerHTML).toContain("token comment");
+    expect(codeCells[1]?.innerHTML).toContain("token comment");
+    expect(codeCells[2]?.innerHTML).toContain("token keyword");
+  });
+
+  it("escapes highlighted html-like text correctly", () => {
+    render(<CodeViewer content={`</span>`} language="markup" />);
+
+    const code = document.querySelector("code");
+
+    expect(code?.textContent).toBe("</span>");
+    expect(code?.innerHTML).toContain("&lt;/");
+  });
 });

@@ -65,4 +65,17 @@ describe("SingleColumnFileList", () => {
 
     expect(row).toHaveClass("font-bold");
   });
+
+  it("renders item descriptions when provided", () => {
+    render(
+      <SingleColumnFileList
+        currentPath="/repo"
+        parentPath={null}
+        entries={LIST_ENTRIES}
+        getItemDescription={(entry) => (entry.type === "file" ? "src/" : null)}
+      />,
+    );
+
+    expect(screen.getByText("src/")).toBeInTheDocument();
+  });
 });

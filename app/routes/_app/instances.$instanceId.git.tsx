@@ -78,10 +78,20 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
 function toEntries(paths: string[]): FileBrowserEntry[] {
   return paths.map((path) => ({
-    name: path,
+    name: path.split("/").at(-1) ?? path,
     path,
     type: "file",
   }));
+}
+
+function parentDirectoryLabel(path: string) {
+  const segments = path.split("/").filter(Boolean);
+
+  if (segments.length <= 1) {
+    return null;
+  }
+
+  return `${segments.slice(0, -1).join("/")}/`;
 }
 
 function statusLabel(path: string, files: Exclude<Route.ComponentProps["loaderData"]["changed"], { isRepository: false }> ["files"]) {
@@ -223,6 +233,7 @@ export default function InstanceGitRoute({ loaderData }: Route.ComponentProps) {
           currentPath={instance.directory}
           entries={entries}
           emptyLabel="No uncommitted changes."
+          getItemDescription={(entry) => parentDirectoryLabel(entry.path)}
           getItemPrefix={(entry) =>
             changed.isRepository ? statusLabel(entry.path, changed.files) : null
           }

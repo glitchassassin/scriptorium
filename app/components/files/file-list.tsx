@@ -20,6 +20,7 @@ type FileListProps = {
   onSelectionChange?: (selection: FileBrowserSelection | null) => void;
   emptyLabel?: string;
   getItemPrefix?: (entry: FileBrowserEntry) => string | null;
+  getItemDescription?: (entry: FileBrowserEntry) => string | null;
 };
 
 function getName(path: string) {
@@ -40,6 +41,7 @@ export function SingleColumnFileList({
   onSelectionChange,
   emptyLabel = "This folder is empty.",
   getItemPrefix,
+  getItemDescription,
 }: FileListProps) {
   const canSelectCurrentDirectory = selectionMode === "directory" || selectionMode === "either";
   const [selected, setSelected] = useState<FileBrowserSelection | null>(
@@ -100,6 +102,7 @@ export function SingleColumnFileList({
                 (selectionMode === "directory" && entry.type === "directory") ||
                 (selectionMode === "file" && entry.type === "file");
               const isSelected = effectiveSelection === entry.path;
+              const description = getItemDescription?.(entry);
 
               return (
                 <li className={isSelected ? "border-l-4 border-l-black font-bold" : ""} key={entry.path}>
@@ -114,6 +117,7 @@ export function SingleColumnFileList({
                         {getItemPrefix?.(entry) ? <span className="w-5 shrink-0">{getItemPrefix(entry)}</span> : null}
                         <span className="truncate">{entry.name}/</span>
                       </p>
+                      {description ? <p className="truncate text-sm opacity-60">{description}</p> : null}
                     </button>
                   ) : canSelectEntry ? (
                     <button
@@ -134,6 +138,7 @@ export function SingleColumnFileList({
                         {getItemPrefix?.(entry) ? <span className="w-5 shrink-0">{getItemPrefix(entry)}</span> : null}
                         <span className="truncate">{entry.name}</span>
                       </p>
+                      {description ? <p className="truncate text-sm opacity-60">{description}</p> : null}
                     </button>
                   ) : (
                     <div className="px-3 py-1">
@@ -141,6 +146,7 @@ export function SingleColumnFileList({
                         {getItemPrefix?.(entry) ? <span className="w-5 shrink-0">{getItemPrefix(entry)}</span> : null}
                         <span className="truncate">{entry.name}</span>
                       </p>
+                      {description ? <p className="truncate text-sm opacity-60">{description}</p> : null}
                     </div>
                   )}
                 </li>

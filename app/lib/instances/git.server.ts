@@ -171,7 +171,7 @@ function readGitFileAtRevision(directory: string, revision: string, path: string
 }
 
 export function getGitChangedFiles(directory: string): GitChangedFiles {
-  const result = runGit(directory, ["status", "--short", "--porcelain", "-z"]);
+  const result = runGit(directory, ["status", "--short", "--porcelain", "-z", "--untracked-files=all"]);
 
   if (result.status !== 0) {
     return { isRepository: false };
@@ -237,7 +237,7 @@ export function getGitFileDiff(directory: string, inputPath: string): GitFileDif
 }
 
 export function getGitStatusSummary(directory: string): GitStatusSummary {
-  const result = spawnSync("git", ["status", "--short", "--branch"], {
+  const result = spawnSync("git", ["status", "--short", "--branch", "--untracked-files=all"], {
     cwd: directory,
     encoding: "utf8",
   });
