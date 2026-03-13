@@ -7,7 +7,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { passkey } = await requireAuthenticatedPasskey(request);
 
   return {
-    passkeyLabel: passkey.label,
+    passkeyLabel: passkey?.label || "Localhost",
   };
 }
 

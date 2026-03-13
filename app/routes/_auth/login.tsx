@@ -2,12 +2,16 @@ import { Link, redirect, useNavigate } from "react-router";
 import { useState } from "react";
 
 import { AuthSection, StatusMessage } from "~/components/auth/auth-shell";
-import { getAuthState } from "~/lib/auth/guards.server";
+import { getAuthState, isPasskeyAuthRequired } from "~/lib/auth/guards.server";
 
 import type { Route } from "./+types/login";
 import { signInWithPasskey } from "./+/webauthn.client";
 
 export async function loader({ request }: Route.LoaderArgs) {
+  if (!isPasskeyAuthRequired(request)) {
+    return redirect("/");
+  }
+
   const authState = await getAuthState(request);
 
   if (authState.activePasskeyCount === 0) {

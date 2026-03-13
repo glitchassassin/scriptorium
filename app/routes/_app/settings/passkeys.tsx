@@ -27,13 +27,13 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { passkey } = await requireAuthenticatedPasskey(request);
 
   return {
-    currentPasskeyId: passkey.id,
+    currentPasskeyId: passkey?.id || null,
     passkeys: listActivePasskeys(),
   };
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const { passkey: currentPasskey } = await requireAuthenticatedPasskey(request);
+  const { isLocalBypass, passkey: currentPasskey } = await requireAuthenticatedPasskey(request);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "").trim();
   const passkeyId = String(formData.get("passkeyId") || "").trim();
@@ -55,7 +55,7 @@ export async function action({ request }: Route.ActionArgs) {
   revokePasskey(passkeyId);
   destroySessionsForPasskey(passkeyId);
 
-  if (passkeyId === currentPasskey.id || countActivePasskeys() === 0) {
+  if (!isLocalBypass && (passkeyId === currentPasskey?.id || countActivePasskeys() === 0)) {
     const setCookie = await destroyAuthenticatedSession(request);
 
     return redirect("/register", {
@@ -70,7 +70,7 @@ function PasskeyRow({
   currentPasskeyId,
   passkey,
 }: {
-  currentPasskeyId: string;
+  currentPasskeyId: string | null;
   passkey: Route.ComponentProps["loaderData"]["passkeys"][number];
 }) {
   const fetcher = useFetcher<typeof action>();

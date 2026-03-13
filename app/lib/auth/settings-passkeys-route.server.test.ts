@@ -23,7 +23,7 @@ function createActivePasskey(id: string, label: string) {
 }
 
 function createPostRequest(cookie: string, passkeyId: string) {
-  return new Request("http://localhost/settings/passkeys", {
+  return new Request("http://scriptorium.test/settings/passkeys", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -59,7 +59,7 @@ describe("settings passkeys route", () => {
       expect(listActivePasskeys()).toHaveLength(0);
 
       const session = await getAuthenticatedSession(
-        new Request("http://localhost/", {
+        new Request("http://scriptorium.test/", {
           headers: {
             Cookie: response.headers.get("Set-Cookie") || "",
           },
@@ -86,9 +86,33 @@ describe("settings passkeys route", () => {
       expect(listActivePasskeys().map((passkey) => passkey.id)).toEqual(["credential-1"]);
       expect(
         await getAuthenticatedSession(
-          new Request("http://localhost/", { headers: { Cookie: cookie } }),
+          new Request("http://scriptorium.test/", { headers: { Cookie: cookie } }),
         ),
       ).not.toBeNull();
+    });
+  });
+
+  it("allows localhost access without forcing re-registration", async () => {
+    await withTestDatabase(async () => {
+      createActivePasskey("credential-1", "Desk laptop");
+
+      const response = await action({
+        context: {},
+        params: {},
+        request: new Request("http://localhost/settings/passkeys", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            intent: "revoke",
+            passkeyId: "credential-1",
+          }),
+        }),
+      } as never);
+
+      expect(response).not.toBeInstanceOf(Response);
+      expect(listActivePasskeys()).toHaveLength(0);
     });
   });
 });
