@@ -55,7 +55,7 @@ function InstanceRow({ instance }: { instance: InstanceRecord }) {
   const label = doubleCheck ? `Confirm delete ${instance.name}` : `Delete ${instance.name}`;
 
   return (
-    <li className="grid gap-3 border-b-2 border-black/50 px-3 py-3 md:grid-cols-[1fr_auto] md:items-center">
+    <li className="grid gap-3 border-b-2 border-black px-3 py-3 md:grid-cols-[1fr_auto] md:items-center">
       <Link className="block min-w-0 space-y-1" to={`/instances/${instance.id}`}>
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <p className="truncate text-lg font-bold">{instance.name}</p>
@@ -89,7 +89,7 @@ export default function InstancesRoute({ actionData, loaderData }: Route.Compone
         <p className="text-sm uppercase tracking-[0.08em]">Running workspaces</p>
         {actionData?.error ? <p className="text-base leading-6">{actionData.error}</p> : null}
         {loaderData.instances.length ? (
-          <ul className="border-t-2 border-black/50">
+          <ul className="border-t-2 border-black">
             {loaderData.instances.map((instance: InstanceRecord) => (
               <InstanceRow instance={instance} key={instance.id} />
             ))}

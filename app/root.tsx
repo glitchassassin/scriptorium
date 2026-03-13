@@ -73,7 +73,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
         </Form>
       </div>
       {stack && (
-        <pre className="mx-auto mt-8 w-full max-w-3xl overflow-x-auto border-t-2 border-black/50 pt-6 font-mono text-sm leading-6">
+        <pre className="mx-auto mt-8 w-full max-w-3xl overflow-x-auto border-t-2 border-black pt-6 font-mono text-sm leading-6">
           <code>{stack}</code>
         </pre>
       )}

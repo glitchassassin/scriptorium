@@ -72,7 +72,7 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
                 </button>
               </header>
               <div className="flex-1" />
-              <div className="mt-auto space-y-2 border-t-2 border-black/50">
+              <div className="mt-auto space-y-2 border-t-2 border-black">
                 <NavLink
                   className="inline-flex min-h-11 w-full items-center justify-center px-3 py-2 text-base"
                   to="/settings"
@@ -93,7 +93,7 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
         </>
       ) : null}
       <div className="mx-auto flex h-full max-w-5xl flex-col">
-        <header className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b-2 border-black/50">
+        <header className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b-2 border-black">
           <button
             aria-label="Toggle navigation"
             className="inline-flex min-h-11 min-w-11 items-center justify-center"

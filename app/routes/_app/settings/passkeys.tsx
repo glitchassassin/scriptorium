@@ -81,7 +81,7 @@ function PasskeyRow({
   const label = doubleCheck ? `Confirm revoke ${passkey.label}` : `Revoke ${passkey.label}`;
 
   return (
-    <li className="flex min-h-11 items-center justify-between gap-3 border-b-2 border-black/50 px-3 py-2">
+    <li className="flex min-h-11 items-center justify-between gap-3 border-b-2 border-black px-3 py-2">
       <div className="flex min-w-0 items-center gap-3">
         <span className="inline-flex min-h-11 min-w-11 items-center justify-center" aria-hidden="true">
           {isCurrent ? <Icon className="size-6" icon="mdi:star" /> : null}
@@ -119,7 +119,7 @@ export default function SettingsPasskeysRoute({ actionData, loaderData }: Route.
         {actionData?.error ? (
           <p className="border-t-2 border-black pt-3 text-base leading-6">{actionData.error}</p>
         ) : null}
-        <ul className="border-t-2 border-black/50">
+        <ul className="border-t-2 border-black">
           {loaderData.passkeys.map((passkey) => (
             <PasskeyRow
               currentPasskeyId={loaderData.currentPasskeyId}

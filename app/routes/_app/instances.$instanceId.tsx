@@ -144,9 +144,9 @@ export default function InstanceDetailRoute({ loaderData }: Route.ComponentProps
           <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
           {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
           {recentSessions.length ? (
-            <ul className="border-t-2 border-black/50">
+            <ul className="border-t-2 border-black">
               {recentSessions.map((session: OpencodeSessionSummary) => (
-                <li className="space-y-1 border-b-2 border-black/50 px-3 py-2" key={session.id}>
+                <li className="space-y-1 border-b-2 border-black px-3 py-2" key={session.id}>
                   <p className="text-base font-bold">{session.title || session.id.slice(0, 12)}</p>
                   {session.updatedAt ? (
                     <p className="text-sm leading-6 opacity-60">
