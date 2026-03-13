@@ -21,6 +21,9 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
   const title = typeof handle?.title === "function"
     ? handle.title({ data: metadata?.data, params: metadata?.params ?? {} })
     : handle?.title;
+  const iconNavActions = typeof handle?.iconNavActions === "function"
+    ? handle.iconNavActions({ data: metadata?.data, params: metadata?.params ?? {} })
+    : handle?.iconNavActions ?? [];
 
   const toggleIcon = isSidebarOpen ? "mdi:menu-open" : "mdi:menu";
 
@@ -103,7 +106,7 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
             <h1 className="text-2xl font-bold">{title ?? "Scriptorium"}</h1>
           </div>
           <div className="flex items-center">
-            {(handle?.iconNavActions ?? []).map((action) => (
+            {iconNavActions.map((action) => (
               <NavLink
                 aria-label={action.label}
                 className={({ isActive }) =>

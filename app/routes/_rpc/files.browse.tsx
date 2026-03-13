@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { data, useFetcher } from "react-router";
 
 import type {
@@ -8,6 +8,8 @@ import type {
 } from "~/lib/instances/types";
 
 import type { Route } from "./+types/files.browse";
+
+import { SingleColumnFileList } from "~/components/files/file-list";
 
 type BrowseLoaderData = {
   error: string | null;
@@ -47,6 +49,7 @@ type FileExplorerProps = {
   label?: string;
   name?: string;
   value?: string | null;
+  onBrowsePathChange?: (path: string) => void;
   onSelectionChange?: (selection: FileBrowserSelection | null) => void;
 };
 
@@ -57,109 +60,69 @@ export function FileExplorer({
   label,
   name,
   value = null,
+  onBrowsePathChange,
   onSelectionChange,
 }: FileExplorerProps) {
   const browseFetcher = useFetcher<typeof loader>();
   const [selected, setSelected] = useState<FileBrowserSelection | null>(
-    value ? { path: value, type: "directory", name: value.split("/").filter(Boolean).at(-1) || value } : null,
+    value
+      ? {
+          path: value,
+          type: "directory",
+          name: value.split("/").filter(Boolean).at(-1) || value,
+        }
+      : null,
   );
-  const listContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     browseFetcher.load(buildBrowseUrl(route, initialPath, selectionMode));
   }, [initialPath, route, selectionMode]);
 
+  useEffect(() => {
+    if (value) {
+      setSelected({
+        path: value,
+        type: "directory",
+        name: value.split("/").filter(Boolean).at(-1) || value,
+      });
+    }
+  }, [value]);
+
   const listing = browseFetcher.data?.listing;
   const browseError = browseFetcher.data?.error;
   const activePath = listing?.currentPath ?? initialPath;
-  const canSelectCurrentDirectory = selectionMode === "directory" || selectionMode === "either";
   const isLoading = browseFetcher.state !== "idle";
   const selectedPath = selected?.path ?? value ?? "";
-  const formValue = canSelectCurrentDirectory ? activePath : selectedPath;
 
   function browseTo(path: string) {
-    if (listContainerRef.current) {
-      listContainerRef.current.scrollTop = 0;
-    }
-
     browseFetcher.load(buildBrowseUrl(route, path, selectionMode));
   }
 
-  function selectPath(path: string, type: FileBrowserSelection["type"]) {
-    const selection = {
-      path,
-      type,
-      name: path.split("/").filter(Boolean).at(-1) || path,
-    } satisfies FileBrowserSelection;
-
+  function selectPath(selection: FileBrowserSelection | null) {
     setSelected(selection);
     onSelectionChange?.(selection);
   }
 
+  useEffect(() => {
+    onBrowsePathChange?.(activePath);
+  }, [activePath, onBrowsePathChange]);
+
   return (
     <section className="space-y-3">
-      {label ? <p className="text-sm uppercase tracking-[0.08em]">{label}</p> : null}
-      {name ? <input name={name} type="hidden" value={formValue} /> : null}
-      <p className="min-w-0 truncate text-sm leading-6">{activePath}</p>
       {browseError ? <p className="text-base leading-6">{browseError}</p> : null}
-      <div className="max-h-96 overflow-y-auto border-l-2 border-black" ref={listContainerRef}>
-      <ul className="space-y-1">
-        {listing?.parentPath ? (
-          <li>
-            <button
-              className="block min-h-9 w-full px-3 py-1 text-left text-base disabled:opacity-25"
-              disabled={isLoading}
-              onClick={() => browseTo(listing.parentPath!)}
-              type="button"
-            >
-              <p className="truncate">../</p>
-            </button>
-          </li>
-        ) : null}
-        {listing?.entries.length ? (
-          listing.entries.map((entry) => {
-            const canSelectEntry =
-              selectionMode === "either" ||
-              (selectionMode === "directory" && entry.type === "directory") ||
-              (selectionMode === "file" && entry.type === "file");
-            const isSelected = selectedPath === entry.path;
-
-            return (
-              <li
-                className={isSelected ? "border-l-4 border-l-black font-bold" : ""}
-                key={entry.path}
-              >
-                {entry.type === "directory" ? (
-                  <button
-                    className="block min-h-9 w-full px-3 py-1 text-left text-base disabled:opacity-25"
-                    disabled={isLoading}
-                    onClick={() => browseTo(entry.path)}
-                    type="button"
-                  >
-                    <p className="truncate">{entry.name}/</p>
-                  </button>
-                ) : canSelectEntry ? (
-                  <button
-                    className={`block min-h-9 w-full px-3 py-1 text-left text-base disabled:opacity-25 ${isSelected ? "bg-black text-white" : ""}`}
-                    disabled={isLoading}
-                    onClick={() => selectPath(entry.path, entry.type)}
-                    type="button"
-                  >
-                    <p className="truncate">{entry.name}</p>
-                  </button>
-                ) : (
-                  <div className="px-3 py-1">
-                    <p className="truncate text-base">{entry.name}</p>
-                  </div>
-                )}
-              </li>
-            );
-          })
-        ) : (
-          <li className="min-h-11 px-3 py-2 text-base">{isLoading ? "Loading directory..." : "This folder is empty."}</li>
-        )}
-      </ul>
-      </div>
+      <SingleColumnFileList
+        currentPath={activePath}
+        entries={listing?.entries || []}
+        emptyLabel="This folder is empty."
+        isLoading={isLoading}
+        label={label}
+        name={name}
+        onBrowseTo={browseTo}
+        onSelectionChange={selectPath}
+        parentPath={listing?.parentPath || null}
+        selectedPath={selectedPath}
+        selectionMode={selectionMode}
+      />
     </section>
   );
 }

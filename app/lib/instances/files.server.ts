@@ -1,9 +1,9 @@
 import { homedir } from "node:os";
-import { basename, relative, resolve } from "node:path";
-import { readdirSync, statSync } from "node:fs";
+import { basename, isAbsolute, relative, resolve } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 
 import type {
-  FileBrowserEntry,
+  FileBrowserContent,
   FileBrowserListing,
   FileBrowserSelection,
   FileBrowserSelectionMode,
@@ -21,9 +21,39 @@ function isWithinRoot(rootPath: string, candidatePath: string) {
   return pathRelative === "" || (!pathRelative.startsWith("..") && !pathRelative.startsWith("../"));
 }
 
-export function resolveBrowserPath(inputPath: string | null | undefined) {
-  const rootPath = getBrowserRoot();
-  const resolvedPath = resolve(inputPath?.trim() || rootPath);
+function listDirectoryEntries(directory: string) {
+  return readdirSync(directory, { withFileTypes: true })
+    .map((entry) => ({
+      name: entry.name,
+      path: resolve(directory, entry.name),
+      type: entry.isDirectory() ? ("directory" as const) : ("file" as const),
+    }))
+    .sort((left, right) => {
+      if (left.type !== right.type) {
+        return left.type === "directory" ? -1 : 1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+}
+
+function buildBrowserListing(
+  rootPath: string,
+  resolvedPath: string,
+  selectionMode: FileBrowserSelectionMode,
+): FileBrowserListing {
+  return {
+    rootPath,
+    currentPath: resolvedPath,
+    parentPath: resolvedPath === rootPath ? null : resolve(resolvedPath, ".."),
+    entries: listDirectoryEntries(resolvedPath),
+    selectionMode,
+  };
+}
+
+function resolveBrowserPathForRoot(inputPath: string | null | undefined, rootPath: string) {
+  const value = inputPath?.trim() || rootPath;
+  const resolvedPath = isAbsolute(value) ? resolve(value) : resolve(rootPath, value);
 
   if (!isWithinRoot(rootPath, resolvedPath)) {
     throw new Response("Path is outside the allowed browser root.", { status: 403 });
@@ -47,11 +77,27 @@ function assertSelectionType(path: string, selectionMode: FileBrowserSelectionMo
   return type;
 }
 
+function assertFile(path: string) {
+  const stat = statSync(path);
+
+  if (!stat.isFile()) {
+    throw new Response("Choose a file.", { status: 400 });
+  }
+}
+
+export function resolveBrowserPath(
+  inputPath: string | null | undefined,
+  rootPath: string = getBrowserRoot(),
+) {
+  return resolveBrowserPathForRoot(inputPath, rootPath);
+}
+
 export function browseFiles(
   inputPath: string | null | undefined,
   selectionMode: FileBrowserSelectionMode,
+  rootPath: string = getBrowserRoot(),
 ): FileBrowserListing {
-  const { rootPath, resolvedPath } = resolveBrowserPath(inputPath);
+  const { resolvedPath } = resolveBrowserPathForRoot(inputPath, rootPath);
   const stat = statSync(resolvedPath, { throwIfNoEntry: false });
 
   if (!stat) {
@@ -62,36 +108,23 @@ export function browseFiles(
     throw new Response("Choose a directory to browse.", { status: 400 });
   }
 
-  const entries: FileBrowserEntry[] = readdirSync(resolvedPath, { withFileTypes: true })
-    .map((entry) => ({
-      name: entry.name,
-      path: resolve(resolvedPath, entry.name),
-      type: entry.isDirectory() ? ("directory" as const) : ("file" as const),
-    }))
-    .sort((left, right) => {
-      if (left.type !== right.type) {
-        return left.type === "directory" ? -1 : 1;
-      }
+  return buildBrowserListing(resolve(rootPath), resolvedPath, selectionMode);
+}
 
-      return left.name.localeCompare(right.name);
-    });
-
-  const parentPath = resolvedPath === rootPath ? null : resolve(resolvedPath, "..");
-
-  return {
-    rootPath,
-    currentPath: resolvedPath,
-    parentPath,
-    entries,
-    selectionMode,
-  };
+export function browseInstanceFiles(
+  inputPath: string | null | undefined,
+  instanceDirectory: string,
+  selectionMode: FileBrowserSelectionMode,
+): FileBrowserListing {
+  return browseFiles(inputPath, selectionMode, instanceDirectory);
 }
 
 export function validateFileSelection(
   inputPath: string | null | undefined,
   selectionMode: FileBrowserSelectionMode,
+  rootPath: string = getBrowserRoot(),
 ): FileBrowserSelection {
-  const { resolvedPath } = resolveBrowserPath(inputPath);
+  const { resolvedPath } = resolveBrowserPathForRoot(inputPath, rootPath);
   const type = assertSelectionType(resolvedPath, selectionMode);
 
   return {
@@ -99,4 +132,43 @@ export function validateFileSelection(
     type,
     name: basename(resolvedPath),
   };
+}
+
+export function validateInstanceFileSelection(
+  inputPath: string | null | undefined,
+  instanceDirectory: string,
+  selectionMode: FileBrowserSelectionMode = "either",
+): FileBrowserSelection {
+  return validateFileSelection(inputPath, selectionMode, instanceDirectory);
+}
+
+export function readBrowserFile(
+  inputPath: string | null | undefined,
+  rootPath: string,
+): FileBrowserContent {
+  const { resolvedPath } = resolveBrowserPathForRoot(inputPath, rootPath);
+  const stat = statSync(resolvedPath, { throwIfNoEntry: false });
+
+  if (!stat) {
+    throw new Response("File not found.", { status: 404 });
+  }
+
+  assertFile(resolvedPath);
+
+  const buffer = readFileSync(resolvedPath);
+  const binary = buffer.includes(0) || buffer.byteLength > 1024 * 1024;
+
+  return {
+    path: resolvedPath,
+    name: basename(resolvedPath),
+    content: binary ? "" : buffer.toString("utf8"),
+    binary,
+  };
+}
+
+export function readInstanceFile(
+  inputPath: string | null | undefined,
+  instanceDirectory: string,
+): FileBrowserContent {
+  return readBrowserFile(inputPath, instanceDirectory);
 }

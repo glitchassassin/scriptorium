@@ -6,7 +6,14 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { browseFiles, validateFileSelection } from "~/lib/instances/files.server";
+import {
+  browseFiles,
+  browseInstanceFiles,
+  readBrowserFile,
+  readInstanceFile,
+  validateFileSelection,
+  validateInstanceFileSelection,
+} from "~/lib/instances/files.server";
 
 const tempDirectories: string[] = [];
 const originalBrowserRoot = process.env.SCRIPTORIUM_BROWSER_ROOT;
@@ -18,6 +25,7 @@ function createWorkspace() {
   mkdirSync(join(root, "alpha"));
   mkdirSync(join(root, "beta"));
   writeFileSync(join(root, "notes.txt"), "hello");
+  writeFileSync(join(root, "alpha", "project.txt"), "instance file");
 
   return root;
 }
@@ -66,5 +74,25 @@ describe("files browser helpers", () => {
       type: "directory",
     });
     expect(() => validateFileSelection(join(root, "notes.txt"), "directory")).toThrowError(Response);
+  });
+
+  it("supports instance-root browsing and reading with path containment checks", () => {
+    const root = createWorkspace();
+    const instanceRoot = join(root, "alpha");
+
+    const listing = browseInstanceFiles(null, instanceRoot, "either");
+    expect(listing.currentPath).toBe(instanceRoot);
+    expect(listing.parentPath).toBeNull();
+
+    expect(() => browseInstanceFiles(join(root, ".."), instanceRoot, "either")).toThrowError(Response);
+    expect(() => validateInstanceFileSelection(join(root, "notes.txt"), instanceRoot, "file")).toThrowError(Response);
+
+    const file = readBrowserFile(join(root, "notes.txt"), root);
+    expect(file.name).toBe("notes.txt");
+    expect(file.content).toBe("hello");
+
+    const nestedFile = readInstanceFile(join(instanceRoot, "project.txt"), instanceRoot);
+    expect(nestedFile.path).toBe(join(instanceRoot, "project.txt"));
+    expect(nestedFile.content).toBe("instance file");
   });
 });
