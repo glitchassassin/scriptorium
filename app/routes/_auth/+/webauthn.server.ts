@@ -36,13 +36,21 @@ function toArrayBufferUint8Array(value: Uint8Array) {
   return Uint8Array.from(value);
 }
 
+function getForwardedHeaderValue(value: string | null) {
+  return value?.split(",", 1)[0]?.trim();
+}
+
 function getRelyingParty(request: Request) {
   const url = new URL(request.url);
+  const protocol = getForwardedHeaderValue(request.headers.get("x-forwarded-proto")) || url.protocol.slice(0, -1);
+  const host = getForwardedHeaderValue(request.headers.get("x-forwarded-host")) || request.headers.get("host") || url.host;
+  const origin = `${protocol}://${host}`;
+  const hostname = new URL(origin).hostname;
 
   return {
-    expectedOrigin: url.origin,
-    expectedRPID: url.hostname,
-    rpID: url.hostname,
+    expectedOrigin: origin,
+    expectedRPID: hostname,
+    rpID: hostname,
     rpName: "Scriptorium",
   };
 }
