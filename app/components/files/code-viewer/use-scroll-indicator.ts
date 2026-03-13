@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } from "react";
 
 type IndicatorDragState = {
+  moved: boolean;
   offsetY: number;
   pointerId: number;
 };
@@ -112,6 +113,7 @@ export function useScrollIndicator(dependencies: unknown[]) {
       }
 
       const railRect = railEl.getBoundingClientRect();
+      dragState.moved = true;
       scrollToIndicatorOffset(scrollEl, railEl, event.clientY - railRect.top - dragState.offsetY);
       scheduleIndicatorSync();
     },
@@ -119,8 +121,9 @@ export function useScrollIndicator(dependencies: unknown[]) {
   );
 
   const stopIndicatorDrag = useCallback(() => {
+    const didDrag = indicatorDragRef.current?.moved ?? false;
     indicatorDragRef.current = null;
-    suppressRailClickRef.current = true;
+    suppressRailClickRef.current = didDrag;
     window.removeEventListener("pointermove", handleIndicatorDragMove);
     window.removeEventListener("pointerup", stopIndicatorDrag);
     window.removeEventListener("pointercancel", stopIndicatorDrag);
@@ -140,6 +143,7 @@ export function useScrollIndicator(dependencies: unknown[]) {
 
       const thumbRect = thumbEl.getBoundingClientRect();
       indicatorDragRef.current = {
+        moved: false,
         offsetY: event.clientY - thumbRect.top,
         pointerId: event.pointerId,
       };

@@ -210,6 +210,36 @@ describe("CodeViewer", () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 500 });
   });
 
+  it("treats a thumb click like a rail click before any drag", () => {
+    render(<CodeViewer content={Array.from({ length: 50 }, (_, index) => `line ${index + 1}`).join("\n")} />);
+
+    const rail = screen.getByRole("button", { name: "Scroll to a position in the file" });
+    const thumb = screen.getByTestId("code-viewer-scroll-thumb");
+    const scrollPane = rail.closest("div")?.previousElementSibling as HTMLDivElement;
+    const scrollTo = vi.fn();
+
+    mockElementMetrics(scrollPane, {
+      clientHeight: 200,
+      scrollHeight: 1000,
+      scrollTop: 0,
+    });
+    mockElementMetrics(rail, {
+      clientHeight: 160,
+      rectTop: 20,
+    });
+    mockElementMetrics(thumb, {
+      clientHeight: 32,
+      rectTop: 20,
+    });
+    scrollPane.scrollTo = scrollTo;
+
+    fireEvent.pointerDown(thumb, { clientY: 30, pointerId: 1 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+    fireEvent.click(thumb, { clientY: 100 });
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 400 });
+  });
+
   it("fills the indicator rail when content does not overflow", () => {
     render(<CodeViewer content={`only line`} />);
 
