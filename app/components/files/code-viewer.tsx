@@ -346,7 +346,7 @@ export function CodeViewer({
     : "3.5rem minmax(0, 1fr)";
 
   return (
-    <section className="overflow-x-auto bg-white text-sm leading-6">
+    <section className="code-viewer overflow-x-auto bg-white text-sm leading-6">
       <div className="inline-block min-w-full w-max font-mono align-top">
         {lines.map((line) => (
           <div className={rowClassName(line)} key={line.key} style={{ gridTemplateColumns }}>
