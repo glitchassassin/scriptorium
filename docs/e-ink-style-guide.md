@@ -22,21 +22,21 @@ This guide defines an e-ink-compatible visual system using Tailwind-friendly con
 
 Accent colors are optional and should be rare. If used, they must only appear as solid fills for non-essential emphasis such as diff markers, badges, or icons.
 
-| Variable | Value |
-| --- | --- |
-| `--color-accent-dark-gray` | `#404040` |
-| `--color-accent-mid-gray` | `#808080` |
+| Variable                    | Value     |
+| --------------------------- | --------- |
+| `--color-accent-dark-gray`  | `#404040` |
+| `--color-accent-mid-gray`   | `#808080` |
 | `--color-accent-light-gray` | `#c0c0c0` |
-| `--color-accent-red` | `#ff6163` |
-| `--color-accent-green` | `#00b036` |
-| `--color-accent-navy` | `#000084` |
-| `--color-accent-aqua` | `#00f0ff` |
-| `--color-accent-violet` | `#ee00ff` |
-| `--color-accent-orange` | `#ffaa00` |
-| `--color-accent-lemon` | `#f0ff00` |
+| `--color-accent-red`        | `#ff6163` |
+| `--color-accent-green`      | `#00b036` |
+| `--color-accent-navy`       | `#000084` |
+| `--color-accent-aqua`       | `#00f0ff` |
+| `--color-accent-violet`     | `#ee00ff` |
+| `--color-accent-orange`     | `#ffaa00` |
+| `--color-accent-lemon`      | `#f0ff00` |
 | `--color-accent-chartreuse` | `#008000` |
-| `--color-accent-grape` | `#9338be` |
-| `--color-accent-sky` | `#00aaff` |
+| `--color-accent-grape`      | `#9338be` |
+| `--color-accent-sky`        | `#00aaff` |
 | `--color-accent-orange-red` | `#ff4400` |
 
 ### Color Usage Rules
@@ -60,14 +60,14 @@ Accent colors are optional and should be rare. If used, they must only appear as
 
 Use Tailwind's default typography scale.
 
-| Role | Tailwind class |
-| --- | --- |
-| Caption / metadata | `text-sm` |
-| Body | `text-base` |
-| Emphasized body | `text-lg` |
-| Section title | `text-2xl` |
-| Page title | `text-3xl` |
-| Masthead | `text-5xl` |
+| Role               | Tailwind class |
+| ------------------ | -------------- |
+| Caption / metadata | `text-sm`      |
+| Body               | `text-base`    |
+| Emphasized body    | `text-lg`      |
+| Section title      | `text-2xl`     |
+| Page title         | `text-3xl`     |
+| Masthead           | `text-5xl`     |
 
 ### Typography Rules
 
@@ -85,15 +85,15 @@ Use Tailwind's default typography scale.
 
 Use Tailwind's default spacing scale only.
 
-| Tailwind | Typical use |
-| --- | --- |
-| `0.5` | Fine offsets only |
-| `1` | Tight internal spacing |
-| `2` | Tight row gaps |
-| `3` | Standard compact padding |
-| `4` | Default block spacing |
-| `6` | Major block spacing |
-| `8` | Section spacing |
+| Tailwind | Typical use              |
+| -------- | ------------------------ |
+| `0.5`    | Fine offsets only        |
+| `1`      | Tight internal spacing   |
+| `2`      | Tight row gaps           |
+| `3`      | Standard compact padding |
+| `4`      | Default block spacing    |
+| `6`      | Major block spacing      |
+| `8`      | Section spacing          |
 
 ### Spacing Defaults
 
@@ -121,7 +121,7 @@ Do not introduce custom spacing values such as `5px`, `6px`, `13px`, or `18px` w
 - Default text: `text-black`
 - Corners should remain square; avoid rounded corners unless there is a strong functional reason.
 - Do not add enclosing borders to components.
-- Use rules only to separate sections or mark selection.
+- Use rules sparingly - only to separate sections or mark selection.
 - Do not use `shadow-*` utilities.
 - Do not use ring-based visual styling except when needed to support a black focus outline.
 

@@ -2,6 +2,7 @@
 .env
 /node_modules/
 .data/
+/references/
 
 # React Router
 /.react-router/
