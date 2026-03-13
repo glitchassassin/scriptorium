@@ -52,10 +52,11 @@ body {
   background: #fff;
   color: #000;
   font-family: Charter, "Bitstream Charter", Georgia, serif;
+  margin: 0;
 }
 
 body {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 button,

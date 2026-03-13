@@ -50,7 +50,7 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
   }, [isSidebarOpen]);
 
   return (
-    <main className="relative h-screen bg-white px-6 text-black sm:px-8">
+    <main className="relative h-dvh bg-white px-6 text-black sm:px-8">
       {isSidebarOpen ? (
         <>
           <button
