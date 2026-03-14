@@ -6,8 +6,8 @@ This guide defines an e-ink-compatible visual system using Tailwind-friendly con
 
 - Design in monochrome first. Every screen should remain understandable in grayscale.
 - Default to black text on white backgrounds.
-- Communicate state with typography, inversion, rules, and outlines before color.
-- Keep surfaces flat. Use rules to separate sections instead of borders, shadows, or elevation.
+- Communicate state with typography, inversion, and outlines before color.
+- Keep surfaces flat. Use spacing, alignment, and typography instead of borders, shadows, or elevation.
 - Do not use hover styles, transitions, or decorative animation.
 
 ## Tailwind Color Rules
@@ -16,7 +16,7 @@ This guide defines an e-ink-compatible visual system using Tailwind-friendly con
 
 - Text: `text-black` and `text-white` only
 - Backgrounds: `bg-white` by default, `bg-black` for active or emphasized states
-- Section rules and focus outlines: black only
+- Focus outlines: black only
 
 ### Restricted Accent Variables
 
@@ -115,21 +115,14 @@ Do not introduce custom spacing values such as `5px`, `6px`, `13px`, or `18px` w
 - Common icon size inside controls: `size-6`
 - Sidebar-width patterns should use Tailwind width utilities or an explicit layout token, not ad hoc pixel values.
 
-## Rules, Corners, And Surfaces
+## Corners And Surfaces
 
 - Default surface: `bg-white`
 - Default text: `text-black`
 - Corners should remain square; avoid rounded corners unless there is a strong functional reason.
 - Do not add enclosing borders to components.
-- Use rules sparingly - only to separate sections or mark selection.
 - Do not use `shadow-*` utilities.
 - Do not use ring-based visual styling except when needed to support a black focus outline.
-
-### Rule Patterns
-
-- Major section separator: `border-t-2 border-black/50` or `border-b-2 border-black/50`
-- Strong section separator: `border-t-2 border-black` or `border-b-2 border-black`
-- Selection marker for rows: `border-l-2 border-black` or `border-l-4 border-black`
 
 ## Interaction State Patterns
 
@@ -162,8 +155,6 @@ Use these patterns consistently.
 
 - Use one or more of the following:
   - `font-bold`
-  - `border-l-2 border-black`
-  - `border-l-4 border-black`
   - `bg-black text-white` for segmented or toggle controls
 
 ### Disabled State
@@ -192,12 +183,11 @@ Use these patterns consistently.
 - Keep rows at `min-h-11`
 - Use `px-3 py-2` for normal density
 - Use `px-3 py-1` for denser rows
-- Mark selection with `font-bold` plus a left rule where helpful
+- Mark selection with `font-bold` and/or inversion where helpful
 
 ### Panels And Regions
 
 - Use flat white surfaces
-- Separate sections with top or bottom rules, not enclosing borders
 - Prefer `p-3`, `p-4`, or `p-6` with `space-y-4` or `space-y-6`
 
 ### Inputs
@@ -211,7 +201,7 @@ Use these patterns consistently.
 
 - Use the monospace font family
 - Prefer structural separation and weight over syntax color
-- Use rules and spacing to separate code-related sections
+- Use spacing and typography to separate code-related sections
 - Any accent fills used in diffs must remain understandable in grayscale
 
 ## Non-Goals

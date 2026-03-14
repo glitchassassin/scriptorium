@@ -1,13 +1,16 @@
-import { Form, redirect } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Form, Link, redirect } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
+import { useInstanceEvents } from "~/components/events/instance-events-provider";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { getGitStatusSummary } from "~/lib/instances/git.server";
-import { listOpencodeSessions } from "~/lib/instances/opencode.server";
+import { createOpencodeSession, listOpencodeSessions } from "~/lib/instances/opencode.server";
 import { getInstanceOrThrow, removeInstance } from "~/lib/instances/runtime.server";
 import type { OpencodeSessionSummary } from "~/lib/instances/types";
+import { opencodeSessionMutationEventSchema, type OpencodeSessionInfo } from "~/lib/opencode/events";
 import type { RouteHandle } from "~/lib/route-handle";
 
 import type { Route } from "./+types/instances.$instanceId";
@@ -71,6 +74,15 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 export async function action({ params, request }: Route.ActionArgs) {
   await requireAuthenticatedPasskey(request);
 
+  const formData = await request.formData();
+  const intent = String(formData.get("intent") || "").trim();
+
+  if (intent === "create-session") {
+    const instance = await getInstanceOrThrow(params.instanceId);
+    const session = await createOpencodeSession(instance);
+    return redirect(`/instances/${params.instanceId}/sessions/${session.id}`);
+  }
+
   await removeInstance(params.instanceId);
 
   return redirect("/instances");
@@ -125,8 +137,56 @@ function InstanceOverviewHeader({
   );
 }
 
+function toSessionSummary(info: OpencodeSessionInfo): OpencodeSessionSummary {
+  return {
+    id: info.id,
+    title: info.title ?? null,
+    directory: info.directory ?? null,
+    createdAt: info.time?.created ?? null,
+    updatedAt: info.time?.updated ?? null,
+  };
+}
+
+function sortSessions(sessions: OpencodeSessionSummary[]) {
+  return [...sessions].sort(
+    (left, right) => (right.updatedAt ?? right.createdAt ?? 0) - (left.updatedAt ?? left.createdAt ?? 0),
+  );
+}
+
 export default function InstanceDetailRoute({ loaderData }: Route.ComponentProps) {
   const { git, instance, recentSessions, sessionError } = loaderData;
+  const [sessions, setSessions] = useState(() => sortSessions(recentSessions));
+  const sessionEventTypes = useMemo(
+    () => ["session.created", "session.updated", "session.deleted"] as const,
+    [],
+  );
+
+  useEffect(() => {
+    setSessions(sortSessions(recentSessions));
+  }, [recentSessions, instance.id]);
+
+  useInstanceEvents(
+    (event) => {
+      const result = opencodeSessionMutationEventSchema.safeParse(event);
+
+      if (!result.success) {
+        return;
+      }
+
+      const session = toSessionSummary(result.data.properties.info);
+
+      setSessions((currentSessions) => {
+        if (result.data.type === "session.deleted") {
+          return currentSessions.filter((currentSession) => currentSession.id !== session.id);
+        }
+
+        const nextSessions = currentSessions.filter((currentSession) => currentSession.id !== session.id);
+        nextSessions.push(session);
+        return sortSessions(nextSessions);
+      });
+    },
+    { instanceId: instance.id, types: sessionEventTypes },
+  );
 
   return (
     <ScrollableLayout
@@ -141,18 +201,28 @@ export default function InstanceDetailRoute({ loaderData }: Route.ComponentProps
     >
       <section className="space-y-8 pr-1">
         <section className="space-y-3">
-          <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
+            <Form method="post">
+              <input name="intent" type="hidden" value="create-session" />
+              <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
+                New session
+              </button>
+            </Form>
+          </div>
           {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
-          {recentSessions.length ? (
+          {sessions.length ? (
             <ul className="border-t-2 border-black">
-              {recentSessions.map((session: OpencodeSessionSummary) => (
+              {sessions.map((session: OpencodeSessionSummary) => (
                 <li className="space-y-1 border-b-2 border-black px-3 py-2" key={session.id}>
-                  <p className="text-base font-bold">{session.title || session.id.slice(0, 12)}</p>
-                  {session.updatedAt ? (
-                    <p className="text-sm leading-6 opacity-60">
-                      Updated {new Date(session.updatedAt).toLocaleString()}
-                    </p>
-                  ) : null}
+                  <Link className="block space-y-1" to={`/instances/${instance.id}/sessions/${session.id}`}>
+                    <p className="text-base font-bold">{session.title || session.id.slice(0, 12)}</p>
+                    {session.updatedAt ? (
+                      <p className="text-sm leading-6 opacity-60">
+                        Updated {new Date(session.updatedAt).toLocaleString()}
+                      </p>
+                    ) : null}
+                  </Link>
                 </li>
               ))}
             </ul>

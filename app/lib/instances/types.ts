@@ -121,3 +121,17 @@ export type OpencodeSessionSummary = {
   createdAt: number | null;
   updatedAt: number | null;
 };
+
+export type OpencodeSessionStatus =
+  | {
+      type: "idle";
+    }
+  | {
+      type: "busy";
+    }
+  | {
+      type: "retry";
+      attempt: number;
+      message: string;
+      next: number;
+    };
