@@ -8,6 +8,8 @@ import type { CodeViewerProps } from "~/components/files/code-viewer/types";
 import { useScrollIndicator } from "~/components/files/code-viewer/use-scroll-indicator";
 import { detectCodeLanguage } from "~/lib/files/language";
 
+import styles from "./code-viewer.module.css";
+
 function countDigits(value: number | null) {
   if (!value || value < 1) {
     return 1;
@@ -68,9 +70,9 @@ export function CodeViewer({
   } = useScrollIndicator([lines]);
 
   return (
-    <section className="code-viewer relative flex min-h-0 min-w-0 flex-1 bg-white text-sm leading-6">
+    <section className={`${styles.root} relative flex min-h-0 min-w-0 flex-1 bg-white text-sm leading-6`}>
       <div className="relative flex min-h-0 min-w-0 flex-1">
-        <div ref={scrollPaneRef} className="code-viewer-scroll-pane min-h-0 min-w-0 flex-1 overflow-auto pr-6">
+        <div ref={scrollPaneRef} className={`${styles.scrollPane} min-h-0 min-w-0 flex-1 overflow-auto pr-6`}>
           <div className="inline-block min-w-full w-max align-top">
             {lines.map((line, index) => (
               <CodeRow

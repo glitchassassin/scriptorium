@@ -1,0 +1,100 @@
+.root :global(code[class*="language-"]),
+.root :global(pre[class*="language-"]),
+.root :global(code) {
+  color: #000;
+  background: none;
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-weight: 400;
+  text-shadow: none;
+}
+
+.scrollPane {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollPane::-webkit-scrollbar {
+  display: none;
+}
+
+.root :global(.token.comment),
+.root :global(.token.block-comment),
+.root :global(.token.prolog),
+.root :global(.token.doctype),
+.root :global(.token.cdata) {
+  color: #000;
+  font-style: italic;
+  font-weight: 700;
+  opacity: 1;
+}
+
+.root :global(.token.punctuation),
+.root :global(.token.operator),
+.root :global(.token.entity),
+.root :global(.token.namespace) {
+  color: #000;
+  font-style: normal;
+  font-weight: 400;
+  opacity: 0.55;
+}
+
+.root :global(.token.keyword),
+.root :global(.token.atrule),
+.root :global(.token.attr-value),
+.root :global(.token.variable),
+.root :global(.token.parameter),
+.root :global(.token.url) {
+  color: var(--color-accent-dark-gray);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.root :global(.token.function),
+.root :global(.token.function-name) {
+  color: var(--color-accent-navy);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.root :global(.token.bold) {
+  color: #000;
+  font-weight: 700;
+}
+
+.root :global(.token.italic) {
+  color: #000;
+  font-style: italic;
+}
+
+.root :global(.token.class-name),
+.root :global(.token.function-name),
+.root :global(.token.selector),
+.root :global(.token.tag) {
+  color: var(--color-accent-navy);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.root :global(.token.string),
+.root :global(.token.char),
+.root :global(.token.number),
+.root :global(.token.boolean),
+.root :global(.token.constant),
+.root :global(.token.symbol),
+.root :global(.token.regex),
+.root :global(.token.inserted),
+.root :global(.token.deleted) {
+  color: var(--color-accent-orange-red);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.root :global(.token.property),
+.root :global(.token.attr-name),
+.root :global(.token.builtin),
+.root :global(.token.important) {
+  color: var(--color-accent-dark-gray);
+  font-style: normal;
+  font-weight: 700;
+}

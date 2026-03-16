@@ -25,7 +25,7 @@ describe("MessagePartText", () => {
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noreferrer noopener");
 
-    expect(container.querySelector(".code-viewer code")?.textContent).toContain("const answer = 42;");
+    expect(container.querySelector("code")?.textContent).toContain("const answer = 42;");
   });
 
   it("allows safe html and strips unsafe html", () => {
