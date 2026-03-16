@@ -11,7 +11,7 @@ export default function SettingsRoute() {
   return (
     <ScrollableLayout>
       <section className="space-y-4">
-        <p className="text-sm uppercase tracking-[0.08em]">Sections</p>
+        <p className="px-6 text-sm uppercase tracking-[0.08em] sm:px-8">Sections</p>
         <Link
           className="block min-h-11 border-l-4 border-black px-3 py-2 text-base font-bold"
           to="/settings/passkeys"

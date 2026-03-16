@@ -9,11 +9,11 @@ type ScrollableLayoutProps = {
 export function ScrollableLayout({ children, footer, header }: ScrollableLayoutProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {header ? <div className="border-b-2 border-black">{header}</div> : null}
+      {header ? <div className="border-b-2 border-black px-6 sm:px-8">{header}</div> : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-6">
         {children}
       </div>
-      {footer ? <footer className="mt-auto py-4">{footer}</footer> : null}
+      {footer ? <footer className="mt-auto px-6 py-4 sm:px-8">{footer}</footer> : null}
     </div>
   );
 }

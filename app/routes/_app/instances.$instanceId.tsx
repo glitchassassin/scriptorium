@@ -201,7 +201,7 @@ export default function InstanceDetailRoute({ loaderData }: Route.ComponentProps
     >
       <section className="space-y-8 pr-1">
         <section className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 px-6 sm:px-8">
             <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
             <Form method="post">
               <input name="intent" type="hidden" value="create-session" />

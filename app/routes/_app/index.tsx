@@ -17,13 +17,13 @@ export default function AppIndexRoute() {
     <ScrollableLayout>
       <div className="grid gap-6 md:grid-cols-2">
         <section className="space-y-3 border-t-2 border-black pt-4">
-          <p className="text-sm uppercase tracking-[0.08em]">Auth status</p>
+          <p className="px-6 text-sm uppercase tracking-[0.08em] sm:px-8">Auth status</p>
           <p className="text-base leading-6">
             Cookie-backed sessions, public registration, and console-confirmed passkey activation are in place.
           </p>
         </section>
         <section className="space-y-3 border-t-2 border-black pt-4">
-          <p className="text-sm uppercase tracking-[0.08em]">Instances</p>
+          <p className="px-6 text-sm uppercase tracking-[0.08em] sm:px-8">Instances</p>
           <p className="text-base leading-6">
             Manage Opencode workspaces, inspect git state, and browse recent sessions from the instances view.
           </p>

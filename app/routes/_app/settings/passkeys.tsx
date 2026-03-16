@@ -110,7 +110,7 @@ export default function SettingsPasskeysRoute({ actionData, loaderData }: Route.
   return (
     <ScrollableLayout>
       <section className="space-y-6">
-        <div className="space-y-2">
+        <div className="space-y-2 px-6 sm:px-8">
           <p className="text-sm uppercase tracking-[0.08em]">Active devices</p>
           <p className="text-base leading-6">
             Revoke any passkey that should stop signing in. Revoking the device you are using will send you back through registration.

@@ -86,7 +86,7 @@ export default function InstancesRoute({ actionData, loaderData }: Route.Compone
   return (
     <ScrollableLayout>
       <section className="space-y-6">
-        <p className="text-sm uppercase tracking-[0.08em]">Running workspaces</p>
+        <p className="px-6 text-sm uppercase tracking-[0.08em] sm:px-8">Running workspaces</p>
         {actionData?.error ? <p className="text-base leading-6">{actionData.error}</p> : null}
         {loaderData.instances.length ? (
           <ul className="border-t-2 border-black">
