@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { Icon } from "@iconify/react";
+
 import type { OpencodeReasoningPart } from "~/lib/opencode/events";
 
 type MessagePartReasoningProps = {
@@ -5,10 +8,22 @@ type MessagePartReasoningProps = {
 };
 
 export function MessagePartReasoning({ part }: MessagePartReasoningProps) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <details className="pt-2">
-      <summary className="cursor-pointer text-sm uppercase tracking-[0.08em]">Reasoning</summary>
-      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 opacity-80">{part.text}</p>
-    </details>
+    <div className="border-l-2 border-black pl-2">
+      <div className="flex items-center gap-1">
+        <button
+          aria-label={expanded ? "Collapse reasoning" : "Expand reasoning"}
+          className="inline-flex min-h-11 min-w-11 items-center justify-center"
+          onClick={() => setExpanded((current) => !current)}
+          type="button"
+        >
+          <Icon className="size-5" icon={expanded ? "mdi:unfold-less-horizontal" : "mdi:unfold-more-horizontal"} />
+        </button>
+        <p className="text-sm leading-6 opacity-60">Reasoning</p>
+      </div>
+      {expanded ? <p className="whitespace-pre-wrap break-words text-sm leading-6 opacity-80">{part.text}</p> : null}
+    </div>
   );
 }

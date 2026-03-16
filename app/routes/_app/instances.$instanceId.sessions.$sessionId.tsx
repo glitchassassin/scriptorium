@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
 import { useInstanceEvents } from "~/components/events/instance-events-provider";
-import { MessagePartView } from "~/components/session/message-part-view";
+import { MessageCard } from "~/components/session/message-card";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import {
@@ -14,10 +14,7 @@ import {
   upsertMessage,
   upsertMessagePart,
 } from "~/lib/opencode/message-state";
-import {
-  type OpencodeMessageWithParts,
-  type OpencodeSessionStatus,
-} from "~/lib/opencode/events";
+import { type OpencodeMessageWithParts, type OpencodeSessionStatus } from "~/lib/opencode/events";
 import {
   abortOpencodeSession,
   getOpencodeSession,
@@ -122,30 +119,6 @@ function statusDescription(status: OpencodeSessionStatus) {
   }
 
   return `${status.message} Next retry at ${new Date(status.next).toLocaleTimeString()}.`;
-}
-
-function MessageCard({ message }: { message: OpencodeMessageWithParts }) {
-  const isUser = message.info.role === "user";
-
-  return (
-    <article className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[42rem] space-y-3 px-3 py-3 ${isUser ? "text-right" : "text-left"}`}>
-        <div className={`flex items-baseline gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
-          <p className="text-sm uppercase tracking-[0.08em]">{message.info.role}</p>
-        </div>
-        <div className="space-y-3">
-          {message.parts.length ? (
-            message.parts.map((part) => <MessagePartView key={part.id} part={part} />)
-          ) : (
-            <p className="text-sm leading-6 opacity-60">Waiting for content...</p>
-          )}
-        </div>
-        {message.info.role === "assistant" && message.info.error ? (
-          <p className="pt-2 text-sm leading-6">{message.info.error.message ?? message.info.error.name}</p>
-        ) : null}
-      </div>
-    </article>
-  );
 }
 
 export default function InstanceSessionDetailRoute({ loaderData }: Route.ComponentProps) {

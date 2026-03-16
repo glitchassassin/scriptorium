@@ -29,4 +29,5 @@ export type CodeViewerProps = {
   mode?: ViewMode;
   showLineNumbers?: boolean;
   showDiffMarkers?: boolean;
+  showScrollIndicator?: boolean;
 };

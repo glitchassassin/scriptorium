@@ -1,14 +1,16 @@
 import type { OpencodeToolPart } from "~/lib/opencode/events";
 
+import { MessagePartToolBash } from "./message-part-tool-bash";
+import { MessagePartToolGeneric } from "./message-part-tool-generic";
+
 type MessagePartToolProps = {
   part: OpencodeToolPart;
 };
 
 export function MessagePartTool({ part }: MessagePartToolProps) {
-  return (
-    <div className="pt-2 text-sm leading-6">
-      <p className="font-bold">Tool: {part.tool}</p>
-      <p className="opacity-60">{part.state.status}</p>
-    </div>
-  );
+  if (part.tool === "bash") {
+    return <MessagePartToolBash part={part} />;
+  }
+
+  return <MessagePartToolGeneric part={part} />;
 }

@@ -285,4 +285,16 @@ describe("CodeViewer", () => {
     expect(code?.textContent).toBe("</span>");
     expect(code?.innerHTML).toContain("&lt;/");
   });
+
+  it("scales the line number gutter width with digit count", () => {
+    const { rerender } = render(<CodeViewer content={Array.from({ length: 9 }, (_, index) => `line ${index + 1}`).join("\n")} />);
+
+    const shortRow = screen.getByText("line 1").closest("div");
+    expect(shortRow).toHaveStyle({ gridTemplateColumns: "calc(1ch + 1rem) minmax(0, 1fr)" });
+
+    rerender(<CodeViewer content={Array.from({ length: 1000 }, (_, index) => `line ${index + 1}`).join("\n")} />);
+
+    const longRow = screen.getByText("line 1").closest("div");
+    expect(longRow).toHaveStyle({ gridTemplateColumns: "calc(4ch + 1rem) minmax(0, 1fr)" });
+  });
 });

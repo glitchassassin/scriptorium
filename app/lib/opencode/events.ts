@@ -148,13 +148,61 @@ export const opencodeFilePartSchema = opencodePartBaseSchema.extend({
   source: z.unknown().optional(),
 });
 
+const opencodeToolInputSchema = z.record(z.string(), z.unknown());
+
+export const opencodeToolStatePendingSchema = z.object({
+  status: z.literal("pending"),
+  input: opencodeToolInputSchema,
+  raw: z.string(),
+});
+
+export const opencodeToolStateRunningSchema = z.object({
+  status: z.literal("running"),
+  input: opencodeToolInputSchema,
+  title: z.string().optional(),
+  metadata: recordOfUnknown.optional(),
+  time: z.object({
+    start: z.number(),
+  }),
+});
+
+export const opencodeToolStateCompletedSchema = z.object({
+  status: z.literal("completed"),
+  input: opencodeToolInputSchema,
+  output: z.string(),
+  title: z.string(),
+  metadata: recordOfUnknown,
+  time: z.object({
+    start: z.number(),
+    end: z.number(),
+    compacted: z.number().optional(),
+  }),
+  attachments: z.array(opencodeFilePartSchema).optional(),
+});
+
+export const opencodeToolStateErrorSchema = z.object({
+  status: z.literal("error"),
+  input: opencodeToolInputSchema,
+  error: z.string(),
+  metadata: recordOfUnknown.optional(),
+  time: z.object({
+    start: z.number(),
+    end: z.number(),
+  }),
+});
+
+export const opencodeToolStateSchema = z.discriminatedUnion("status", [
+  opencodeToolStatePendingSchema,
+  opencodeToolStateRunningSchema,
+  opencodeToolStateCompletedSchema,
+  opencodeToolStateErrorSchema,
+]);
+
 export const opencodeToolPartSchema = opencodePartBaseSchema.extend({
   type: z.literal("tool"),
   callID: z.string(),
   tool: z.string(),
-  state: z.object({
-    status: z.string(),
-  }).passthrough(),
+  state: opencodeToolStateSchema,
   metadata: recordOfUnknown.optional(),
 });
 
@@ -474,3 +522,8 @@ export type OpencodeSessionStatus = z.infer<typeof opencodeSessionStatusSchema>;
 export type OpencodeSubtaskPart = z.infer<typeof opencodeSubtaskPartSchema>;
 export type OpencodeTextPart = z.infer<typeof opencodeTextPartSchema>;
 export type OpencodeToolPart = z.infer<typeof opencodeToolPartSchema>;
+export type OpencodeToolState = z.infer<typeof opencodeToolStateSchema>;
+export type OpencodeToolStateCompleted = z.infer<typeof opencodeToolStateCompletedSchema>;
+export type OpencodeToolStateError = z.infer<typeof opencodeToolStateErrorSchema>;
+export type OpencodeToolStatePending = z.infer<typeof opencodeToolStatePendingSchema>;
+export type OpencodeToolStateRunning = z.infer<typeof opencodeToolStateRunningSchema>;

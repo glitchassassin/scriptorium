@@ -8,6 +8,23 @@ import type { CodeViewerProps } from "~/components/files/code-viewer/types";
 import { useScrollIndicator } from "~/components/files/code-viewer/use-scroll-indicator";
 import { detectCodeLanguage } from "~/lib/files/language";
 
+function countDigits(value: number | null) {
+  if (!value || value < 1) {
+    return 1;
+  }
+
+  return String(value).length;
+}
+
+function buildLineNumberColumnWidth(lines: Array<{ leftLine: number | null; rightLine: number | null }>, side: "left" | "right") {
+  const maxDigits = lines.reduce((currentMax, line) => {
+    const value = side === "left" ? line.leftLine : line.rightLine;
+    return Math.max(currentMax, countDigits(value));
+  }, 1);
+
+  return `calc(${maxDigits}ch + 1rem)`;
+}
+
 export function CodeViewer({
   content,
   diffContent,
@@ -17,6 +34,7 @@ export function CodeViewer({
   mode = "text",
   showLineNumbers = true,
   showDiffMarkers = true,
+  showScrollIndicator = true,
 }: CodeViewerProps) {
   const detectedLanguage = useMemo(() => language ?? detectCodeLanguage(fileName ?? ""), [fileName, language]);
   const lines = useMemo(() => {
@@ -34,11 +52,13 @@ export function CodeViewer({
 
   const showMarkers = mode === "diff" && showDiffMarkers;
   const showDualGutters = mode === "diff";
+  const leftLineNumberWidth = useMemo(() => buildLineNumberColumnWidth(lines, "left"), [lines]);
+  const rightLineNumberWidth = useMemo(() => buildLineNumberColumnWidth(lines, "right"), [lines]);
   const gridTemplateColumns = showDualGutters
     ? showMarkers
-      ? "1.5rem 3.5rem 3.5rem minmax(0, 1fr)"
-      : "3.5rem 3.5rem minmax(0, 1fr)"
-    : "3.5rem minmax(0, 1fr)";
+      ? `1.5rem ${leftLineNumberWidth} ${rightLineNumberWidth} minmax(0, 1fr)`
+      : `${leftLineNumberWidth} ${rightLineNumberWidth} minmax(0, 1fr)`
+    : `${leftLineNumberWidth} minmax(0, 1fr)`;
   const {
     scrollPaneRef,
     indicatorRailRef,
@@ -65,14 +85,16 @@ export function CodeViewer({
             ))}
           </div>
         </div>
-        <ScrollIndicator
-          mode={mode}
-          changeMarkers={changeMarkers}
-          indicatorRailRef={indicatorRailRef}
-          indicatorThumbRef={indicatorThumbRef}
-          onRailClick={handleIndicatorClick}
-          onThumbPointerDown={handleIndicatorThumbPointerDown}
-        />
+        {showScrollIndicator ? (
+          <ScrollIndicator
+            mode={mode}
+            changeMarkers={changeMarkers}
+            indicatorRailRef={indicatorRailRef}
+            indicatorThumbRef={indicatorThumbRef}
+            onRailClick={handleIndicatorClick}
+            onThumbPointerDown={handleIndicatorThumbPointerDown}
+          />
+        ) : null}
       </div>
     </section>
   );

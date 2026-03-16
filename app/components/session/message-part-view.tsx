@@ -13,15 +13,20 @@ import { MessagePartTool } from "./message-part-tool";
 
 type MessagePartViewProps = {
   part: OpencodeMessagePart;
+  role: "user" | "assistant";
 };
 
-export function MessagePartView({ part }: MessagePartViewProps) {
+export function MessagePartView({ part, role }: MessagePartViewProps) {
   if (part.type === "text") {
-    return <MessagePartText part={part} />;
+    return <MessagePartText part={part} role={role} />;
   }
 
   if (part.type === "reasoning") {
     return <MessagePartReasoning part={part} />;
+  }
+
+  if (role === "user") {
+    return null;
   }
 
   if (part.type === "tool") {
