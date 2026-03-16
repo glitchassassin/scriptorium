@@ -11,6 +11,7 @@ import type {
   OpencodeSessionStatus,
   OpencodeSessionSummary,
 } from "~/lib/instances/types";
+import { filterRecentSessions } from "~/lib/instances/sidebar";
 
 import type {
   OpencodeMessageWithParts,
@@ -44,6 +45,10 @@ export async function listOpencodeSessions(instance: InstanceRecord) {
   return parseOrThrow(opencodeSessionSummarySchema.array().safeParse(payload)).sort(
     (left, right) => (right.updatedAt ?? right.createdAt ?? 0) - (left.updatedAt ?? left.createdAt ?? 0),
   );
+}
+
+export async function listRecentSidebarSessions(instance: InstanceRecord, now = Date.now()) {
+  return filterRecentSessions(await listOpencodeSessions(instance), now);
 }
 
 export async function getOpencodeSession(instance: InstanceRecord, sessionId: string) {

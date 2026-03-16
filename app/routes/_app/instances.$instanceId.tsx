@@ -8,9 +8,10 @@ import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { getGitStatusSummary } from "~/lib/instances/git.server";
 import { createOpencodeSession, listOpencodeSessions } from "~/lib/instances/opencode.server";
+import { sortSessions, toSessionSummary } from "~/lib/instances/sidebar";
 import { getInstanceOrThrow, removeInstance } from "~/lib/instances/runtime.server";
 import type { OpencodeSessionSummary } from "~/lib/instances/types";
-import { opencodeSessionMutationEventSchema, type OpencodeSessionInfo } from "~/lib/opencode/events";
+import { opencodeSessionMutationEventSchema } from "~/lib/opencode/events";
 import type { RouteHandle } from "~/lib/route-handle";
 
 import type { Route } from "./+types/instances.$instanceId";
@@ -134,22 +135,6 @@ function InstanceOverviewHeader({
         )}
       </div>
     </div>
-  );
-}
-
-function toSessionSummary(info: OpencodeSessionInfo): OpencodeSessionSummary {
-  return {
-    id: info.id,
-    title: info.title ?? null,
-    directory: info.directory ?? null,
-    createdAt: info.time?.created ?? null,
-    updatedAt: info.time?.updated ?? null,
-  };
-}
-
-function sortSessions(sessions: OpencodeSessionSummary[]) {
-  return [...sessions].sort(
-    (left, right) => (right.updatedAt ?? right.createdAt ?? 0) - (left.updatedAt ?? left.createdAt ?? 0),
   );
 }
 

@@ -3,13 +3,15 @@ import { Form, NavLink, Outlet, useLocation, useMatches } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
+import { SidebarNav } from "~/components/shell/sidebar-nav";
+import type { SidebarInstanceRecord } from "~/lib/instances/sidebar";
 import type { RouteHandle } from "~/lib/route-handle";
 
 type AppShellProps = {
-  passkeyLabel: string;
+  sidebarInstances: SidebarInstanceRecord[];
 };
 
-export function AppShell({ passkeyLabel }: AppShellProps) {
+export function AppShell({ sidebarInstances }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const matches = useMatches();
@@ -59,9 +61,15 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
             onClick={() => setIsSidebarOpen(false)}
             type="button"
           />
-          <aside className="fixed inset-y-0 left-0 z-30 w-80 border-r-2 border-black bg-white p-4">
-            <div className="flex h-full flex-col gap-4">
-              <header className="flex items-center justify-end">
+           <aside className="fixed inset-y-0 left-0 z-30 w-80 border-r-2 border-black bg-white p-4">
+             <div className="flex h-full flex-col gap-4">
+              <header className="flex items-center justify-between gap-3">
+                <NavLink
+                  className="inline-flex min-h-11 items-center px-3 py-2 text-sm uppercase tracking-[0.08em] text-black"
+                  to="/instances"
+                >
+                  <span className="font-bold">Instances</span>
+                </NavLink>
                 <button
                   aria-label="Close navigation"
                   className="inline-flex min-h-11 min-w-11 items-center justify-center"
@@ -71,7 +79,9 @@ export function AppShell({ passkeyLabel }: AppShellProps) {
                   <Icon className="size-6" icon="mdi:close" />
                 </button>
               </header>
-              <div className="flex-1" />
+              <div className="flex-1 overflow-y-auto">
+                <SidebarNav instances={sidebarInstances} />
+              </div>
               <div className="mt-auto space-y-2 border-t-2 border-black">
                 <NavLink
                   className="inline-flex min-h-11 w-full items-center justify-center px-3 py-2 text-base"
