@@ -6,7 +6,7 @@ function formatLineNumber(line: number | null) {
 
 function rowClassName(line: ViewLine) {
   const classes = [
-    "grid min-h-9 min-w-full w-max items-center",
+    "grid min-w-full w-max items-center",
     line.chunkStartTone === "addition" ? "border-t-2 border-t-[var(--color-accent-green)]" : "",
     line.chunkStartTone === "deletion" ? "border-t-2 border-t-[var(--color-accent-red)]" : "",
     line.chunkEndTone === "addition" ? "border-b-2 border-b-[var(--color-accent-green)]" : "",
@@ -31,7 +31,7 @@ function gutterClassName(kind: LineKind) {
 function gutterCellClassName(kind: LineKind, align: "center" | "right") {
   const alignment = align === "center" ? "justify-center" : "justify-end";
 
-  return `flex min-h-6 items-center ${alignment} self-stretch px-2 text-sm leading-6 ${gutterClassName(kind)}`;
+  return `flex items-center ${alignment} self-stretch px-2 text-sm leading-6 ${gutterClassName(kind)}`;
 }
 
 function markerClassName(kind: LineKind) {
