@@ -12,18 +12,20 @@ describe("MessagePartReasoning", () => {
           sessionID: "session-1",
           messageID: "message-1",
           type: "reasoning",
-          text: "Thinking through the problem",
+          text: "## Thinking\n\n- first pass\n- second pass",
           time: { start: 1 },
         }}
       />,
     );
 
-    expect(screen.queryByText("Thinking through the problem")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Thinking" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /expand reasoning/i }));
-    expect(screen.getByText("Thinking through the problem")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Thinking" })).toBeInTheDocument();
+    expect(screen.getByText("first pass")).toBeInTheDocument();
+    expect(screen.getByText("second pass")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /collapse reasoning/i }));
-    expect(screen.queryByText("Thinking through the problem")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Thinking" })).not.toBeInTheDocument();
   });
 });

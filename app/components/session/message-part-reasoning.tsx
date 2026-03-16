@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 
+import { MessageMarkdown } from "~/components/session/message-markdown";
 import type { OpencodeReasoningPart } from "~/lib/opencode/events";
 
 type MessagePartReasoningProps = {
@@ -23,7 +24,7 @@ export function MessagePartReasoning({ part }: MessagePartReasoningProps) {
         </button>
         <p className="text-sm leading-6 opacity-60">Reasoning</p>
       </div>
-      {expanded ? <p className="whitespace-pre-wrap break-words text-sm leading-6 opacity-80">{part.text}</p> : null}
+      {expanded ? <MessageMarkdown text={part.text} variant="reasoning" /> : null}
     </div>
   );
 }
