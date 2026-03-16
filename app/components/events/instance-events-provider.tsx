@@ -90,6 +90,10 @@ function getEventSessionId(event: InstanceEvent) {
       return event.properties.sessionID;
     case "message.part.removed":
       return event.properties.sessionID;
+    case "permission.asked":
+      return event.properties.sessionID;
+    case "permission.replied":
+      return event.properties.sessionID ?? null;
     default:
       return null;
   }

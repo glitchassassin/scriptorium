@@ -46,6 +46,21 @@ export const opencodeSessionStatusSchema = z.discriminatedUnion("type", [
 
 export const opencodeSessionStatusMapSchema = z.record(z.string(), opencodeSessionStatusSchema);
 
+export const opencodePermissionRequestSchema = z.object({
+  id: z.string(),
+  sessionID: z.string(),
+  permission: z.string(),
+  patterns: z.array(z.string()),
+  metadata: recordOfUnknown,
+  always: z.array(z.string()),
+  tool: z
+    .object({
+      messageID: z.string(),
+      callID: z.string(),
+    })
+    .optional(),
+});
+
 const opencodeModelRefSchema = z.object({
   providerID: z.string(),
   modelID: z.string(),
@@ -403,6 +418,19 @@ export const opencodeMessagePartRemovedEventSchema = z.object({
   }),
 });
 
+export const opencodePermissionAskedEventSchema = z.object({
+  type: z.literal("permission.asked"),
+  properties: opencodePermissionRequestSchema,
+});
+
+export const opencodePermissionRepliedEventSchema = z.object({
+  type: z.literal("permission.replied"),
+  properties: z.object({
+    sessionID: z.string().optional(),
+    requestID: z.string(),
+  }),
+});
+
 export const opencodeSessionMutationEventSchema = z.union([
   opencodeSessionCreatedEventSchema,
   opencodeSessionUpdatedEventSchema,
@@ -420,6 +448,8 @@ export const opencodeKnownEventSchema = z.union([
   opencodeMessagePartUpdatedEventSchema,
   opencodeMessagePartDeltaEventSchema,
   opencodeMessagePartRemovedEventSchema,
+  opencodePermissionAskedEventSchema,
+  opencodePermissionRepliedEventSchema,
 ]);
 
 export const opencodeEventEnvelopeSchema = z.object({
@@ -440,6 +470,8 @@ const opencodeEventSchemas = {
   "message.part.updated": opencodeMessagePartUpdatedEventSchema,
   "message.part.delta": opencodeMessagePartDeltaEventSchema,
   "message.part.removed": opencodeMessagePartRemovedEventSchema,
+  "permission.asked": opencodePermissionAskedEventSchema,
+  "permission.replied": opencodePermissionRepliedEventSchema,
 } satisfies Record<string, ZodType>;
 
 export type OpencodeKnownEventType = keyof typeof opencodeEventSchemas;
@@ -514,6 +546,7 @@ export type OpencodeMessageInfo = z.infer<typeof opencodeMessageInfoSchema>;
 export type OpencodeMessagePart = z.infer<typeof opencodeMessagePartSchema>;
 export type OpencodeMessageWithParts = z.infer<typeof opencodeMessageWithPartsSchema>;
 export type OpencodePatchPart = z.infer<typeof opencodePatchPartSchema>;
+export type OpencodePermissionRequest = z.infer<typeof opencodePermissionRequestSchema>;
 export type OpencodeReasoningPart = z.infer<typeof opencodeReasoningPartSchema>;
 export type OpencodeRetryPart = z.infer<typeof opencodeRetryPartSchema>;
 export type OpencodeSessionInfo = z.infer<typeof opencodeSessionInfoSchema>;

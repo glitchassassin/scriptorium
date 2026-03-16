@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { data, useFetcher } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { data, useFetcher, useRevalidator } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
 import { useInstanceEvents } from "~/components/events/instance-events-provider";
 import { MessageCard } from "~/components/session/message-card";
+import { PermissionCard } from "~/components/session/permission-card";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import {
@@ -14,14 +15,22 @@ import {
   upsertMessage,
   upsertMessagePart,
 } from "~/lib/opencode/message-state";
-import { type OpencodeMessageWithParts, type OpencodeSessionStatus } from "~/lib/opencode/events";
+import {
+  type OpencodeMessageWithParts,
+  type OpencodePermissionRequest,
+  type OpencodeSessionStatus,
+} from "~/lib/opencode/events";
 import {
   abortOpencodeSession,
   getOpencodeSession,
   getOpencodeSessionStatuses,
   listOpencodeMessages,
+  listOpencodePermissionRequests,
   submitOpencodePrompt,
 } from "~/lib/instances/opencode.server";
+import {
+  replyToOpencodePermissionRequest,
+} from "~/lib/instances/opencode.client";
 import { getInstanceOrThrow } from "~/lib/instances/runtime.server";
 import type { RouteHandle } from "~/lib/route-handle";
 
@@ -69,14 +78,16 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const instanceId = routeParams.instanceId ?? "";
   const sessionId = routeParams.sessionId ?? "";
   const instance = await getInstanceOrThrow(instanceId);
-  const [messages, session, statuses] = await Promise.all([
+  const [messages, permissions, session, statuses] = await Promise.all([
     listOpencodeMessages(instance, sessionId, 50),
+    listOpencodePermissionRequests(instance, sessionId),
     getOpencodeSession(instance, sessionId),
     getOpencodeSessionStatuses(instance),
   ]);
 
   return {
     initialMessages: messages,
+    initialPermissions: permissions,
     initialStatus: statuses[sessionId] ?? { type: "idle" },
     instance,
     session,
@@ -122,13 +133,15 @@ function statusDescription(status: OpencodeSessionStatus) {
 }
 
 export default function InstanceSessionDetailRoute({ loaderData }: Route.ComponentProps) {
-  const { initialMessages, initialStatus, instance, session } = loaderData;
+  const { initialMessages, initialPermissions, initialStatus, instance, session } = loaderData;
   const [composerText, setComposerText] = useState("");
   const [messages, setMessages] = useState<OpencodeMessageWithParts[]>(initialMessages);
+  const [pendingPermissions, setPendingPermissions] = useState<OpencodePermissionRequest[]>(initialPermissions);
   const [status, setStatus] = useState<OpencodeSessionStatus>(initialStatus);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const promptFetcher = useFetcher<typeof action>();
   const abortFetcher = useFetcher<typeof action>();
+  const revalidator = useRevalidator();
   const composerFormRef = useRef<HTMLFormElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const hasLoadedSessionRef = useRef(false);
@@ -139,6 +152,8 @@ export default function InstanceSessionDetailRoute({ loaderData }: Route.Compone
       "message.part.updated",
       "message.part.delta",
       "message.part.removed",
+      "permission.asked",
+      "permission.replied",
       "session.status",
       "session.error",
     ] as const,
@@ -153,6 +168,10 @@ export default function InstanceSessionDetailRoute({ loaderData }: Route.Compone
   useEffect(() => {
     setStatus(initialStatus);
   }, [initialStatus, session.id]);
+
+  useEffect(() => {
+    setPendingPermissions(initialPermissions);
+  }, [initialPermissions, session.id]);
 
   useEffect(() => {
     if (promptFetcher.data?.ok && promptFetcher.data.intent === "prompt") {
@@ -171,7 +190,21 @@ export default function InstanceSessionDetailRoute({ loaderData }: Route.Compone
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [messages, status.type]);
+  }, [messages, pendingPermissions.length, status.type]);
+
+  const replyPermission = useCallback(
+    async (requestId: string, reply: "once" | "always" | "reject") => {
+      const nextPermissions = pendingPermissions.filter((permission) => permission.id !== requestId);
+      setPendingPermissions(nextPermissions);
+
+      try {
+        await replyToOpencodePermissionRequest(instance.id, requestId, reply);
+      } catch {
+        revalidator.revalidate();
+      }
+    },
+    [instance.id, pendingPermissions, revalidator],
+  );
 
   useInstanceEvents(
     (event) => {
@@ -217,6 +250,22 @@ export default function InstanceSessionDetailRoute({ loaderData }: Route.Compone
         case "message.part.removed": {
           setMessages((current) =>
             removeMessagePart(current, event.properties.messageID, event.properties.partID),
+          );
+          return;
+        }
+
+        case "permission.asked": {
+          setPendingPermissions((current) =>
+            current.some((permission) => permission.id === event.properties.id)
+              ? current
+              : [...current, event.properties],
+          );
+          return;
+        }
+
+        case "permission.replied": {
+          setPendingPermissions((current) =>
+            current.filter((permission) => permission.id !== event.properties.requestID),
           );
           return;
         }
@@ -285,11 +334,13 @@ export default function InstanceSessionDetailRoute({ loaderData }: Route.Compone
             {messages.map((message) => (
               <MessageCard key={message.info.id} message={message} />
             ))}
+            <PermissionCard messages={messages} onReply={replyPermission} permissions={pendingPermissions} />
           </section>
         ) : (
-          <p className="pt-4 text-base leading-6">
-            No messages have been recorded for this session yet.
-          </p>
+          <section className="space-y-4 pt-4">
+            <p className="text-base leading-6">No messages have been recorded for this session yet.</p>
+            <PermissionCard messages={messages} onReply={replyPermission} permissions={pendingPermissions} />
+          </section>
         )}
         <div ref={bottomRef} />
       </section>

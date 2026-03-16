@@ -1,5 +1,6 @@
 import {
   opencodeMessageWithPartsSchema,
+  opencodePermissionRequestSchema,
   opencodePromptInputSchema,
   opencodeSessionInfoSchema,
   opencodeSessionStatusMapSchema,
@@ -13,6 +14,7 @@ import type {
 
 import type {
   OpencodeMessageWithParts,
+  OpencodePermissionRequest,
   OpencodeSessionInfo,
 } from "~/lib/opencode/events";
 
@@ -76,6 +78,19 @@ export async function listOpencodeMessages(instance: InstanceRecord, sessionId: 
 export async function getOpencodeSessionStatuses(instance: InstanceRecord) {
   const payload = await readJson(await fetch(`${getInstanceBaseUrl(instance)}/session/status`));
   return parseOrThrow(opencodeSessionStatusMapSchema.safeParse(payload)) satisfies Record<string, OpencodeSessionStatus>;
+}
+
+export async function listOpencodePermissionRequests(instance: InstanceRecord, sessionId?: string) {
+  const payload = await readJson(await fetch(`${getInstanceBaseUrl(instance)}/permission`));
+  const permissions = parseOrThrow(
+    opencodePermissionRequestSchema.array().safeParse(payload),
+  ) satisfies OpencodePermissionRequest[];
+
+  if (!sessionId) {
+    return permissions;
+  }
+
+  return permissions.filter((permission) => permission.sessionID === sessionId);
 }
 
 export async function submitOpencodePrompt(instance: InstanceRecord, sessionId: string, input: { text: string }) {
