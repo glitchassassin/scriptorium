@@ -71,9 +71,8 @@ export function MessagePartToolGeneric({ part }: MessagePartToolGenericProps) {
         >
           <Icon className="size-5" icon={expanded ? "mdi:unfold-less-horizontal" : "mdi:unfold-more-horizontal"} />
         </button>
-        <p className="text-sm leading-6">
-          <span className="font-bold">{title}</span>
-          <span className="opacity-60"> {part.state.status}</span>
+        <p className="text-sm leading-6 opacity-60">
+          {title} ({part.state.status})
         </p>
       </div>
       {expanded ? (

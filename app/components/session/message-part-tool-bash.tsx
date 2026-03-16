@@ -31,9 +31,8 @@ export function MessagePartToolBash({ part }: MessagePartToolBashProps) {
         >
           <Icon className="size-5" icon={expanded ? "mdi:unfold-less-horizontal" : "mdi:unfold-more-horizontal"} />
         </button>
-        <p className="text-sm leading-6">
-          <span className="font-bold">bash: {command || "(no command)"}</span>
-          <span className="opacity-60"> {isRunning ? "running" : part.state.status}</span>
+        <p className="text-sm leading-6 opacity-60">
+          bash: {command || "(no command)"} ({isRunning ? "running" : part.state.status})
         </p>
       </div>
       {expanded ? (
