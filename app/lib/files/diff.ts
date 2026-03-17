@@ -16,6 +16,10 @@ export type ParsedDiffHunk = {
   lines: ParsedDiffLine[];
 };
 
+function normalizeDiffFilePath(value: string) {
+  return value.replace(/^[ab]\//, "");
+}
+
 function isDiffMetaLine(line: string) {
   return (
     line.startsWith("diff --git") ||
@@ -236,4 +240,50 @@ export function parseUnifiedDiff(content: string): ParsedDiffLine[] {
   }
 
   return parsedLines;
+}
+
+export function listUnifiedDiffFiles(content: string) {
+  const normalized = content.replace(/\r\n/g, "\n");
+  const sourceLines = normalized.length ? normalized.split("\n") : [];
+  const files: string[] = [];
+  const seen = new Set<string>();
+
+  for (const sourceLine of sourceLines) {
+    if (sourceLine.startsWith("+++ ")) {
+      const filePath = sourceLine.slice(4).trim();
+
+      if (!filePath || filePath === "/dev/null") {
+        continue;
+      }
+
+      const normalizedPath = normalizeDiffFilePath(filePath);
+
+      if (!seen.has(normalizedPath)) {
+        seen.add(normalizedPath);
+        files.push(normalizedPath);
+      }
+
+      continue;
+    }
+
+    if (!sourceLine.startsWith("diff --git ")) {
+      continue;
+    }
+
+    const parts = sourceLine.split(" ");
+    const fallbackPath = parts[3]?.trim();
+
+    if (!fallbackPath) {
+      continue;
+    }
+
+    const normalizedPath = normalizeDiffFilePath(fallbackPath);
+
+    if (!seen.has(normalizedPath)) {
+      seen.add(normalizedPath);
+      files.push(normalizedPath);
+    }
+  }
+
+  return files;
 }

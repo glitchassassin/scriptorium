@@ -1,11 +1,17 @@
+import { Form } from "react-router";
+import { Icon } from "@iconify/react";
+import "@iconify-json/mdi";
+
 import { MessagePartView } from "~/components/session/message-part-view";
 import type { OpencodeMessageWithParts } from "~/lib/opencode/events";
 
 type MessageCardProps = {
+  actionPath?: string;
   message: OpencodeMessageWithParts;
+  isSessionBusy?: boolean;
 };
 
-export function MessageCard({ message }: MessageCardProps) {
+export function MessageCard({ actionPath, message, isSessionBusy = false }: MessageCardProps) {
   const isUser = message.info.role === "user";
   const visibleParts = message.parts.filter((part) => {
     if (part.type === "text") {
@@ -26,8 +32,37 @@ export function MessageCard({ message }: MessageCardProps) {
   return (
     <article className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className={`${isUser ? "max-w-[42rem]" : "w-full"} space-y-3 px-3 py-3 text-left`}>
-        <div className="flex items-baseline gap-3 justify-start">
+        <div className="flex items-baseline justify-between gap-3">
           <p className="text-sm uppercase tracking-[0.08em]">{message.info.role}</p>
+          {isUser ? (
+            <div className="flex items-center gap-1">
+              <Form action={actionPath} method="post">
+                <input name="intent" type="hidden" value="revert" />
+                <input name="messageId" type="hidden" value={message.info.id} />
+                <button
+                  aria-label="Undo from this message"
+                  className="inline-flex min-h-9 min-w-9 items-center justify-center disabled:opacity-25"
+                  disabled={isSessionBusy}
+                  title="Undo from this message"
+                  type="submit"
+                >
+                  <Icon className="size-5" icon="mdi:undo-variant" />
+                </button>
+              </Form>
+              <Form action={actionPath} method="post">
+                <input name="intent" type="hidden" value="fork" />
+                <input name="messageId" type="hidden" value={message.info.id} />
+                <button
+                  aria-label="Fork from this message"
+                  className="inline-flex min-h-9 min-w-9 items-center justify-center"
+                  title="Fork from this message"
+                  type="submit"
+                >
+                  <Icon className="size-5" icon="mdi:source-fork" />
+                </button>
+              </Form>
+            </div>
+          ) : null}
         </div>
         <div className="space-y-3">
           {visibleParts.length ? (

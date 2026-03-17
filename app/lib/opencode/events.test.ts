@@ -55,4 +55,35 @@ describe("parseOpencodeEvent", () => {
 
     expect(result.data.properties.requestID).toBe("permission-1");
   });
+
+  it("parses session diff events", () => {
+    const result = parseOpencodeEvent({
+      type: "session.diff",
+      properties: {
+        sessionID: "session-1",
+        diff: [
+          {
+            file: "src/app.ts",
+            before: "old",
+            after: "new",
+            additions: 1,
+            deletions: 1,
+            status: "modified",
+          },
+        ],
+      },
+    });
+
+    expect(result.kind).toBe("known");
+    if (result.kind !== "known") {
+      return;
+    }
+
+    expect(result.data.type).toBe("session.diff");
+    if (result.data.type !== "session.diff") {
+      return;
+    }
+
+    expect(result.data.properties.diff[0]?.file).toBe("src/app.ts");
+  });
 });

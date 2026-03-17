@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { data, Outlet, useFetcher, useRevalidator } from "react-router";
+import { data, Outlet, redirect, useFetcher, useRevalidator, useSearchParams } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
@@ -9,15 +9,19 @@ import { PopupPicker } from "~/components/ui/popup-picker";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import {
   abortOpencodeSession,
+  forkOpencodeSession,
   getOpencodeSession,
   getOpencodeSessionStatuses,
   listOpencodeAgents,
   listOpencodeMessages,
   listOpencodePermissionRequests,
+  revertOpencodeSession,
   submitOpencodePrompt,
+  unrevertOpencodeSession,
 } from "~/lib/instances/opencode.server";
 import { replyToOpencodePermissionRequest } from "~/lib/instances/opencode.client";
 import { getInstanceOrThrow } from "~/lib/instances/runtime.server";
+import { getUserMessageText } from "~/lib/opencode/message-helpers";
 import {
   applyMessagePartDelta,
   removeMessage,
@@ -26,10 +30,11 @@ import {
   upsertMessagePart,
 } from "~/lib/opencode/message-state";
 import type {
-  OpencodeMessageWithParts,
-  OpencodeAgent,
-  OpencodePermissionRequest,
-  OpencodeSessionStatus,
+    OpencodeMessageWithParts,
+    OpencodeAgent,
+    OpencodePermissionRequest,
+    OpencodeSessionInfo,
+    OpencodeSessionStatus,
 } from "~/lib/opencode/events";
 import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
 import { defineRouteHandle } from "~/lib/route-handle";
@@ -110,14 +115,54 @@ export async function action({ params, request }: Route.ActionArgs) {
     return data({ error: null, intent, ok: true });
   }
 
+  if (intent === "revert") {
+    const messageId = String(formData.get("messageId") ?? "").trim();
+
+    if (!messageId) {
+      return data({ error: "Choose a message to undo from.", intent, ok: false }, { status: 400 });
+    }
+
+    await revertOpencodeSession(instance, sessionId, { messageId });
+    return data({ error: null, intent, ok: true });
+  }
+
+  if (intent === "unrevert") {
+    await unrevertOpencodeSession(instance, sessionId);
+    return data({ error: null, intent, ok: true });
+  }
+
+  if (intent === "fork") {
+    const messageId = String(formData.get("messageId") ?? "").trim();
+    let prompt = "";
+
+    if (messageId) {
+      const messages = await listOpencodeMessages(instance, sessionId);
+      const sourceMessage = messages.find((message) => message.info.id === messageId);
+      prompt = sourceMessage ? getUserMessageText(sourceMessage) ?? "" : "";
+    }
+
+    const session = await forkOpencodeSession(instance, sessionId, { ...(messageId ? { messageId } : {}) });
+    const searchParams = new URLSearchParams();
+
+    if (prompt) {
+      searchParams.set("prompt", prompt);
+    }
+
+    const search = searchParams.size ? `?${searchParams.toString()}` : "";
+    return redirect(`/instances/${instanceId}/sessions/${session.id}${search}`);
+  }
+
   return data({ error: "That action is not supported.", intent, ok: false }, { status: 400 });
 }
 
 export default function InstanceSessionLayoutRoute({ loaderData }: Route.ComponentProps) {
   const { initialAgents, initialMessages, initialPermissions, initialStatus, instance, session } = loaderData;
+  const [searchParams] = useSearchParams();
+  const prefilledPrompt = searchParams.get("prompt") ?? "";
   const [composerText, setComposerText] = useState("");
   const [messages, setMessages] = useState<OpencodeMessageWithParts[]>(initialMessages);
   const [pendingPermissions, setPendingPermissions] = useState<OpencodePermissionRequest[]>(initialPermissions);
+  const [sessionState, setSessionState] = useState<OpencodeSessionInfo>(session);
   const [status, setStatus] = useState<OpencodeSessionStatus>(initialStatus);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const promptFetcher = useFetcher<typeof action>();
@@ -138,6 +183,7 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
       "message.part.removed",
       "permission.asked",
       "permission.replied",
+      "session.updated",
       "session.status",
       "session.error",
     ] as const,
@@ -153,8 +199,18 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   }, [initialStatus, session.id]);
 
   useEffect(() => {
+    setSessionState(session);
+  }, [session]);
+
+  useEffect(() => {
     setPendingPermissions(initialPermissions);
   }, [initialPermissions, session.id]);
+
+  useEffect(() => {
+    setComposerText(prefilledPrompt);
+    const caret = prefilledPrompt.length;
+    composerSelectionRef.current = { start: caret, end: caret }; 
+  }, [prefilledPrompt, session.id]);
 
   useEffect(() => {
     if (promptFetcher.data?.ok && promptFetcher.data.intent === "prompt") {
@@ -212,6 +268,25 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
     });
   }, []);
 
+  useEffect(() => {
+    if (!prefilledPrompt) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      const input = composerInputRef.current;
+
+      if (!input) {
+        return;
+      }
+
+      const caret = prefilledPrompt.length;
+      input.focus();
+      input.setSelectionRange(caret, caret);
+      composerSelectionRef.current = { start: caret, end: caret };
+    });
+  }, [prefilledPrompt]);
+
   const replyPermission = useCallback(
     async (requestId: string, reply: "once" | "always" | "reject") => {
       const nextPermissions = pendingPermissions.filter((permission) => permission.id !== requestId);
@@ -235,6 +310,11 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
       switch (event.type) {
         case "session.status": {
           setStatus(event.properties.status);
+          return;
+        }
+
+        case "session.updated": {
+          setSessionState(event.properties.info);
           return;
         }
 
@@ -381,7 +461,7 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
           messages,
           pendingPermissions,
           replyPermission,
-          session,
+          session: sessionState,
           sessionError,
           status,
         } satisfies SessionRouteContext}

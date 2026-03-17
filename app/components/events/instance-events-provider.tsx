@@ -80,6 +80,8 @@ function getEventSessionId(event: InstanceEvent) {
       return event.properties.sessionID;
     case "session.error":
       return event.properties.sessionID ?? null;
+    case "session.diff":
+      return event.properties.sessionID;
     case "message.updated":
       return event.properties.info.sessionID;
     case "message.removed":

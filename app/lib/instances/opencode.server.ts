@@ -146,3 +146,44 @@ export async function abortOpencodeSession(instance: InstanceRecord, sessionId: 
     throw new Error(`Abort request failed with ${response.status}`);
   }
 }
+
+export async function revertOpencodeSession(
+  instance: InstanceRecord,
+  sessionId: string,
+  input: { messageId: string; partId?: string },
+) {
+  const response = await fetch(`${getInstanceBaseUrl(instance)}/session/${sessionId}/revert`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messageID: input.messageId,
+      ...(input.partId ? { partID: input.partId } : {}),
+    }),
+  });
+
+  return parseOrThrow(opencodeSessionInfoSchema.safeParse(await readJson(response))) satisfies OpencodeSessionInfo;
+}
+
+export async function unrevertOpencodeSession(instance: InstanceRecord, sessionId: string) {
+  const response = await fetch(`${getInstanceBaseUrl(instance)}/session/${sessionId}/unrevert`, {
+    method: "POST",
+  });
+
+  return parseOrThrow(opencodeSessionInfoSchema.safeParse(await readJson(response))) satisfies OpencodeSessionInfo;
+}
+
+export async function forkOpencodeSession(instance: InstanceRecord, sessionId: string, input?: { messageId?: string }) {
+  const response = await fetch(`${getInstanceBaseUrl(instance)}/session/${sessionId}/fork`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ...(input?.messageId ? { messageID: input.messageId } : {}),
+    }),
+  });
+
+  return parseOrThrow(opencodeSessionInfoSchema.safeParse(await readJson(response))) satisfies OpencodeSessionInfo;
+}

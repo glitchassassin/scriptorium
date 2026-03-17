@@ -26,7 +26,15 @@ export const opencodeSessionInfoSchema = z.object({
   summary: z.unknown().optional(),
   share: z.unknown().optional(),
   permission: z.unknown().optional(),
-  revert: z.unknown().optional(),
+  revert: z
+    .object({
+      messageID: z.string(),
+      partID: z.string().optional(),
+      snapshot: z.string().optional(),
+      diff: z.string().optional(),
+    })
+    .passthrough()
+    .optional(),
 });
 
 export const opencodeSessionStatusSchema = z.discriminatedUnion("type", [
@@ -64,6 +72,15 @@ export const opencodePermissionRequestSchema = z.object({
 const opencodeModelRefSchema = z.object({
   providerID: z.string(),
   modelID: z.string(),
+});
+
+const opencodeFileDiffSchema = z.object({
+  file: z.string(),
+  before: z.string(),
+  after: z.string(),
+  additions: z.number(),
+  deletions: z.number(),
+  status: z.enum(["added", "deleted", "modified"]).optional(),
 });
 
 const opencodeMessageErrorSchema = z.object({
@@ -399,6 +416,14 @@ export const opencodeSessionErrorEventSchema = z.object({
   }),
 });
 
+export const opencodeSessionDiffEventSchema = z.object({
+  type: z.literal("session.diff"),
+  properties: z.object({
+    sessionID: z.string(),
+    diff: z.array(opencodeFileDiffSchema),
+  }),
+});
+
 export const opencodeMessageUpdatedEventSchema = z.object({
   type: z.literal("message.updated"),
   properties: z.object({
@@ -466,6 +491,7 @@ export const opencodeKnownEventSchema = z.union([
   opencodeSessionMutationEventSchema,
   opencodeSessionStatusEventSchema,
   opencodeSessionErrorEventSchema,
+  opencodeSessionDiffEventSchema,
   opencodeMessageUpdatedEventSchema,
   opencodeMessageRemovedEventSchema,
   opencodeMessagePartUpdatedEventSchema,
@@ -488,6 +514,7 @@ const opencodeEventSchemas = {
   "session.deleted": opencodeSessionDeletedEventSchema,
   "session.status": opencodeSessionStatusEventSchema,
   "session.error": opencodeSessionErrorEventSchema,
+  "session.diff": opencodeSessionDiffEventSchema,
   "message.updated": opencodeMessageUpdatedEventSchema,
   "message.removed": opencodeMessageRemovedEventSchema,
   "message.part.updated": opencodeMessagePartUpdatedEventSchema,
@@ -566,6 +593,7 @@ export type OpencodeAgent = z.infer<typeof opencodeAgentSchema>;
 export type OpencodeAgentPart = z.infer<typeof opencodeAgentPartSchema>;
 export type OpencodeCompactionPart = z.infer<typeof opencodeCompactionPartSchema>;
 export type OpencodeFilePart = z.infer<typeof opencodeFilePartSchema>;
+export type OpencodeFileDiff = z.infer<typeof opencodeFileDiffSchema>;
 export type OpencodeMessageInfo = z.infer<typeof opencodeMessageInfoSchema>;
 export type OpencodeMessagePart = z.infer<typeof opencodeMessagePartSchema>;
 export type OpencodeMessageWithParts = z.infer<typeof opencodeMessageWithPartsSchema>;
@@ -574,6 +602,7 @@ export type OpencodePermissionRequest = z.infer<typeof opencodePermissionRequest
 export type OpencodeReasoningPart = z.infer<typeof opencodeReasoningPartSchema>;
 export type OpencodeRetryPart = z.infer<typeof opencodeRetryPartSchema>;
 export type OpencodeSessionInfo = z.infer<typeof opencodeSessionInfoSchema>;
+export type OpencodeSessionRevert = NonNullable<OpencodeSessionInfo["revert"]>;
 export type OpencodeSessionMutationEvent = z.infer<typeof opencodeSessionMutationEventSchema>;
 export type OpencodeSessionStatus = z.infer<typeof opencodeSessionStatusSchema>;
 export type OpencodeSubtaskPart = z.infer<typeof opencodeSubtaskPartSchema>;
