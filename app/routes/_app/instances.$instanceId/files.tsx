@@ -1,17 +1,18 @@
 import { FilesBrowser } from "~/components/workspace/files-browser";
-import type { RouteHandle } from "~/lib/route-handle";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 
 import { getInstanceBreadcrumbs } from "./+/instance-route";
 import { loadInstanceFilesRouteData } from "./files.server";
 
 import type { Route } from "./+types/files";
 
-export const handle = {
-  title: ({ data, params }: { data?: unknown; params: Record<string, string | undefined> }) => [
-    ...getInstanceBreadcrumbs(data, params["instanceId"]),
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  title: ({ data, params }) => [
+    ...getInstanceBreadcrumbs(data?.instance?.name, params.instanceId),
     { label: "files" },
   ],
-} satisfies RouteHandle;
+});
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const instanceId = params.instanceId;

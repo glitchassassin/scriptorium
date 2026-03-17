@@ -1,11 +1,14 @@
 import { Link } from "react-router";
 
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
-import type { RouteHandle } from "~/lib/route-handle";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 
-export const handle = {
+import type { Route } from "./+types/settings";
+
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   title: [{ label: "Settings" }],
-} satisfies RouteHandle;
+});
 
 export default function SettingsRoute() {
   return (

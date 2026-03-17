@@ -7,11 +7,12 @@ import { useDoubleCheck } from "~/hooks/use-double-check";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { listInstances, removeInstance } from "~/lib/instances/runtime.server";
 import type { InstanceRecord } from "~/lib/instances/types";
-import type { RouteHandle } from "~/lib/route-handle";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 
 import type { Route } from "./+types/instances";
 
-export const handle = {
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   title: [{ label: "Instances" }],
   iconNavActions: [
     {
@@ -21,7 +22,7 @@ export const handle = {
       end: true,
     },
   ],
-} satisfies RouteHandle;
+});
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAuthenticatedPasskey(request);

@@ -6,6 +6,7 @@ import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { listRecentSidebarSessions } from "~/lib/instances/opencode.server";
 import { listInstances } from "~/lib/instances/runtime.server";
 import { sortSidebarInstances } from "~/lib/instances/sidebar";
+import { normalizeRouteHandleMatches, resolveRouteHandleValue } from "~/lib/route-handle";
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAuthenticatedPasskey(request);
@@ -36,10 +37,18 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 
-export default function AppLayout({ loaderData }: Route.ComponentProps) {
+export default function AppLayout({ loaderData, matches }: Route.ComponentProps) {
+  const routeMatches = normalizeRouteHandleMatches(matches);
+  const breadcrumbs = resolveRouteHandleValue(routeMatches, "title") ?? [{ label: "Scriptorium" }];
+  const iconNavActions = resolveRouteHandleValue(routeMatches, "iconNavActions") ?? [];
+
   return (
     <InstanceEventsProvider instanceIds={loaderData.liveInstanceIds}>
-      <AppShell sidebarInstances={loaderData.sidebarInstances} />
+      <AppShell
+        breadcrumbs={breadcrumbs}
+        iconNavActions={iconNavActions}
+        sidebarInstances={loaderData.sidebarInstances}
+      />
     </InstanceEventsProvider>
   );
 }

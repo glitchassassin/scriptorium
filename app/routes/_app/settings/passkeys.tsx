@@ -7,11 +7,12 @@ import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { countActivePasskeys, getPasskeyById, listActivePasskeys, revokePasskey } from "~/lib/auth/passkeys.server";
 import { useDoubleCheck } from "~/hooks/use-double-check";
 import { destroyAuthenticatedSession, destroySessionsForPasskey } from "~/lib/auth/sessions.server";
-import type { RouteHandle } from "~/lib/route-handle";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 
 import type { Route } from "./+types/passkeys";
 
-export const handle = {
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   title: [{ label: "Settings", to: "/settings" }, { label: "Passkeys" }],
   iconNavActions: [
     {
@@ -21,7 +22,7 @@ export const handle = {
       end: true,
     },
   ],
-} satisfies RouteHandle;
+});
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { passkey } = await requireAuthenticatedPasskey(request);

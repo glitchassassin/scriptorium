@@ -1,23 +1,29 @@
 import { useOutletContext } from "react-router";
 
 import { FilesBrowser } from "~/components/workspace/files-browser";
-import type { RouteHandle } from "~/lib/route-handle";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { loadInstanceFilesRouteData } from "~/routes/_app/instances.$instanceId/files.server";
 
-import { getSessionBreadcrumbs, getSessionDataFromMatches, type SessionRouteContext } from "./+/session-route";
+import { getSessionBreadcrumbs, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/files";
 
-export const handle = {
-  title: ({ data, matches, params }) => [
-    ...getSessionBreadcrumbs(
-      getSessionDataFromMatches(matches) ?? data,
-      params["instanceId"],
-      params["sessionId"],
-    ),
-    { label: "files" },
-  ],
-} satisfies RouteHandle;
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  title: (ctx) => {
+    const sessionMatch = ctx.requireMatch("routes/_app/instances.$instanceId/sessions.$sessionId/_layout");
+
+    return [
+      ...getSessionBreadcrumbs({
+        instanceId: sessionMatch.params.instanceId,
+        instanceName: sessionMatch.data.instance?.name,
+        session: sessionMatch.data.session,
+        sessionId: sessionMatch.params.sessionId,
+      }),
+      { label: "files" },
+    ];
+  },
+});
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const instanceId = params.instanceId;

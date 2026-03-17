@@ -18,32 +18,24 @@ export type SessionRouteContext = {
   status: OpencodeSessionStatus;
 };
 
-export function getSessionName(data: unknown) {
-  const routeData = (data as { instance?: { name?: string }; session?: { title?: string; id?: string } } | undefined);
-  const session = routeData?.session;
-  return session?.title ?? session?.id?.slice(0, 12) ?? "Session";
+export function getSessionName(session?: { title?: string | null; id?: string | null }) {
+  return session?.title?.trim() || session?.id?.slice(0, 12) || "Session";
 }
 
-export function getSessionDataFromMatches(matches: Array<{ data?: unknown }>) {
-  return matches
-    .map((match) => match.data)
-    .find((data) => {
-      const routeData = data as { session?: { title?: string; id?: string } } | undefined;
-      return Boolean(routeData?.session);
-    });
-}
-
-export function getSessionBreadcrumbs(data: unknown, instanceId?: string, sessionId?: string): RouteBreadcrumb[] {
-  const routeData = (data as { instance?: { name?: string } } | undefined);
-
+export function getSessionBreadcrumbs(args: {
+  instanceId?: string;
+  instanceName?: string | null;
+  session?: { title?: string | null; id?: string | null };
+  sessionId?: string;
+}): RouteBreadcrumb[] {
   return [
     {
-      label: routeData?.instance?.name ?? "Instance",
-      ...(instanceId ? { to: `/instances/${instanceId}` } : {}),
+      label: args.instanceName?.trim() || "Instance",
+      ...(args.instanceId ? { to: `/instances/${args.instanceId}` } : {}),
     },
     {
-      label: getSessionName(data),
-      ...(instanceId && sessionId ? { to: `/instances/${instanceId}/sessions/${sessionId}` } : {}),
+      label: getSessionName(args.session),
+      ...(args.instanceId && args.sessionId ? { to: `/instances/${args.instanceId}/sessions/${args.sessionId}` } : {}),
     },
   ];
 }

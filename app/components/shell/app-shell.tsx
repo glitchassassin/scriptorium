@@ -1,52 +1,22 @@
 import { useEffect, useState } from "react";
-import { Form, NavLink, Outlet, useLocation, useMatches } from "react-router";
+import { Form, NavLink, Outlet, useLocation } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
 import { SidebarNav } from "~/components/shell/sidebar-nav";
 import type { SidebarInstanceRecord } from "~/lib/instances/sidebar";
-import type { RouteBreadcrumb, RouteHandle, RouteHandleIconAction, RouteHandleMatchContext } from "~/lib/route-handle";
+import type { RouteBreadcrumb, RouteHandleIconAction } from "~/lib/route-handle";
 
 type AppShellProps = {
+  breadcrumbs: RouteBreadcrumb[];
+  iconNavActions: RouteHandleIconAction[];
   sidebarInstances: SidebarInstanceRecord[];
 };
 
-type RouteHandleKey = keyof Pick<RouteHandle, "title" | "iconNavActions">;
-type ResolvedHandleValueMap = {
-  title: RouteBreadcrumb[];
-  iconNavActions: RouteHandleIconAction[];
-};
-function getResolvedHandleValue<K extends RouteHandleKey>(
-  matches: ReturnType<typeof useMatches>,
-  key: K,
-): ResolvedHandleValueMap[K] | undefined {
-  const metadata = [...matches].reverse().find((match) => {
-    const handle = match.handle as RouteHandle | undefined;
-    return handle?.[key];
-  });
-  const handle = metadata?.handle as RouteHandle | undefined;
-  const value = handle?.[key];
-
-  if (typeof value === "function") {
-    const matchContext = {
-      data: metadata?.data,
-      params: metadata?.params ?? {},
-      matches: matches.map((match) => ({ data: match.data, params: match.params ?? {} })),
-    } satisfies RouteHandleMatchContext;
-
-    return value(matchContext) as ResolvedHandleValueMap[K];
-  }
-
-  return value as ResolvedHandleValueMap[K] | undefined;
-}
-
-export function AppShell({ sidebarInstances }: AppShellProps) {
+export function AppShell({ breadcrumbs, iconNavActions, sidebarInstances }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
-  const matches = useMatches();
-  const title: RouteBreadcrumb[] = getResolvedHandleValue(matches, "title") ?? [{ label: "Scriptorium" }];
-  const titleLabel = title.map((breadcrumb) => breadcrumb.label).join(" / ");
-  const iconNavActions: RouteHandleIconAction[] = getResolvedHandleValue(matches, "iconNavActions") ?? [];
+  const titleLabel = breadcrumbs.map((breadcrumb) => breadcrumb.label).join(" / ");
 
   const toggleIcon = isSidebarOpen ? "mdi:menu-open" : "mdi:menu";
 
@@ -137,9 +107,9 @@ export function AppShell({ sidebarInstances }: AppShellProps) {
             <h1 aria-label={titleLabel} className="overflow-hidden text-2xl font-bold">
               <span
                 className="flex w-full min-w-0 items-center overflow-hidden whitespace-nowrap"
-                style={{ ["--count" as string]: title.length }}
+                style={{ ["--count" as string]: breadcrumbs.length }}
               >
-                {title.map((breadcrumb, index) => (
+                {breadcrumbs.map((breadcrumb, index) => (
                   <span
                     className="flex flex-[1_1_0] items-center overflow-hidden min-w-[min(max-content,calc(100%/var(--count)))] max-w-max"
                     key={`${breadcrumb.to ?? breadcrumb.label}-${index}`}

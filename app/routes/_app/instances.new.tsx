@@ -6,14 +6,15 @@ import { Form, redirect } from "react-router";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { createInstance } from "~/lib/instances/runtime.server";
-import type { RouteHandle } from "~/lib/route-handle";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { FileExplorer } from "~/routes/_rpc/files.browse";
 
 import type { Route } from "./+types/instances.new";
 
-export const handle = {
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   title: [{ label: "Instances", to: "/instances" }, { label: "New instance" }],
-} satisfies RouteHandle;
+});
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAuthenticatedPasskey(request);

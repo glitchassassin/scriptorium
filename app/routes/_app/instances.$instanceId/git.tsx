@@ -1,17 +1,18 @@
 import { GitBrowser } from "~/components/workspace/git-browser";
-import type { RouteHandle } from "~/lib/route-handle";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 
 import { getInstanceBreadcrumbs } from "./+/instance-route";
 import { loadInstanceGitRouteData } from "./git.server";
 
 import type { Route } from "./+types/git";
 
-export const handle = {
-  title: ({ data, params }: { data?: unknown; params: Record<string, string | undefined> }) => [
-    ...getInstanceBreadcrumbs(data, params["instanceId"]),
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  title: ({ data, params }) => [
+    ...getInstanceBreadcrumbs(data?.instance?.name, params.instanceId),
     { label: "git" },
   ],
-} satisfies RouteHandle;
+});
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const instanceId = params.instanceId;

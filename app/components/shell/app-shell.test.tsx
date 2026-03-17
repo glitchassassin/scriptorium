@@ -6,7 +6,6 @@ import { AppShell } from "~/components/shell/app-shell";
 import { getSessionIconNavActions } from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-route";
 
 const useLocationMock = vi.fn();
-const useMatchesMock = vi.fn();
 
 vi.mock("react-router", () => ({
   Form: ({ children }: { children: ReactNode }) => <form>{children}</form>,
@@ -27,7 +26,6 @@ vi.mock("react-router", () => ({
   ),
   Outlet: () => <div>Outlet</div>,
   useLocation: () => useLocationMock(),
-  useMatches: () => useMatchesMock(),
 }));
 
 vi.mock("~/components/shell/sidebar-nav", () => ({
@@ -37,32 +35,18 @@ vi.mock("~/components/shell/sidebar-nav", () => ({
 describe("AppShell", () => {
   it("uses the deepest title and nearest nav actions independently", () => {
     useLocationMock.mockReturnValue({ pathname: "/instances/instance-1/sessions/session-1/git" });
-    useMatchesMock.mockReturnValue([
-      {
-        data: { instance: { name: "Workspace" }, session: { id: "session-1", title: "Planning" } },
-        handle: {
-          iconNavActions: getSessionIconNavActions("instance-1", "session-1"),
-          title: [
-            { label: "Workspace", to: "/instances/instance-1" },
-            { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
-          ],
-        },
-        params: { instanceId: "instance-1", sessionId: "session-1" },
-      },
-      {
-        data: { instance: { name: "Workspace" }, session: { id: "session-1", title: "Planning" } },
-        handle: {
-          title: [
-            { label: "Workspace", to: "/instances/instance-1" },
-            { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
-            { label: "git" },
-          ],
-        },
-        params: { instanceId: "instance-1", sessionId: "session-1" },
-      },
-    ]);
 
-    render(<AppShell sidebarInstances={[]} />);
+    render(
+      <AppShell
+        breadcrumbs={[
+          { label: "Workspace", to: "/instances/instance-1" },
+          { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
+          { label: "git" },
+        ]}
+        iconNavActions={getSessionIconNavActions("instance-1", "session-1")}
+        sidebarInstances={[]}
+      />,
+    );
 
     expect(screen.getByRole("heading", { name: "Workspace / Planning / git" })).toBeInTheDocument();
     expect(screen.getByLabelText("Chat transcript")).toHaveAttribute(

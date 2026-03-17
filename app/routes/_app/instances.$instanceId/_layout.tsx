@@ -1,16 +1,13 @@
 import { Outlet } from "react-router";
 
-import type { RouteHandle } from "~/lib/route-handle";
-
-import { getInstanceBreadcrumbs } from "./+/instance-route";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleContext, RouteHandleDefinition } from "~/lib/route-handle";
 
 import type { Route } from "./+types/_layout";
 
-export const handle = {
-  title: ({ data, params }: { data?: unknown; params: Record<string, string | undefined> }) =>
-    getInstanceBreadcrumbs(data, params["instanceId"]),
-  iconNavActions: ({ params }: { params: Record<string, string | undefined> }) => {
-    const instanceId = params["instanceId"] ?? "";
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  iconNavActions: (ctx: RouteHandleContext<Route.ComponentProps>) => {
+    const instanceId = ctx.params.instanceId ?? "";
 
     return [
       {
@@ -33,7 +30,7 @@ export const handle = {
       },
     ];
   },
-} satisfies RouteHandle;
+});
 
 export default function InstanceLayoutRoute(_: Route.ComponentProps) {
   return <Outlet />;

@@ -1,7 +1,10 @@
-import type { RouteHandle } from "~/lib/route-handle";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 
-export const handle = {
+import type { Route } from "./+types/index";
+
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   title: [{ label: "Workspace" }],
   iconNavActions: [
     {
@@ -10,7 +13,7 @@ export const handle = {
       to: "/instances",
     },
   ],
-} satisfies RouteHandle;
+});
 
 export default function AppIndexRoute() {
   return (

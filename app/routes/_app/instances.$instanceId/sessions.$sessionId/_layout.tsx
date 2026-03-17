@@ -32,22 +32,28 @@ import type {
   OpencodeSessionStatus,
 } from "~/lib/opencode/events";
 import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
-import type { RouteHandle } from "~/lib/route-handle";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 
 import { getSessionBreadcrumbs, getSessionIconNavActions, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/_layout";
 
-export const handle = {
-  title: ({ data, params }: { data?: unknown; params: Record<string, string | undefined> }) =>
-    getSessionBreadcrumbs(data, params["instanceId"], params["sessionId"]),
-  iconNavActions: ({ params }: { params: Record<string, string | undefined> }) => {
-    const instanceId = params["instanceId"] ?? "";
-    const sessionId = params["sessionId"] ?? "";
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  title: ({ data, params }) =>
+    getSessionBreadcrumbs({
+      instanceId: params.instanceId,
+      instanceName: data?.instance?.name,
+      session: data?.session,
+      sessionId: params.sessionId,
+    }),
+  iconNavActions: ({ params }) => {
+    const instanceId = params.instanceId ?? "";
+    const sessionId = params.sessionId ?? "";
 
     return getSessionIconNavActions(instanceId, sessionId);
   },
-} satisfies RouteHandle;
+});
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   await requireAuthenticatedPasskey(request);

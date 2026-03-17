@@ -12,8 +12,16 @@ import { sortSessions, toSessionSummary } from "~/lib/instances/sidebar";
 import { getInstanceOrThrow, removeInstance } from "~/lib/instances/runtime.server";
 import type { OpencodeSessionSummary } from "~/lib/instances/types";
 import { opencodeSessionMutationEventSchema } from "~/lib/opencode/events";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
+
+import { getInstanceBreadcrumbs } from "./+/instance-route";
 
 import type { Route } from "./+types/index";
+
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  title: (ctx) => getInstanceBreadcrumbs(ctx.data.instance.name, ctx.params.instanceId),
+});
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   await requireAuthenticatedPasskey(request);
