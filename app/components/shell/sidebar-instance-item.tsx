@@ -26,7 +26,7 @@ export function SidebarInstanceItem({ instance }: SidebarInstanceItemProps) {
         >
           <span className="font-bold">{instance.name}</span>
         </NavLink>
-        <Form action={`/instances/${instance.id}`} method="post">
+        <Form action={`/instances/${instance.id}?index`} method="post">
           <input name="intent" type="hidden" value="create-session" />
           <button
             aria-label={`New session for ${instance.name}`}
