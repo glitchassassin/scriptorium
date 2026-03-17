@@ -1,6 +1,7 @@
 import {
   opencodeMessageWithPartsSchema,
   opencodePermissionRequestSchema,
+  opencodeAgentSchema,
   opencodePromptInputSchema,
   opencodeSessionInfoSchema,
   opencodeSessionStatusMapSchema,
@@ -15,6 +16,7 @@ import { filterRecentSessions } from "~/lib/instances/sidebar";
 
 import type {
   OpencodeMessageWithParts,
+  OpencodeAgent,
   OpencodePermissionRequest,
   OpencodeSessionInfo,
 } from "~/lib/opencode/events";
@@ -98,16 +100,28 @@ export async function listOpencodePermissionRequests(instance: InstanceRecord, s
   return permissions.filter((permission) => permission.sessionID === sessionId);
 }
 
-export async function submitOpencodePrompt(instance: InstanceRecord, sessionId: string, input: { text: string }) {
-  const payload = parseOrThrow(
-    opencodePromptInputSchema.safeParse({
-      parts: [
-        {
-          type: "text",
-          text: input.text,
-        },
-      ],
-    }),
+export async function listOpencodeAgents(instance: InstanceRecord) {
+  const payload = await readJson(await fetch(`${getInstanceBaseUrl(instance)}/agent`));
+  return parseOrThrow(opencodeAgentSchema.array().safeParse(payload)) satisfies OpencodeAgent[];
+}
+
+export async function submitOpencodePrompt(
+  instance: InstanceRecord,
+  sessionId: string,
+  input: { text: string; agent?: string | null },
+) {
+  const nextPayload = {
+    parts: [
+      {
+        type: "text",
+        text: input.text,
+      },
+    ],
+    ...(input.agent ? { agent: input.agent } : {}),
+  };
+
+  const parsedPayload = parseOrThrow(
+    opencodePromptInputSchema.safeParse(nextPayload),
   );
 
   const response = await fetch(`${getInstanceBaseUrl(instance)}/session/${sessionId}/prompt_async`, {
@@ -115,7 +129,7 @@ export async function submitOpencodePrompt(instance: InstanceRecord, sessionId: 
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(parsedPayload),
   });
 
   if (!response.ok && response.status !== 204) {

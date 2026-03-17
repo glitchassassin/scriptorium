@@ -327,7 +327,30 @@ export const opencodePromptInputSchema = z.object({
       text: z.string(),
     }),
   ),
+  agent: z.string().optional(),
 });
+
+export const opencodeAgentSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  mode: z.enum(["subagent", "primary", "all"]),
+  native: z.boolean().optional(),
+  hidden: z.boolean().optional(),
+  topP: z.number().optional(),
+  temperature: z.number().optional(),
+  color: z.string().optional(),
+  permission: z.unknown().optional(),
+  model: z
+    .object({
+      modelID: z.string(),
+      providerID: z.string(),
+    })
+    .optional(),
+  variant: z.string().optional(),
+  prompt: z.string().optional(),
+  options: z.record(z.string(), z.unknown()).optional(),
+  steps: z.number().optional(),
+}).passthrough();
 
 const serverConnectedEventSchema = z.object({
   type: z.literal("server.connected"),
@@ -539,6 +562,7 @@ export function parseOpencodeEvent(value: unknown): OpencodeEventParseResult {
 
 export type OpencodeEvent = OpencodeKnownEvent;
 export type OpencodeKnownEvent = z.infer<typeof opencodeKnownEventSchema>;
+export type OpencodeAgent = z.infer<typeof opencodeAgentSchema>;
 export type OpencodeAgentPart = z.infer<typeof opencodeAgentPartSchema>;
 export type OpencodeCompactionPart = z.infer<typeof opencodeCompactionPartSchema>;
 export type OpencodeFilePart = z.infer<typeof opencodeFilePartSchema>;

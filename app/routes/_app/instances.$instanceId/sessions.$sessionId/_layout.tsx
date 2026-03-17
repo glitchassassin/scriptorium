@@ -5,11 +5,13 @@ import "@iconify-json/mdi";
 
 import { useInstanceEvents } from "~/components/events/instance-events-provider";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
+import { PopupPicker } from "~/components/ui/popup-picker";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import {
   abortOpencodeSession,
   getOpencodeSession,
   getOpencodeSessionStatuses,
+  listOpencodeAgents,
   listOpencodeMessages,
   listOpencodePermissionRequests,
   submitOpencodePrompt,
@@ -25,9 +27,11 @@ import {
 } from "~/lib/opencode/message-state";
 import type {
   OpencodeMessageWithParts,
+  OpencodeAgent,
   OpencodePermissionRequest,
   OpencodeSessionStatus,
 } from "~/lib/opencode/events";
+import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
 import type { RouteHandle } from "~/lib/route-handle";
 
 import { getSessionIconNavActions, sessionRouteTitle, type SessionRouteContext } from "./+/session-route";
@@ -50,17 +54,19 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const instanceId = params.instanceId;
   const sessionId = params.sessionId;
   const instance = await getInstanceOrThrow(instanceId);
-  const [messages, permissions, session, statuses] = await Promise.all([
+  const [messages, permissions, session, statuses, agents] = await Promise.all([
     listOpencodeMessages(instance, sessionId, 50),
     listOpencodePermissionRequests(instance, sessionId),
     getOpencodeSession(instance, sessionId),
     getOpencodeSessionStatuses(instance),
+    listOpencodeAgents(instance),
   ]);
 
   return {
     initialMessages: messages,
     initialPermissions: permissions,
     initialStatus: statuses[sessionId] ?? { type: "idle" },
+    initialAgents: agents,
     instance,
     session,
   };
@@ -82,7 +88,12 @@ export async function action({ params, request }: Route.ActionArgs) {
       return data({ error: "Enter a message before sending.", intent, ok: false }, { status: 400 });
     }
 
-    await submitOpencodePrompt(instance, sessionId, { text });
+    const agent = String(formData.get("agent") ?? "").trim();
+
+    await submitOpencodePrompt(instance, sessionId, {
+      text,
+      ...(agent ? { agent } : {}),
+    });
 
     return data({ error: null, intent, ok: true });
   }
@@ -96,7 +107,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 }
 
 export default function InstanceSessionLayoutRoute({ loaderData }: Route.ComponentProps) {
-  const { initialMessages, initialPermissions, initialStatus, instance, session } = loaderData;
+  const { initialAgents, initialMessages, initialPermissions, initialStatus, instance, session } = loaderData;
   const [composerText, setComposerText] = useState("");
   const [messages, setMessages] = useState<OpencodeMessageWithParts[]>(initialMessages);
   const [pendingPermissions, setPendingPermissions] = useState<OpencodePermissionRequest[]>(initialPermissions);
@@ -106,6 +117,9 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   const abortFetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
   const composerFormRef = useRef<HTMLFormElement>(null);
+  const agents = useMemo<OpencodeAgent[]>(() => getSelectableAgents(initialAgents), [initialAgents]);
+  const defaultAgent = useMemo<string | null>(() => getInitialAgent(initialMessages, initialAgents), [initialMessages, initialAgents]);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(defaultAgent);
   const eventTypes = useMemo(
     () => [
       "message.updated",
@@ -153,6 +167,10 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
     },
     [instance.id, pendingPermissions, revalidator],
   );
+
+  useEffect(() => {
+    setSelectedAgent(defaultAgent);
+  }, [defaultAgent, session.id]);
 
   useInstanceEvents(
     (event) => {
@@ -238,10 +256,11 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
           {promptError ? <p className="text-base leading-6">{promptError}</p> : null}
           {abortError ? <p className="text-base leading-6">{abortError}</p> : null}
           {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
-          <div className="space-y-3">
-            <div className="flex items-end gap-2">
+          <div className="flex items-stretch gap-2">
+            <div className="min-w-0 flex-1">
               <promptFetcher.Form className="min-w-0 flex-1" method="post" ref={composerFormRef}>
                 <input name="intent" type="hidden" value="prompt" />
+                <input name="agent" type="hidden" value={selectedAgent ?? ""} />
                 <textarea
                   className="min-h-32 w-full border-l-2 border-black px-3 py-2 text-base leading-7"
                   name="text"
@@ -250,26 +269,37 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
                   value={composerText}
                 />
               </promptFetcher.Form>
-              <abortFetcher.Form method="post">
-                <input name="intent" type="hidden" value="abort" />
+            </div>
+            <div className="flex shrink-0 self-stretch flex-col items-stretch justify-between gap-1">
+              <PopupPicker
+                ariaLabel="Choose agent"
+                emptyLabel="Select agent"
+                onSelect={setSelectedAgent}
+                options={agents.map((agent) => ({ value: agent.name, label: agent.name }))}
+                selectedValue={selectedAgent}
+              />
+              <div className="flex items-end gap-2">
+                <abortFetcher.Form method="post">
+                  <input name="intent" type="hidden" value="abort" />
+                  <button
+                    aria-label="Stop current response"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
+                    disabled={isAbortPending || !isBusy}
+                    type="submit"
+                  >
+                    <Icon className="size-6" icon="mdi:stop-circle" />
+                  </button>
+                </abortFetcher.Form>
                 <button
-                  aria-label="Stop current response"
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
-                  disabled={isAbortPending || !isBusy}
-                  type="submit"
+                  aria-label="Send message"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center bg-black text-white disabled:opacity-25"
+                  disabled={isPromptPending}
+                  onClick={() => composerFormRef.current?.requestSubmit()}
+                  type="button"
                 >
-                  <Icon className="size-6" icon="mdi:stop-circle" />
+                  <Icon className="size-6" icon="mdi:send" />
                 </button>
-              </abortFetcher.Form>
-              <button
-                aria-label="Send message"
-                className="inline-flex min-h-11 min-w-11 items-center justify-center bg-black text-white disabled:opacity-25"
-                disabled={isPromptPending}
-                onClick={() => composerFormRef.current?.requestSubmit()}
-                type="button"
-              >
-                <Icon className="size-6" icon="mdi:send" />
-              </button>
+              </div>
             </div>
           </div>
         </div>
