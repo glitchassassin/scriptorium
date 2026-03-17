@@ -10,7 +10,7 @@ export const handle = {
 export default function SettingsRoute() {
   return (
     <ScrollableLayout>
-      <section className="space-y-4">
+      <section className="space-y-4 pt-6">
         <p className="px-6 text-sm uppercase tracking-[0.08em] sm:px-8">Sections</p>
         <Link
           className="block min-h-11 border-l-4 border-black px-3 py-2 text-base font-bold"

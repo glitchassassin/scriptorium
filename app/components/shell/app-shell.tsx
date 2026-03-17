@@ -5,27 +5,42 @@ import "@iconify-json/mdi";
 
 import { SidebarNav } from "~/components/shell/sidebar-nav";
 import type { SidebarInstanceRecord } from "~/lib/instances/sidebar";
-import type { RouteHandle } from "~/lib/route-handle";
+import type { RouteHandle, RouteHandleIconAction } from "~/lib/route-handle";
 
 type AppShellProps = {
   sidebarInstances: SidebarInstanceRecord[];
 };
 
+type RouteHandleKey = keyof Pick<RouteHandle, "title" | "iconNavActions">;
+type ResolvedHandleValueMap = {
+  title: string;
+  iconNavActions: RouteHandleIconAction[];
+};
+
+function getResolvedHandleValue<K extends RouteHandleKey>(
+  matches: ReturnType<typeof useMatches>,
+  key: K,
+): ResolvedHandleValueMap[K] | undefined {
+  const metadata = [...matches].reverse().find((match) => {
+    const handle = match.handle as RouteHandle | undefined;
+    return handle?.[key];
+  });
+  const handle = metadata?.handle as RouteHandle | undefined;
+  const value = handle?.[key];
+
+  if (typeof value === "function") {
+    return value({ data: metadata?.data, params: metadata?.params ?? {} }) as ResolvedHandleValueMap[K];
+  }
+
+  return value as ResolvedHandleValueMap[K] | undefined;
+}
+
 export function AppShell({ sidebarInstances }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const matches = useMatches();
-  const metadata = [...matches].reverse().find((match) => {
-    const handle = match.handle as RouteHandle | undefined;
-    return handle?.title || handle?.iconNavActions;
-  });
-  const handle = metadata?.handle as RouteHandle | undefined;
-  const title = typeof handle?.title === "function"
-    ? handle.title({ data: metadata?.data, params: metadata?.params ?? {} })
-    : handle?.title;
-  const iconNavActions = typeof handle?.iconNavActions === "function"
-    ? handle.iconNavActions({ data: metadata?.data, params: metadata?.params ?? {} })
-    : handle?.iconNavActions ?? [];
+  const title: string | undefined = getResolvedHandleValue(matches, "title");
+  const iconNavActions: RouteHandleIconAction[] = getResolvedHandleValue(matches, "iconNavActions") ?? [];
 
   const toggleIcon = isSidebarOpen ? "mdi:menu-open" : "mdi:menu";
 

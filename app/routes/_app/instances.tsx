@@ -85,7 +85,7 @@ function InstanceRow({ instance }: { instance: InstanceRecord }) {
 export default function InstancesRoute({ actionData, loaderData }: Route.ComponentProps) {
   return (
     <ScrollableLayout>
-      <section className="space-y-6">
+      <section className="space-y-6 pt-6">
         <p className="px-6 text-sm uppercase tracking-[0.08em] sm:px-8">Running workspaces</p>
         {actionData?.error ? <p className="text-base leading-6">{actionData.error}</p> : null}
         {loaderData.instances.length ? (

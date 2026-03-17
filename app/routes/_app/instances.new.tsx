@@ -64,7 +64,7 @@ export default function NewInstanceRoute({ actionData, loaderData }: Route.Compo
           </div>
         )}
       >
-        <section className="space-y-6">
+        <section className="space-y-6 pt-6">
           {actionData?.error ? <p className="text-base leading-6">{actionData.error}</p> : null}
           <FileExplorer
             initialPath={loaderData.initialDirectory}

@@ -109,7 +109,7 @@ function PasskeyRow({
 export default function SettingsPasskeysRoute({ actionData, loaderData }: Route.ComponentProps) {
   return (
     <ScrollableLayout>
-      <section className="space-y-6">
+      <section className="space-y-6 pt-6">
         <div className="space-y-2 px-6 sm:px-8">
           <p className="text-sm uppercase tracking-[0.08em]">Active devices</p>
           <p className="text-base leading-6">

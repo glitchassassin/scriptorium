@@ -15,7 +15,7 @@ export const handle = {
 export default function AppIndexRoute() {
   return (
     <ScrollableLayout>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 pt-6 md:grid-cols-2">
         <section className="space-y-3 border-t-2 border-black pt-4">
           <p className="px-6 text-sm uppercase tracking-[0.08em] sm:px-8">Auth status</p>
           <p className="text-base leading-6">
