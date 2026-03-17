@@ -81,7 +81,7 @@ export function SingleColumnFileList({
     <section className="space-y-3">
       {label ? <p className="text-sm uppercase tracking-[0.08em]">{label}</p> : null}
       {name ? <input name={name} type="hidden" value={formValue} /> : null}
-      <div className="border-l-2 border-black" role="listbox">
+      <div role="listbox">
         <ul className="space-y-1">
           {parentPath ? (
             <li>
