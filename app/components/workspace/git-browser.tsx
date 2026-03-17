@@ -1,10 +1,15 @@
-import { useSearchParams } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
+import { useSearchParams } from "react-router";
 
-import { CodeViewer } from "~/components/files/code-viewer";
+import { CodeViewerFrame } from "~/components/files/code-viewer/frame";
+import { LineBuilder } from "~/components/files/code-viewer/line-builder";
+import { LineSelectionLayer } from "~/components/files/code-viewer/line-selection-layer";
+import { CodeViewerRows } from "~/components/files/code-viewer/rows";
+import { ScrollIndicator } from "~/components/files/code-viewer/scroll-indicator";
 import { SingleColumnFileList } from "~/components/files/file-list";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
+import { formatLineReference } from "~/components/workspace/files-browser";
 import type {
   FileBrowserEntry,
   GitChangedFile,
@@ -16,6 +21,7 @@ import type {
 type GitBrowserProps = {
   changed: GitChangedFiles;
   git: GitStatusSummary;
+  onInsertReference?: (reference: string) => void;
   rootPath: string;
   selected: GitFileDiffResult | null;
   selectedError: string | null;
@@ -118,7 +124,15 @@ function GitListHeader({ git }: { git: GitStatusSummary }) {
   );
 }
 
-export function GitBrowser({ changed, git, rootPath, selected, selectedError, selectedPath }: GitBrowserProps) {
+export function GitBrowser({
+  changed,
+  git,
+  onInsertReference,
+  rootPath,
+  selected,
+  selectedError,
+  selectedPath,
+}: GitBrowserProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const entries = changed.isRepository ? toEntries(changed.files.map((file) => file.path)) : [];
 
@@ -153,13 +167,49 @@ export function GitBrowser({ changed, git, rootPath, selected, selectedError, se
         ) : selected?.isRepository && selected.binary ? (
           <p className="text-base leading-6">This file cannot be previewed as text.</p>
         ) : selected?.isRepository ? (
-          <CodeViewer
-            content={selected.content}
-            diffContent={selected.mode === "diff" ? selected.diffContent : undefined}
-            diffSide={selected.mode === "diff" ? selected.diffSide : undefined}
-            fileName={selectedPath}
-            mode={selected.mode === "diff" ? "diff" : "text"}
-          />
+          <CodeViewerFrame>
+            <LineBuilder
+              content={selected.content}
+              diffContent={selected.mode === "diff" ? selected.diffContent : undefined}
+              diffSide={selected.mode === "diff" ? selected.diffSide : undefined}
+              fileName={selectedPath}
+              mode={selected.mode === "diff" ? "diff" : "text"}
+            >
+              {({ changeMarkers, highlightedLines, lines }) => (
+                <ScrollIndicator changeMarkers={changeMarkers} mode={selected.mode === "diff" ? "diff" : "text"}>
+                  {({ indicator, scrollPaneRef }) => (
+                    <>
+                      <LineSelectionLayer
+                        key={selectedPath}
+                        onInsert={(range) => {
+                          if (!onInsertReference) {
+                            return;
+                          }
+
+                          onInsertReference(formatLineReference(selectedPath, range));
+                        }}
+                      >
+                        {({ onSelectLine, selectedRowRange }) => (
+                          <CodeViewerRows
+                            highlightedLines={highlightedLines}
+                            lines={lines}
+                            mode={selected.mode === "diff" ? "diff" : "text"}
+                            onSelectLine={onSelectLine}
+                            scrollPaneRef={scrollPaneRef}
+                            selectedRowRange={selectedRowRange ?? null}
+                            showDualGutters={selected.mode === "diff"}
+                            showLineNumbers={true}
+                            showDiffMarkers={true}
+                          />
+                        )}
+                      </LineSelectionLayer>
+                      {indicator}
+                    </>
+                  )}
+                </ScrollIndicator>
+              )}
+            </LineBuilder>
+          </CodeViewerFrame>
         ) : (
           <p className="text-base leading-6">No diff is available for this selection.</p>
         )}

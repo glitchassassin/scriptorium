@@ -1,19 +1,21 @@
-import type { LineKind, ViewLine } from "./types";
+import { cn } from "~/lib/cn";
+
+import type { CodeViewerLineSelection, LineKind, ViewLine } from "./types";
 
 function formatLineNumber(line: number | null) {
   return line === null ? "" : String(line);
 }
 
 function rowClassName(line: ViewLine) {
-  const classes = [
+  return cn(
     "grid min-w-full w-max items-center",
-    line.chunkStartTone === "addition" ? "border-t-2 border-t-[var(--color-accent-green)]" : "",
-    line.chunkStartTone === "deletion" ? "border-t-2 border-t-[var(--color-accent-red)]" : "",
-    line.chunkEndTone === "addition" ? "border-b-2 border-b-[var(--color-accent-green)]" : "",
-    line.chunkEndTone === "deletion" ? "border-b-2 border-b-[var(--color-accent-red)]" : "",
-  ];
-
-  return classes.filter(Boolean).join(" ");
+    {
+      "border-t-2 border-t-[var(--color-accent-green)]": line.chunkStartTone === "addition",
+      "border-t-2 border-t-[var(--color-accent-red)]": line.chunkStartTone === "deletion",
+      "border-b-2 border-b-[var(--color-accent-green)]": line.chunkEndTone === "addition",
+      "border-b-2 border-b-[var(--color-accent-red)]": line.chunkEndTone === "deletion",
+    },
+  );
 }
 
 function gutterClassName(kind: LineKind) {
@@ -31,7 +33,7 @@ function gutterClassName(kind: LineKind) {
 function gutterCellClassName(kind: LineKind, align: "center" | "right") {
   const alignment = align === "center" ? "justify-center" : "justify-end";
 
-  return `flex items-center ${alignment} self-stretch px-2 text-sm leading-6 ${gutterClassName(kind)}`;
+  return cn("flex h-full w-full items-center self-stretch px-2 text-sm leading-6", alignment, gutterClassName(kind));
 }
 
 function markerClassName(kind: LineKind) {
@@ -43,12 +45,28 @@ function markerClassName(kind: LineKind) {
 }
 
 function codeCellClassName(kind: LineKind) {
-  return `whitespace-pre px-2 ${kind === "deletion" ? "opacity-80" : ""}`;
+  return cn("whitespace-pre px-2", { "opacity-80": kind === "deletion" });
+}
+
+function selectionClassName(isSelectable: boolean, isSelected: boolean) {
+  return cn({
+    "bg-[color-mix(in_srgb,var(--color-accent-lemon)_28%,white)]": isSelected,
+    "cursor-pointer active:bg-[color-mix(in_srgb,var(--color-accent-sky)_14%,white)]": !isSelected && isSelectable,
+  });
+}
+
+function selectableGutterClassName(isSelectable: boolean) {
+  return cn({
+    "cursor-pointer active:bg-[color-mix(in_srgb,var(--color-accent-sky)_14%,white)]": isSelectable,
+  });
 }
 
 type CodeRowProps = {
   line: ViewLine;
+  isSelected: boolean;
   markup?: string | null;
+  onSelectLine?: (selection: CodeViewerLineSelection) => void;
+  rowIndex: number;
   showDualGutters: boolean;
   showLineNumbers: boolean;
   showMarkers: boolean;
@@ -57,35 +75,68 @@ type CodeRowProps = {
 
 export function CodeRow({
   line,
+  isSelected,
   markup,
+  onSelectLine,
+  rowIndex,
   showDualGutters,
   showLineNumbers,
   showMarkers,
   gridTemplateColumns,
 }: CodeRowProps) {
+  const isSelectable = Boolean(onSelectLine);
+  const className = cn(rowClassName(line), selectionClassName(isSelectable, isSelected));
+
+  function handleClick() {
+    if (!onSelectLine) {
+      return;
+    }
+
+    onSelectLine({ currentFileLine: line.currentFileLine, rowIndex });
+  }
+
   return (
-    <div className={rowClassName(line)} key={line.key} style={{ gridTemplateColumns }}>
+    <div
+      aria-selected={isSelected || undefined}
+      className={className}
+      key={line.key}
+      style={{ gridTemplateColumns }}
+    >
       {showDualGutters ? (
         <>
           {showMarkers ? (
             <span
               aria-hidden="true"
-              className={`${gutterCellClassName(line.kind, "center")} font-bold ${markerClassName(line.kind)}`}
+              className={cn(gutterCellClassName(line.kind, "center"), "font-bold", markerClassName(line.kind), selectableGutterClassName(isSelectable))}
+              onClick={handleClick}
             >
               {line.marker || " "}
             </span>
           ) : null}
-          <span aria-hidden="true" className={gutterCellClassName(line.kind, "right")}>
+          <span
+            aria-hidden="true"
+            className={cn(gutterCellClassName(line.kind, "right"), selectableGutterClassName(line.leftLine !== null && isSelectable))}
+            onClick={handleClick}
+          >
             {showLineNumbers ? formatLineNumber(line.leftLine) : ""}
           </span>
-          <span aria-hidden="true" className={gutterCellClassName(line.kind, "right")}>
+          <span
+            aria-hidden="true"
+            className={cn(gutterCellClassName(line.kind, "right"), selectableGutterClassName(line.rightLine !== null && isSelectable))}
+            onClick={handleClick}
+          >
             {showLineNumbers ? formatLineNumber(line.rightLine) : ""}
           </span>
         </>
       ) : (
         <span
           aria-hidden="true"
-          className={`pr-2 text-right text-sm leading-6 opacity-60 ${showLineNumbers ? "" : "sr-only"}`}
+          className={cn(
+            "flex h-full w-full items-center justify-end pr-2 text-right text-sm leading-6 opacity-60",
+            !showLineNumbers && "sr-only",
+            selectableGutterClassName(line.leftLine !== null && isSelectable),
+          )}
+          onClick={handleClick}
         >
           {formatLineNumber(showLineNumbers ? line.leftLine : null)}
         </span>

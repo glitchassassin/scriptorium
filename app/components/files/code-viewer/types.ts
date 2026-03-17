@@ -7,6 +7,7 @@ export type ViewLine = {
   key: string;
   kind: LineKind;
   content: string;
+  currentFileLine: number | null;
   leftLine: number | null;
   rightLine: number | null;
   marker: string;
@@ -20,6 +21,11 @@ export type ChangeMarker = {
   height: number;
 };
 
+export type CodeViewerLineSelection = {
+  currentFileLine: number | null;
+  rowIndex: number;
+};
+
 export type CodeViewerProps = {
   content: string;
   diffContent?: string;
@@ -27,6 +33,11 @@ export type CodeViewerProps = {
   fileName?: string;
   language?: string | null;
   mode?: ViewMode;
+  onSelectLine?: (selection: CodeViewerLineSelection) => void;
+  selectedRowRange?: {
+    start: number;
+    end: number;
+  } | null;
   showLineNumbers?: boolean;
   showDiffMarkers?: boolean;
   showScrollIndicator?: boolean;

@@ -117,6 +117,8 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   const abortFetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
   const composerFormRef = useRef<HTMLFormElement>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  const composerSelectionRef = useRef({ start: 0, end: 0 });
   const agents = useMemo<OpencodeAgent[]>(() => getSelectableAgents(initialAgents), [initialAgents]);
   const defaultAgent = useMemo<string | null>(() => getInitialAgent(initialMessages, initialAgents), [initialMessages, initialAgents]);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(defaultAgent);
@@ -151,8 +153,57 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
     if (promptFetcher.data?.ok && promptFetcher.data.intent === "prompt") {
       setComposerText("");
       setSessionError(null);
+      composerSelectionRef.current = { start: 0, end: 0 };
     }
   }, [promptFetcher.data]);
+
+  const updateComposerSelection = useCallback((target?: HTMLTextAreaElement | null) => {
+    const input = target ?? composerInputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    composerSelectionRef.current = {
+      start: input.selectionStart ?? 0,
+      end: input.selectionEnd ?? input.selectionStart ?? 0,
+    };
+  }, []);
+
+  const insertComposerReference = useCallback((reference: string) => {
+    let nextSelectionStart = 0;
+    let nextSelectionEnd = 0;
+
+    setComposerText((current) => {
+      const maxIndex = current.length;
+      const rawStart = composerSelectionRef.current.start;
+      const rawEnd = composerSelectionRef.current.end;
+      const start = Math.max(0, Math.min(rawStart, maxIndex));
+      const end = Math.max(start, Math.min(rawEnd, maxIndex));
+      const prefix = start > 0 && /\S/.test(current[start - 1] ?? "") ? " " : "";
+      const suffix = end === current.length || /\S/.test(current[end] ?? "") ? " " : "";
+      const insertion = `${prefix}${reference}${suffix}`;
+      const next = `${current.slice(0, start)}${insertion}${current.slice(end)}`;
+      const caret = start + insertion.length;
+
+      nextSelectionStart = caret;
+      nextSelectionEnd = caret;
+      composerSelectionRef.current = { start: caret, end: caret };
+      return next;
+    });
+
+    window.requestAnimationFrame(() => {
+      const input = composerInputRef.current;
+
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      input.setSelectionRange(nextSelectionStart, nextSelectionEnd);
+      composerSelectionRef.current = { start: nextSelectionStart, end: nextSelectionEnd };
+    });
+  }, []);
 
   const replyPermission = useCallback(
     async (requestId: string, reply: "once" | "always" | "reject") => {
@@ -266,8 +317,16 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
                   <textarea
                     className="min-h-32 w-full px-3 py-2 text-base leading-7"
                     name="text"
-                    onChange={(event) => setComposerText(event.currentTarget.value)}
+                    onBlur={(event) => updateComposerSelection(event.currentTarget)}
+                    onChange={(event) => {
+                      setComposerText(event.currentTarget.value);
+                      updateComposerSelection(event.currentTarget);
+                    }}
+                    onClick={(event) => updateComposerSelection(event.currentTarget)}
+                    onKeyUp={(event) => updateComposerSelection(event.currentTarget)}
+                    onSelect={(event) => updateComposerSelection(event.currentTarget)}
                     placeholder="Send a message to this session"
+                    ref={composerInputRef}
                     value={composerText}
                   />
                 </promptFetcher.Form>
@@ -311,6 +370,7 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
       <Outlet
         context={{
           instance,
+          insertComposerReference,
           messages,
           pendingPermissions,
           replyPermission,

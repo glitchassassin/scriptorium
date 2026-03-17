@@ -9,6 +9,7 @@ import type { RouteHandleIconAction } from "~/lib/route-handle";
 
 export type SessionRouteContext = {
   instance: InstanceRecord;
+  insertComposerReference: (reference: string) => void;
   messages: OpencodeMessageWithParts[];
   pendingPermissions: OpencodePermissionRequest[];
   replyPermission: (requestId: string, reply: "once" | "always" | "reject") => Promise<void>;

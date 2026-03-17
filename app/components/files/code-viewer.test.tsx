@@ -62,6 +62,27 @@ describe("CodeViewer", () => {
     expect(screen.getByText("const a = 1;")).toBeInTheDocument();
   });
 
+  it("calls line selection handlers with text line numbers", () => {
+    const onSelectLine = vi.fn();
+
+    render(<CodeViewer content={`alpha\nbeta\ngamma`} onSelectLine={onSelectLine} />);
+
+    fireEvent.click(screen.getByText("2"));
+
+    expect(onSelectLine).toHaveBeenCalledWith({
+      currentFileLine: 2,
+      rowIndex: 1,
+    });
+  });
+
+  it("marks every selected line in a range", () => {
+    render(<CodeViewer content={`alpha\nbeta\ngamma`} selectedRowRange={{ start: 1, end: 2 }} />);
+
+    expect(screen.getByText("beta").closest('[aria-selected="true"]')).toBeInTheDocument();
+    expect(screen.getByText("gamma").closest('[aria-selected="true"]')).toBeInTheDocument();
+    expect(screen.getByText("alpha").closest('[aria-selected="true"]')).not.toBeInTheDocument();
+  });
+
   it("renders unified diff mode with old and new line numbers", () => {
     render(
       <CodeViewer
@@ -75,6 +96,31 @@ describe("CodeViewer", () => {
     expect(screen.getByText("old")).toBeInTheDocument();
     expect(screen.getByText("shared")).toBeInTheDocument();
     expect(screen.getAllByText("1")).toHaveLength(2);
+  });
+
+  it("allows selecting from either diff line-number column", () => {
+    const onSelectLine = vi.fn();
+
+    render(
+      <CodeViewer
+        content={`new\nshared`}
+        diffContent={`@@ -1,2 +1,2 @@\n-old\n+new\n shared`}
+        mode="diff"
+        onSelectLine={onSelectLine}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByText("1")[0] as HTMLElement);
+    fireEvent.click(screen.getAllByText("1")[1] as HTMLElement);
+
+    expect(onSelectLine).toHaveBeenNthCalledWith(1, {
+      currentFileLine: 1,
+      rowIndex: 0,
+    });
+    expect(onSelectLine).toHaveBeenNthCalledWith(2, {
+      currentFileLine: 1,
+      rowIndex: 1,
+    });
   });
 
   it("renders deleted files against the old file as the canonical view", () => {

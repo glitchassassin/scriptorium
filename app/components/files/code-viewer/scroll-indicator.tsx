@@ -1,25 +1,23 @@
-import type { MouseEventHandler, PointerEventHandler, RefObject } from "react";
+import type { ReactNode } from "react";
 
+import { useScrollIndicator } from "~/components/files/code-viewer/use-scroll-indicator";
 import type { ChangeMarker, ViewMode } from "./types";
 
 type ScrollIndicatorProps = {
+  children: (props: { indicator: ReactNode; scrollPaneRef: ReturnType<typeof useScrollIndicator>["scrollPaneRef"] }) => ReactNode;
   mode: ViewMode;
   changeMarkers: ChangeMarker[];
-  indicatorRailRef: RefObject<HTMLButtonElement | null>;
-  indicatorThumbRef: RefObject<HTMLSpanElement | null>;
-  onRailClick: MouseEventHandler<HTMLButtonElement>;
-  onThumbPointerDown: PointerEventHandler<HTMLSpanElement>;
 };
 
 export function ScrollIndicator({
+  children,
   mode,
   changeMarkers,
-  indicatorRailRef,
-  indicatorThumbRef,
-  onRailClick,
-  onThumbPointerDown,
 }: ScrollIndicatorProps) {
-  return (
+  const { scrollPaneRef, indicatorRailRef, indicatorThumbRef, handleIndicatorClick, handleIndicatorThumbPointerDown } =
+    useScrollIndicator([changeMarkers]);
+
+  const indicator = (
     <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-10 pb-4">
       <button
         type="button"
@@ -27,7 +25,7 @@ export function ScrollIndicator({
         data-testid="code-viewer-scroll-indicator"
         className="pointer-events-auto relative h-full min-h-11 w-full p-0"
         aria-label="Scroll to a position in the file"
-        onClick={onRailClick}
+        onClick={handleIndicatorClick}
       >
         <span
           aria-hidden="true"
@@ -50,7 +48,7 @@ export function ScrollIndicator({
           ref={indicatorThumbRef}
           data-testid="code-viewer-scroll-thumb"
           className="absolute top-0 left-1/2 block w-8 -translate-x-1/2 cursor-grab touch-none active:cursor-grabbing"
-          onPointerDown={onThumbPointerDown}
+          onPointerDown={handleIndicatorThumbPointerDown}
         >
           <span
             aria-hidden="true"
@@ -60,4 +58,6 @@ export function ScrollIndicator({
       </button>
     </div>
   );
+
+  return children({ indicator, scrollPaneRef });
 }

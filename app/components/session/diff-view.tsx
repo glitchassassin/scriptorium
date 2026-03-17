@@ -30,6 +30,7 @@ export function DiffView({ diff, filePath }: DiffViewProps) {
           {lines.map((line, index) => (
             <CodeRow
               gridTemplateColumns="1.5rem 3.5rem 3.5rem minmax(0, 1fr)"
+              isSelected={false}
               key={`${line.kind}-${index}`}
               line={{
                 key: `${line.kind}-${index}`,
@@ -40,6 +41,7 @@ export function DiffView({ diff, filePath }: DiffViewProps) {
                       ? "deletion"
                       : "context",
                 content: line.content,
+                currentFileLine: line.newLine,
                 leftLine: line.oldLine,
                 rightLine: line.newLine,
                 marker: line.marker,
@@ -47,6 +49,7 @@ export function DiffView({ diff, filePath }: DiffViewProps) {
                 chunkEndTone: null,
               }}
               markup={highlightedLines?.[index] ?? null}
+              rowIndex={index}
               showDualGutters={true}
               showLineNumbers={true}
               showMarkers={true}

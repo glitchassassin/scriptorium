@@ -1,7 +1,10 @@
+import { useOutletContext } from "react-router";
+
+import { FilesBrowser } from "~/components/workspace/files-browser";
 import type { RouteHandle } from "~/lib/route-handle";
-import InstanceFilesRoute from "~/routes/_app/instances.$instanceId/files";
 import { loadInstanceFilesRouteData } from "~/routes/_app/instances.$instanceId/files.server";
 
+import { type SessionRouteContext } from "./+/session-route";
 import { sessionRouteTitle } from "./+/session-route";
 
 import type { Route } from "./+types/files";
@@ -16,4 +19,18 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return loadInstanceFilesRouteData({ instanceId, request });
 }
 
-export default InstanceFilesRoute;
+export default function SessionFilesRoute({ loaderData }: Route.ComponentProps) {
+  const { insertComposerReference } = useOutletContext<SessionRouteContext>();
+  const { instance, listing, selected, selectedError, selectedPath } = loaderData;
+
+  return (
+    <FilesBrowser
+      listing={listing}
+      onInsertReference={insertComposerReference}
+      rootPath={instance.directory}
+      selected={selected}
+      selectedError={selectedError}
+      selectedPath={selectedPath}
+    />
+  );
+}
