@@ -12,7 +12,7 @@ import { FileExplorer } from "~/routes/_rpc/files.browse";
 import type { Route } from "./+types/instances.new";
 
 export const handle = {
-  title: "New instance",
+  title: [{ label: "Instances", to: "/instances" }, { label: "New instance" }],
 } satisfies RouteHandle;
 
 export async function loader({ request }: Route.LoaderArgs) {

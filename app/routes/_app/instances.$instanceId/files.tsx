@@ -1,16 +1,16 @@
 import { FilesBrowser } from "~/components/workspace/files-browser";
 import type { RouteHandle } from "~/lib/route-handle";
 
+import { getInstanceBreadcrumbs } from "./+/instance-route";
 import { loadInstanceFilesRouteData } from "./files.server";
 
 import type { Route } from "./+types/files";
 
 export const handle = {
-  title: ({ data }: { data?: unknown }) => {
-    const instance = (data as { instance?: { name?: string } } | undefined)?.instance;
-    const title = instance?.name ?? "Instance";
-    return title === "Instance" ? "Files" : `${title} / files`;
-  },
+  title: ({ data, params }: { data?: unknown; params: Record<string, string | undefined> }) => [
+    ...getInstanceBreadcrumbs(data, params["instanceId"]),
+    { label: "files" },
+  ],
 } satisfies RouteHandle;
 
 export async function loader({ params, request }: Route.LoaderArgs) {

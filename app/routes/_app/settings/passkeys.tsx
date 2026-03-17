@@ -12,7 +12,7 @@ import type { RouteHandle } from "~/lib/route-handle";
 import type { Route } from "./+types/passkeys";
 
 export const handle = {
-  title: "Settings / Passkeys",
+  title: [{ label: "Settings", to: "/settings" }, { label: "Passkeys" }],
   iconNavActions: [
     {
       icon: "mdi:arrow-left",

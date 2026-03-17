@@ -34,12 +34,13 @@ import type {
 import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
 import type { RouteHandle } from "~/lib/route-handle";
 
-import { getSessionIconNavActions, sessionRouteTitle, type SessionRouteContext } from "./+/session-route";
+import { getSessionBreadcrumbs, getSessionIconNavActions, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/_layout";
 
 export const handle = {
-  title: ({ data }: { data?: unknown }) => sessionRouteTitle(data),
+  title: ({ data, params }: { data?: unknown; params: Record<string, string | undefined> }) =>
+    getSessionBreadcrumbs(data, params["instanceId"], params["sessionId"]),
   iconNavActions: ({ params }: { params: Record<string, string | undefined> }) => {
     const instanceId = params["instanceId"] ?? "";
     const sessionId = params["sessionId"] ?? "";

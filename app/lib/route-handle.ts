@@ -5,11 +5,27 @@ export type RouteHandleIconAction = {
   end?: boolean;
 };
 
-export type RouteHandleTitle = string | ((match: { data?: unknown; params: Record<string, string | undefined> }) => string);
+export type RouteBreadcrumb = {
+  label: string;
+  to?: string;
+};
+
+export type RouteHandleMatchContext = {
+  data?: unknown;
+  params: Record<string, string | undefined>;
+  matches: Array<{
+    data?: unknown;
+    params: Record<string, string | undefined>;
+  }>;
+};
+
+export type RouteHandleTitle =
+  | RouteBreadcrumb[]
+  | ((match: RouteHandleMatchContext) => RouteBreadcrumb[]);
 
 export type RouteHandleIconActions =
   | RouteHandleIconAction[]
-  | ((match: { data?: unknown; params: Record<string, string | undefined> }) => RouteHandleIconAction[]);
+  | ((match: RouteHandleMatchContext) => RouteHandleIconAction[]);
 
 export type RouteHandle = {
   title?: RouteHandleTitle;

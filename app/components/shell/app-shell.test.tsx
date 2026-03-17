@@ -42,20 +42,21 @@ describe("AppShell", () => {
         data: { instance: { name: "Workspace" }, session: { id: "session-1", title: "Planning" } },
         handle: {
           iconNavActions: getSessionIconNavActions("instance-1", "session-1"),
-          title: ({ data }: { data?: unknown }) => {
-            const routeData = data as { instance: { name: string }; session: { title: string } };
-            return `${routeData.instance.name} / ${routeData.session.title}`;
-          },
+          title: [
+            { label: "Workspace", to: "/instances/instance-1" },
+            { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
+          ],
         },
         params: { instanceId: "instance-1", sessionId: "session-1" },
       },
       {
         data: { instance: { name: "Workspace" }, session: { id: "session-1", title: "Planning" } },
         handle: {
-          title: ({ data }: { data?: unknown }) => {
-            const routeData = data as { instance: { name: string }; session: { title: string } };
-            return `${routeData.instance.name} / ${routeData.session.title} / git`;
-          },
+          title: [
+            { label: "Workspace", to: "/instances/instance-1" },
+            { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
+            { label: "git" },
+          ],
         },
         params: { instanceId: "instance-1", sessionId: "session-1" },
       },
@@ -72,5 +73,6 @@ describe("AppShell", () => {
       "href",
       "/instances/instance-1/sessions/session-1/git",
     );
+    expect(screen.queryByLabelText("Instance overview")).not.toBeInTheDocument();
   });
 });

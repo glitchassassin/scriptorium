@@ -5,7 +5,7 @@ import type {
   OpencodeSessionStatus,
 } from "~/lib/opencode/events";
 import type { InstanceRecord } from "~/lib/instances/types";
-import type { RouteHandleIconAction } from "~/lib/route-handle";
+import type { RouteBreadcrumb, RouteHandleIconAction } from "~/lib/route-handle";
 
 export type SessionRouteContext = {
   instance: InstanceRecord;
@@ -18,25 +18,40 @@ export type SessionRouteContext = {
   status: OpencodeSessionStatus;
 };
 
-export function sessionRouteTitle(data: unknown) {
+export function getSessionName(data: unknown) {
   const routeData = (data as { instance?: { name?: string }; session?: { title?: string; id?: string } } | undefined);
-  const instanceName = routeData?.instance?.name;
   const session = routeData?.session;
-  const sessionName = session?.title ?? session?.id?.slice(0, 12) ?? "Session";
+  return session?.title ?? session?.id?.slice(0, 12) ?? "Session";
+}
 
-  return instanceName ? `${instanceName} / ${sessionName}` : sessionName;
+export function getSessionDataFromMatches(matches: Array<{ data?: unknown }>) {
+  return matches
+    .map((match) => match.data)
+    .find((data) => {
+      const routeData = data as { session?: { title?: string; id?: string } } | undefined;
+      return Boolean(routeData?.session);
+    });
+}
+
+export function getSessionBreadcrumbs(data: unknown, instanceId?: string, sessionId?: string): RouteBreadcrumb[] {
+  const routeData = (data as { instance?: { name?: string } } | undefined);
+
+  return [
+    {
+      label: routeData?.instance?.name ?? "Instance",
+      ...(instanceId ? { to: `/instances/${instanceId}` } : {}),
+    },
+    {
+      label: getSessionName(data),
+      ...(instanceId && sessionId ? { to: `/instances/${instanceId}/sessions/${sessionId}` } : {}),
+    },
+  ];
 }
 
 export function getSessionIconNavActions(instanceId: string, sessionId: string): RouteHandleIconAction[] {
   const sessionPath = `/instances/${instanceId}/sessions/${sessionId}`;
 
   return [
-    {
-      icon: "mdi:view-dashboard-outline",
-      label: "Instance overview",
-      to: `/instances/${instanceId}`,
-      end: true,
-    },
     {
       icon: "mdi:message-outline",
       label: "Chat transcript",

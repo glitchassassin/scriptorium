@@ -4,7 +4,7 @@ import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import type { RouteHandle } from "~/lib/route-handle";
 
 export const handle = {
-  title: "Settings",
+  title: [{ label: "Settings" }],
 } satisfies RouteHandle;
 
 export default function SettingsRoute() {

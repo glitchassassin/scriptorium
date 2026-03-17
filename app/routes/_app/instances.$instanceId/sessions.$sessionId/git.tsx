@@ -4,13 +4,19 @@ import { GitBrowser } from "~/components/workspace/git-browser";
 import type { RouteHandle } from "~/lib/route-handle";
 import { loadInstanceGitRouteData } from "~/routes/_app/instances.$instanceId/git.server";
 
-import { type SessionRouteContext } from "./+/session-route";
-import { sessionRouteTitle } from "./+/session-route";
+import { getSessionBreadcrumbs, getSessionDataFromMatches, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/git";
 
 export const handle = {
-  title: ({ data }: { data?: unknown }) => `${sessionRouteTitle(data)} / git`,
+  title: ({ data, matches, params }) => [
+    ...getSessionBreadcrumbs(
+      getSessionDataFromMatches(matches) ?? data,
+      params["instanceId"],
+      params["sessionId"],
+    ),
+    { label: "git" },
+  ],
 } satisfies RouteHandle;
 
 export async function loader({ params, request }: Route.LoaderArgs) {

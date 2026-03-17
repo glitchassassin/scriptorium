@@ -5,7 +5,7 @@ import "@iconify-json/mdi";
 
 import { SidebarNav } from "~/components/shell/sidebar-nav";
 import type { SidebarInstanceRecord } from "~/lib/instances/sidebar";
-import type { RouteHandle, RouteHandleIconAction } from "~/lib/route-handle";
+import type { RouteBreadcrumb, RouteHandle, RouteHandleIconAction, RouteHandleMatchContext } from "~/lib/route-handle";
 
 type AppShellProps = {
   sidebarInstances: SidebarInstanceRecord[];
@@ -13,10 +13,9 @@ type AppShellProps = {
 
 type RouteHandleKey = keyof Pick<RouteHandle, "title" | "iconNavActions">;
 type ResolvedHandleValueMap = {
-  title: string;
+  title: RouteBreadcrumb[];
   iconNavActions: RouteHandleIconAction[];
 };
-
 function getResolvedHandleValue<K extends RouteHandleKey>(
   matches: ReturnType<typeof useMatches>,
   key: K,
@@ -29,7 +28,13 @@ function getResolvedHandleValue<K extends RouteHandleKey>(
   const value = handle?.[key];
 
   if (typeof value === "function") {
-    return value({ data: metadata?.data, params: metadata?.params ?? {} }) as ResolvedHandleValueMap[K];
+    const matchContext = {
+      data: metadata?.data,
+      params: metadata?.params ?? {},
+      matches: matches.map((match) => ({ data: match.data, params: match.params ?? {} })),
+    } satisfies RouteHandleMatchContext;
+
+    return value(matchContext) as ResolvedHandleValueMap[K];
   }
 
   return value as ResolvedHandleValueMap[K] | undefined;
@@ -39,7 +44,8 @@ export function AppShell({ sidebarInstances }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const matches = useMatches();
-  const title: string | undefined = getResolvedHandleValue(matches, "title");
+  const title: RouteBreadcrumb[] = getResolvedHandleValue(matches, "title") ?? [{ label: "Scriptorium" }];
+  const titleLabel = title.map((breadcrumb) => breadcrumb.label).join(" / ");
   const iconNavActions: RouteHandleIconAction[] = getResolvedHandleValue(matches, "iconNavActions") ?? [];
 
   const toggleIcon = isSidebarOpen ? "mdi:menu-open" : "mdi:menu";
@@ -127,8 +133,29 @@ export function AppShell({ sidebarInstances }: AppShellProps) {
           >
             <Icon className="size-6" icon={toggleIcon} />
           </button>
-          <div>
-            <h1 className="text-2xl font-bold">{title ?? "Scriptorium"}</h1>
+          <div className="min-w-0">
+            <h1 aria-label={titleLabel} className="overflow-hidden text-2xl font-bold">
+              <span
+                className="flex w-full min-w-0 items-center overflow-hidden whitespace-nowrap"
+                style={{ ["--count" as string]: title.length }}
+              >
+                {title.map((breadcrumb, index) => (
+                  <span
+                    className="flex flex-[1_1_0] items-center overflow-hidden min-w-[min(max-content,calc(100%/var(--count)))] max-w-max"
+                    key={`${breadcrumb.to ?? breadcrumb.label}-${index}`}
+                  >
+                    {index > 0 ? <span className="mx-2 shrink-0">/</span> : null}
+                    {breadcrumb.to ? (
+                      <NavLink className="block min-w-0 truncate" to={breadcrumb.to}>
+                        {breadcrumb.label}
+                      </NavLink>
+                    ) : (
+                      <span className="block min-w-0 truncate">{breadcrumb.label}</span>
+                    )}
+                  </span>
+                ))}
+              </span>
+            </h1>
           </div>
           <div className="flex items-center">
             {iconNavActions.map((action) => (

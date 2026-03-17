@@ -2,15 +2,13 @@ import { Outlet } from "react-router";
 
 import type { RouteHandle } from "~/lib/route-handle";
 
+import { getInstanceBreadcrumbs } from "./+/instance-route";
+
 import type { Route } from "./+types/_layout";
 
-function instanceRouteTitle(data: unknown) {
-  const instance = (data as { instance?: { name?: string } } | undefined)?.instance;
-  return instance?.name ?? "Instance";
-}
-
 export const handle = {
-  title: ({ data }: { data?: unknown }) => instanceRouteTitle(data),
+  title: ({ data, params }: { data?: unknown; params: Record<string, string | undefined> }) =>
+    getInstanceBreadcrumbs(data, params["instanceId"]),
   iconNavActions: ({ params }: { params: Record<string, string | undefined> }) => {
     const instanceId = params["instanceId"] ?? "";
 

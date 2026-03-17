@@ -2,7 +2,7 @@ import type { RouteHandle } from "~/lib/route-handle";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 
 export const handle = {
-  title: "Workspace",
+  title: [{ label: "Workspace" }],
   iconNavActions: [
     {
       icon: "mdi:server-outline",

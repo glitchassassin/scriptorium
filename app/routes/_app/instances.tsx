@@ -12,7 +12,7 @@ import type { RouteHandle } from "~/lib/route-handle";
 import type { Route } from "./+types/instances";
 
 export const handle = {
-  title: "Instances",
+  title: [{ label: "Instances" }],
   iconNavActions: [
     {
       icon: "mdi:plus",

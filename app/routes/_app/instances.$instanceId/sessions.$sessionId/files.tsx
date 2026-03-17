@@ -4,13 +4,19 @@ import { FilesBrowser } from "~/components/workspace/files-browser";
 import type { RouteHandle } from "~/lib/route-handle";
 import { loadInstanceFilesRouteData } from "~/routes/_app/instances.$instanceId/files.server";
 
-import { type SessionRouteContext } from "./+/session-route";
-import { sessionRouteTitle } from "./+/session-route";
+import { getSessionBreadcrumbs, getSessionDataFromMatches, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/files";
 
 export const handle = {
-  title: ({ data }: { data?: unknown }) => `${sessionRouteTitle(data)} / files`,
+  title: ({ data, matches, params }) => [
+    ...getSessionBreadcrumbs(
+      getSessionDataFromMatches(matches) ?? data,
+      params["instanceId"],
+      params["sessionId"],
+    ),
+    { label: "files" },
+  ],
 } satisfies RouteHandle;
 
 export async function loader({ params, request }: Route.LoaderArgs) {
