@@ -252,53 +252,55 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   return (
     <ScrollableLayout
       footer={
-        <div className="space-y-3 pt-4">
-          {promptError ? <p className="text-base leading-6">{promptError}</p> : null}
-          {abortError ? <p className="text-base leading-6">{abortError}</p> : null}
-          {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
-          <div className="flex items-stretch gap-2">
-            <div className="min-w-0 flex-1">
-              <promptFetcher.Form className="min-w-0 flex-1" method="post" ref={composerFormRef}>
-                <input name="intent" type="hidden" value="prompt" />
-                <input name="agent" type="hidden" value={selectedAgent ?? ""} />
-                <textarea
-                  className="min-h-32 w-full border-l-2 border-black px-3 py-2 text-base leading-7"
-                  name="text"
-                  onChange={(event) => setComposerText(event.currentTarget.value)}
-                  placeholder="Send a message to this session"
-                  value={composerText}
+        <div className="border-t-2 border-black px-6 py-4 sm:px-8">
+          <div className="space-y-3">
+            {promptError ? <p className="text-base leading-6">{promptError}</p> : null}
+            {abortError ? <p className="text-base leading-6">{abortError}</p> : null}
+            {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
+            <div className="flex items-stretch gap-2">
+              <div className="min-w-0 flex-1">
+                <promptFetcher.Form className="min-w-0 flex-1" method="post" ref={composerFormRef}>
+                  <input name="intent" type="hidden" value="prompt" />
+                  <input name="agent" type="hidden" value={selectedAgent ?? ""} />
+                  <textarea
+                    className="min-h-32 w-full px-3 py-2 text-base leading-7"
+                    name="text"
+                    onChange={(event) => setComposerText(event.currentTarget.value)}
+                    placeholder="Send a message to this session"
+                    value={composerText}
+                  />
+                </promptFetcher.Form>
+              </div>
+              <div className="flex shrink-0 self-stretch flex-col items-stretch justify-between gap-1">
+                <PopupPicker
+                  ariaLabel="Choose agent"
+                  emptyLabel="Select agent"
+                  onSelect={setSelectedAgent}
+                  options={agents.map((agent) => ({ value: agent.name, label: agent.name }))}
+                  selectedValue={selectedAgent}
                 />
-              </promptFetcher.Form>
-            </div>
-            <div className="flex shrink-0 self-stretch flex-col items-stretch justify-between gap-1">
-              <PopupPicker
-                ariaLabel="Choose agent"
-                emptyLabel="Select agent"
-                onSelect={setSelectedAgent}
-                options={agents.map((agent) => ({ value: agent.name, label: agent.name }))}
-                selectedValue={selectedAgent}
-              />
-              <div className="flex items-end gap-2">
-                <abortFetcher.Form method="post">
-                  <input name="intent" type="hidden" value="abort" />
+                <div className="flex items-end gap-2">
+                  <abortFetcher.Form method="post">
+                    <input name="intent" type="hidden" value="abort" />
+                    <button
+                      aria-label="Stop current response"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
+                      disabled={isAbortPending || !isBusy}
+                      type="submit"
+                    >
+                      <Icon className="size-6" icon="mdi:stop-circle" />
+                    </button>
+                  </abortFetcher.Form>
                   <button
-                    aria-label="Stop current response"
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
-                    disabled={isAbortPending || !isBusy}
-                    type="submit"
+                    aria-label="Send message"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center bg-black text-white disabled:opacity-25"
+                    disabled={isPromptPending}
+                    onClick={() => composerFormRef.current?.requestSubmit()}
+                    type="button"
                   >
-                    <Icon className="size-6" icon="mdi:stop-circle" />
+                    <Icon className="size-6" icon="mdi:send" />
                   </button>
-                </abortFetcher.Form>
-                <button
-                  aria-label="Send message"
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center bg-black text-white disabled:opacity-25"
-                  disabled={isPromptPending}
-                  onClick={() => composerFormRef.current?.requestSubmit()}
-                  type="button"
-                >
-                  <Icon className="size-6" icon="mdi:send" />
-                </button>
+                </div>
               </div>
             </div>
           </div>

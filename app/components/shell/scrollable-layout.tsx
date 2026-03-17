@@ -13,7 +13,7 @@ export function ScrollableLayout({ children, footer, header }: ScrollableLayoutP
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {children}
       </div>
-      {footer ? <footer className="mt-auto px-6 py-4 sm:px-8">{footer}</footer> : null}
+      {footer ? <footer className="mt-auto">{footer}</footer> : null}
     </div>
   );
 }
