@@ -251,6 +251,7 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
 
   return (
     <ScrollableLayout
+      stickToBottom
       footer={
         <div className="border-t-2 border-black px-6 py-4 sm:px-8">
           <div className="space-y-3">

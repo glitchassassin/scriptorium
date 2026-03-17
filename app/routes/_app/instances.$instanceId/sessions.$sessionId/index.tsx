@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { useOutletContext } from "react-router";
 
 import { MessageCard } from "~/components/session/message-card";
@@ -16,20 +15,6 @@ function statusDescription(status: SessionRouteContext["status"]) {
 
 export default function InstanceSessionTranscriptRoute() {
   const { messages, pendingPermissions, replyPermission, status } = useOutletContext<SessionRouteContext>();
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const hasLoadedSessionRef = useRef(false);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({
-        behavior: hasLoadedSessionRef.current ? "smooth" : "auto",
-        block: "end",
-      });
-      hasLoadedSessionRef.current = true;
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [messages, pendingPermissions.length, status.type]);
 
   return (
     <section className="space-y-6 pr-1">
@@ -47,7 +32,6 @@ export default function InstanceSessionTranscriptRoute() {
           <PermissionCard messages={messages} onReply={replyPermission} permissions={pendingPermissions} />
         </section>
       )}
-      <div ref={bottomRef} />
     </section>
   );
 }
