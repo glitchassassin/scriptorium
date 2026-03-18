@@ -33,7 +33,7 @@ function gutterClassName(kind: LineKind) {
 function gutterCellClassName(kind: LineKind, align: "center" | "right") {
   const alignment = align === "center" ? "justify-center" : "justify-end";
 
-  return cn("flex h-full w-full items-center self-stretch px-2 text-sm leading-6", alignment, gutterClassName(kind));
+  return cn("select-none flex h-full w-full items-center self-stretch px-2 text-sm leading-6", alignment, gutterClassName(kind));
 }
 
 function markerClassName(kind: LineKind) {
@@ -132,7 +132,7 @@ export function CodeRow({
         <span
           aria-hidden="true"
           className={cn(
-            "flex h-full w-full items-center justify-end pr-2 text-right text-sm leading-6 opacity-60",
+            "select-none flex h-full w-full items-center justify-end pr-2 text-right text-sm leading-6 opacity-60",
             !showLineNumbers && "sr-only",
             selectableGutterClassName(line.leftLine !== null && isSelectable),
           )}

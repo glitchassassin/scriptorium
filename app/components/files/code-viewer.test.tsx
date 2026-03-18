@@ -75,6 +75,13 @@ describe("CodeViewer", () => {
     });
   });
 
+  it("marks the line-number gutter as non-selectable", () => {
+    render(<CodeViewer content={`alpha\nbeta`} />);
+
+    expect(screen.getByText("1").className).toContain("select-none");
+    expect(screen.getByText("2").className).toContain("select-none");
+  });
+
   it("marks every selected line in a range", () => {
     render(<CodeViewer content={`alpha\nbeta\ngamma`} selectedRowRange={{ start: 1, end: 2 }} />);
 
