@@ -5,7 +5,6 @@ import "@iconify-json/mdi";
 
 import { useInstanceEvents } from "~/components/events/instance-events-provider";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
-import { PopupPicker } from "~/components/ui/popup-picker";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import {
   abortOpencodeSession,
@@ -30,13 +29,13 @@ import {
   upsertMessagePart,
 } from "~/lib/opencode/message-state";
 import type {
-    OpencodeMessageWithParts,
-    OpencodeAgent,
-    OpencodePermissionRequest,
-    OpencodeSessionInfo,
-    OpencodeSessionStatus,
+  OpencodeMessageWithParts,
+  OpencodeAgent,
+  OpencodePermissionRequest,
+  OpencodeSessionInfo,
+  OpencodeSessionStatus,
 } from "~/lib/opencode/events";
-import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
+import { getInitialAgent, getNextAgent, getSelectableAgents } from "~/lib/opencode/agents";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 
@@ -343,6 +342,10 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
     });
   }, []);
 
+  const cycleAgent = useCallback(() => {
+    setSelectedAgent((current) => getNextAgent(current, agents));
+  }, [agents]);
+
   const submitPrompt = useCallback(() => {
     const formData = new FormData();
     formData.set("intent", "prompt");
@@ -559,13 +562,16 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
                 </promptFetcher.Form>
               </div>
               <div className="flex shrink-0 self-stretch flex-col items-stretch justify-between gap-1">
-                <PopupPicker
-                  ariaLabel="Choose agent"
-                  emptyLabel="Select agent"
-                  onSelect={setSelectedAgent}
-                  options={agents.map((agent) => ({ value: agent.name, label: agent.name }))}
-                  selectedValue={selectedAgent}
-                />
+                <button
+                  aria-label="Cycle agent"
+                  className="min-h-11 bg-white px-3 py-2 text-left text-sm leading-5 disabled:opacity-25"
+                  disabled={!agents.length}
+                  onClick={cycleAgent}
+                  onPointerDown={(event) => event.preventDefault()}
+                  type="button"
+                >
+                  {selectedAgent ?? "No agent"}
+                </button>
                 <div className="flex items-end gap-2">
                   <button
                     aria-label="Attach image"
@@ -582,6 +588,7 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
                       aria-label="Stop current response"
                       className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
                       disabled={isAbortPending || !isBusy}
+                      onPointerDown={(event) => event.preventDefault()}
                       type="submit"
                     >
                       <Icon className="size-6" icon="mdi:stop-circle" />
@@ -592,6 +599,7 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
                     className="inline-flex min-h-11 min-w-11 items-center justify-center bg-black text-white disabled:opacity-25"
                     disabled={isPromptPending}
                     onClick={submitPrompt}
+                    onPointerDown={(event) => event.preventDefault()}
                     type="button"
                   >
                     <Icon className="size-6" icon="mdi:send" />

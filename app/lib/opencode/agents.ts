@@ -6,6 +6,22 @@ export function getSelectableAgents(agents: OpencodeAgent[]): OpencodeAgent[] {
   return agents.filter(isSelectable);
 }
 
+export function getNextAgent(current: string | null, agents: OpencodeAgent[]): string | null {
+  const selectable = getSelectableAgents(agents);
+
+  if (!selectable.length) {
+    return null;
+  }
+
+  const currentIndex = selectable.findIndex((agent) => agent.name === current);
+
+  if (currentIndex < 0) {
+    return selectable[0].name;
+  }
+
+  return selectable[(currentIndex + 1) % selectable.length].name;
+}
+
 export function getInitialAgent(messages: OpencodeMessageWithParts[], agents: OpencodeAgent[]): string | null {
   const selectable = getSelectableAgents(agents);
   if (!selectable.length) {

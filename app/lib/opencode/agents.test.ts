@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { OpencodeMessageWithParts } from "~/lib/opencode/events";
-import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
+import { getInitialAgent, getNextAgent, getSelectableAgents } from "~/lib/opencode/agents";
 
 function createUserMessage(id: string, createdAt: number, agent?: string): OpencodeMessageWithParts {
   return {
@@ -44,6 +44,27 @@ describe("opencode agent helpers", () => {
     expect(getInitialAgent(messages, agents)).toBe("analysis");
   });
 
+  it("cycles to the next selectable agent", () => {
+    const agents = [
+      { name: "analysis", mode: "primary" as const },
+      { name: "draft", mode: "subagent" as const },
+      { name: "copilot", mode: "all" as const },
+    ];
+
+    expect(getNextAgent("analysis", agents)).toBe("copilot");
+    expect(getNextAgent("copilot", agents)).toBe("analysis");
+  });
+
+  it("starts at the first selectable agent when current is not usable", () => {
+    const agents = [
+      { name: "analysis", mode: "primary" as const },
+      { name: "copilot", mode: "all" as const },
+    ];
+
+    expect(getNextAgent(null, agents)).toBe("analysis");
+    expect(getNextAgent("draft", agents)).toBe("analysis");
+  });
+
   it("falls back to the primary selectable agent when history is not usable", () => {
     const agents = [
       { name: "compaction", mode: "primary" as const, hidden: true },
@@ -82,5 +103,6 @@ describe("opencode agent helpers", () => {
     const messages: OpencodeMessageWithParts[] = [createUserMessage("m-1", 100, "draft")];
 
     expect(getInitialAgent(messages, agents)).toBeNull();
+    expect(getNextAgent("draft", agents)).toBeNull();
   });
 });
