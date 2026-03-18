@@ -90,33 +90,35 @@ describe("GitBrowser", () => {
   it("shows bold previous and next file buttons in the selected diff header", () => {
     renderGitBrowser();
 
-    expect(screen.getByRole("button", { name: /previous changed file/i })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /next changed file/i })).toBeEnabled();
+    expect(screen.getByRole("link", { name: /previous changed file/i })).toHaveAttribute("href", "/git?path=src%2Falpha.ts");
+    expect(screen.getByRole("link", { name: /next changed file/i })).toHaveAttribute("href", "/git?path=src%2Fgamma.ts");
   });
 
   it("disables previous navigation for the first changed file", () => {
     renderGitBrowser("/git?path=src/alpha.ts");
 
-    expect(screen.getByRole("button", { name: /previous changed file/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /next changed file/i })).toBeEnabled();
+    expect(screen.queryByRole("link", { name: /previous changed file/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/previous changed file/i)).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("link", { name: /next changed file/i })).toHaveAttribute("href", "/git?path=src%2Fbeta.ts");
   });
 
   it("disables next navigation for the last changed file", () => {
     renderGitBrowser("/git?path=src/gamma.ts");
 
-    expect(screen.getByRole("button", { name: /previous changed file/i })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /next changed file/i })).toBeDisabled();
+    expect(screen.getByRole("link", { name: /previous changed file/i })).toHaveAttribute("href", "/git?path=src%2Fbeta.ts");
+    expect(screen.queryByRole("link", { name: /next changed file/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/next changed file/i)).toHaveAttribute("aria-disabled", "true");
   });
 
   it("navigates between changed files without returning to the list", () => {
     const { router } = renderGitBrowser();
 
-    fireEvent.click(screen.getByRole("button", { name: /next changed file/i }));
+    fireEvent.click(screen.getByRole("link", { name: /next changed file/i }));
 
     expect(router.state.location.search).toBe("?path=src%2Fgamma.ts");
     expect(screen.getByText("src/gamma.ts")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /previous changed file/i }));
+    fireEvent.click(screen.getByRole("link", { name: /previous changed file/i }));
 
     expect(router.state.location.search).toBe("?path=src%2Fbeta.ts");
     expect(screen.getByText("src/beta.ts")).toBeInTheDocument();

@@ -1,6 +1,6 @@
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { CodeViewerFrame } from "~/components/files/code-viewer/frame";
 import { LineBuilder } from "~/components/files/code-viewer/line-builder";
@@ -65,19 +65,15 @@ function statusLabel(path: string, files: GitChangedFile[]) {
 }
 
 function GitSelectionHeader({
-  canGoNext,
-  canGoPrevious,
   label,
   onBack,
-  onNext,
-  onPrevious,
+  nextUrl,
+  previousUrl,
 }: {
-  canGoNext: boolean;
-  canGoPrevious: boolean;
   label: string;
   onBack: () => void;
-  onNext: () => void;
-  onPrevious: () => void;
+  nextUrl: string | null;
+  previousUrl: string | null;
 }) {
   return (
     <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
@@ -91,24 +87,40 @@ function GitSelectionHeader({
       </button>
       <p className="text-base font-bold break-all">{label}</p>
       <div className="flex items-center gap-0">
-        <button
-          aria-label="Previous changed file"
-          className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
-          disabled={!canGoPrevious}
-          onClick={onPrevious}
-          type="button"
-        >
-          <Icon className="size-5" icon="mdi:arrow-up-bold" />
-        </button>
-        <button
-          aria-label="Next changed file"
-          className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
-          disabled={!canGoNext}
-          onClick={onNext}
-          type="button"
-        >
-          <Icon className="size-5" icon="mdi:arrow-down-bold" />
-        </button>
+        {previousUrl ? (
+          <Link
+            aria-label="Previous changed file"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center"
+            to={previousUrl}
+          >
+            <Icon className="size-5" icon="mdi:arrow-up-bold" />
+          </Link>
+        ) : (
+          <span
+            aria-disabled="true"
+            aria-label="Previous changed file"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-25"
+          >
+            <Icon className="size-5" icon="mdi:arrow-up-bold" />
+          </span>
+        )}
+        {nextUrl ? (
+          <Link
+            aria-label="Next changed file"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center"
+            to={nextUrl}
+          >
+            <Icon className="size-5" icon="mdi:arrow-down-bold" />
+          </Link>
+        ) : (
+          <span
+            aria-disabled="true"
+            aria-label="Next changed file"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-25"
+          >
+            <Icon className="size-5" icon="mdi:arrow-down-bold" />
+          </span>
+        )}
       </div>
     </div>
   );
@@ -168,6 +180,19 @@ export function GitBrowser({
   const previousPath = selectedIndex > 0 ? changedPaths[selectedIndex - 1] : null;
   const nextPath = selectedIndex >= 0 && selectedIndex < changedPaths.length - 1 ? changedPaths[selectedIndex + 1] : null;
 
+  function buildSelectionUrl(path: string | null) {
+    const next = new URLSearchParams(searchParams);
+
+    if (path) {
+      next.set("path", path);
+    } else {
+      next.delete("path");
+    }
+
+    const query = next.toString();
+    return query ? `?${query}` : "";
+  }
+
   function handleSelection(path: string | null) {
     const next = new URLSearchParams(searchParams);
 
@@ -189,20 +214,10 @@ export function GitBrowser({
       <ScrollableLayout
         header={
           <GitSelectionHeader
-            canGoNext={nextPath !== null}
-            canGoPrevious={previousPath !== null}
             label={selected?.isRepository && selected.oldPath ? `${selected.oldPath} -> ${selectedPath}` : selectedPath}
+            nextUrl={nextPath ? buildSelectionUrl(nextPath) : null}
             onBack={clearSelection}
-            onNext={() => {
-              if (nextPath) {
-                handleSelection(nextPath);
-              }
-            }}
-            onPrevious={() => {
-              if (previousPath) {
-                handleSelection(previousPath);
-              }
-            }}
+            previousUrl={previousPath ? buildSelectionUrl(previousPath) : null}
           />
         }
       >
