@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import { MessageCard } from "~/components/session/message-card";
 
 describe("MessageCard", () => {
-  it("hides synthetic and attachment-expanded user content", () => {
-    const { container } = render(
+  it("renders user image attachments even without visible text", () => {
+    render(
       <MessageCard
         message={{
           info: {
@@ -28,15 +28,16 @@ describe("MessageCard", () => {
               sessionID: "session-1",
               messageID: "message-1",
               type: "file",
-              mime: "text/plain",
-              url: "file:///tmp/example.txt",
+              filename: "pasted.png",
+              mime: "image/png",
+              url: "data:image/png;base64,ZmFrZQ==",
             },
           ],
         }}
       />,
     );
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByAltText("pasted.png")).toBeInTheDocument();
   });
 
   it("renders only real user text content", () => {
@@ -71,7 +72,7 @@ describe("MessageCard", () => {
     );
 
     expect(screen.getByText("Please inspect this file")).toBeInTheDocument();
-    expect(screen.queryByText(/File attachment/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/File attachment/i)).toBeInTheDocument();
   });
 
   it("renders assistant tool content", () => {

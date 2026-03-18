@@ -44,6 +44,16 @@ import { getSessionBreadcrumbs, getSessionIconNavActions, type SessionRouteConte
 
 import type { Route } from "./+types/_layout";
 
+type DraftImage = {
+  id: string;
+  file: File;
+  preview: string;
+};
+
+function isImage(file: File) {
+  return file.type.startsWith("image/");
+}
+
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   title: ({ data, params }) =>
     getSessionBreadcrumbs({
@@ -94,16 +104,33 @@ export async function action({ params, request }: Route.ActionArgs) {
   const intent = String(formData.get("intent") ?? "").trim();
 
   if (intent === "prompt") {
-    const text = String(formData.get("text") ?? "").trim();
+    const rawText = String(formData.get("text") ?? "");
+    const text = rawText.trim();
+    const files = formData
+      .getAll("attachments")
+      .filter((value): value is File => value instanceof File && value.size > 0 && value.type.startsWith("image/"));
 
-    if (!text) {
+    const attachments = await Promise.all(
+      files.map(async (file) => ({
+        type: "file" as const,
+        filename: file.name || undefined,
+        mime: file.type,
+        url: `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`,
+      })),
+    );
+
+    if (!text && attachments.length === 0) {
       return data({ error: "Enter a message before sending.", intent, ok: false }, { status: 400 });
     }
 
     const agent = String(formData.get("agent") ?? "").trim();
+    const parts = [
+      ...(text ? [{ type: "text" as const, text: rawText }] : []),
+      ...attachments,
+    ];
 
     await submitOpencodePrompt(instance, sessionId, {
-      text,
+      parts,
       ...(agent ? { agent } : {}),
     });
 
@@ -168,12 +195,15 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   const promptFetcher = useFetcher<typeof action>();
   const abortFetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
-  const composerFormRef = useRef<HTMLFormElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const composerSelectionRef = useRef({ start: 0, end: 0 });
+  const imageIdRef = useRef(0);
+  const imagesRef = useRef<DraftImage[]>([]);
   const agents = useMemo<OpencodeAgent[]>(() => getSelectableAgents(initialAgents), [initialAgents]);
   const defaultAgent = useMemo<string | null>(() => getInitialAgent(initialMessages, initialAgents), [initialMessages, initialAgents]);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(defaultAgent);
+  const [images, setImages] = useState<DraftImage[]>([]);
   const eventTypes = useMemo(
     () => [
       "message.updated",
@@ -215,10 +245,25 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   useEffect(() => {
     if (promptFetcher.data?.ok && promptFetcher.data.intent === "prompt") {
       setComposerText("");
+      setImages((current) => {
+        current.forEach((image) => URL.revokeObjectURL(image.preview));
+        return [];
+      });
       setSessionError(null);
       composerSelectionRef.current = { start: 0, end: 0 };
     }
   }, [promptFetcher.data]);
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
+  useEffect(
+    () => () => {
+      imagesRef.current.forEach((image) => URL.revokeObjectURL(image.preview));
+    },
+    [],
+  );
 
   const updateComposerSelection = useCallback((target?: HTMLTextAreaElement | null) => {
     const input = target ?? composerInputRef.current;
@@ -267,6 +312,45 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
       composerSelectionRef.current = { start: nextSelectionStart, end: nextSelectionEnd };
     });
   }, []);
+
+  const addImages = useCallback(async (items: FileList | File[]) => {
+    const files = Array.from(items).filter(isImage);
+
+    if (files.length === 0) {
+      return;
+    }
+
+    const next = await Promise.all(
+      files.map(async (file) => ({
+        id: `image-${imageIdRef.current++}`,
+        file,
+        preview: URL.createObjectURL(file),
+      })),
+    );
+
+    setImages((current) => [...current, ...next]);
+  }, []);
+
+  const removeImage = useCallback((id: string) => {
+    setImages((current) => {
+      const match = current.find((image) => image.id === id);
+
+      if (match) {
+        URL.revokeObjectURL(match.preview);
+      }
+
+      return current.filter((image) => image.id !== id);
+    });
+  }, []);
+
+  const submitPrompt = useCallback(() => {
+    const formData = new FormData();
+    formData.set("intent", "prompt");
+    formData.set("agent", selectedAgent ?? "");
+    formData.set("text", composerText);
+    images.forEach((image) => formData.append("attachments", image.file, image.file.name));
+    promptFetcher.submit(formData, { method: "post", encType: "multipart/form-data" });
+  }, [composerText, images, promptFetcher, selectedAgent]);
 
   useEffect(() => {
     if (!prefilledPrompt) {
@@ -398,9 +482,40 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
             {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
             <div className="flex items-stretch gap-2">
               <div className="min-w-0 flex-1">
-                <promptFetcher.Form className="min-w-0 flex-1" method="post" ref={composerFormRef}>
+                <promptFetcher.Form className="min-w-0 flex-1" method="post" onSubmit={(event) => event.preventDefault()}>
                   <input name="intent" type="hidden" value="prompt" />
                   <input name="agent" type="hidden" value={selectedAgent ?? ""} />
+                  <input
+                    accept="image/*"
+                    className="hidden"
+                    multiple
+                    onChange={(event) => {
+                      if (event.currentTarget.files) {
+                        void addImages(event.currentTarget.files);
+                      }
+
+                      event.currentTarget.value = "";
+                    }}
+                    ref={imageInputRef}
+                    type="file"
+                  />
+                  {images.length ? (
+                    <div className="flex flex-wrap gap-2 border-b-2 border-black px-3 py-3">
+                      {images.map((image) => (
+                        <div key={image.id} className="relative size-20 overflow-hidden border-2 border-black bg-white">
+                          <img alt={image.file.name} className="size-full object-cover" src={image.preview} />
+                          <button
+                            aria-label={`Remove ${image.file.name}`}
+                            className="absolute right-1 top-1 inline-flex size-6 items-center justify-center border-2 border-black bg-white"
+                            onClick={() => removeImage(image.id)}
+                            type="button"
+                          >
+                            <Icon className="size-4" icon="mdi:close" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   <textarea
                     className="min-h-32 w-full px-3 py-2 text-base leading-7"
                     name="text"
@@ -411,8 +526,33 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
                     }}
                     onClick={(event) => updateComposerSelection(event.currentTarget)}
                     onKeyUp={(event) => updateComposerSelection(event.currentTarget)}
+                    onPaste={(event) => {
+                      const files = Array.from(event.clipboardData.files ?? []).filter(isImage);
+
+                      if (files.length === 0) {
+                        return;
+                      }
+
+                      event.preventDefault();
+                      void addImages(files);
+                    }}
+                    onDragOver={(event) => {
+                      if (Array.from(event.dataTransfer?.files ?? []).some(isImage)) {
+                        event.preventDefault();
+                      }
+                    }}
+                    onDrop={(event) => {
+                      const files = Array.from(event.dataTransfer.files ?? []).filter(isImage);
+
+                      if (files.length === 0) {
+                        return;
+                      }
+
+                      event.preventDefault();
+                      void addImages(files);
+                    }}
                     onSelect={(event) => updateComposerSelection(event.currentTarget)}
-                    placeholder="Send a message to this session"
+                    placeholder="Send a message, paste an image, or attach one"
                     ref={composerInputRef}
                     value={composerText}
                   />
@@ -427,6 +567,15 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
                   selectedValue={selectedAgent}
                 />
                 <div className="flex items-end gap-2">
+                  <button
+                    aria-label="Attach image"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center bg-white disabled:opacity-25"
+                    disabled={isPromptPending}
+                    onClick={() => imageInputRef.current?.click()}
+                    type="button"
+                  >
+                    <Icon className="size-6" icon="mdi:image-plus" />
+                  </button>
                   <abortFetcher.Form method="post">
                     <input name="intent" type="hidden" value="abort" />
                     <button
@@ -442,7 +591,7 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
                     aria-label="Send message"
                     className="inline-flex min-h-11 min-w-11 items-center justify-center bg-black text-white disabled:opacity-25"
                     disabled={isPromptPending}
-                    onClick={() => composerFormRef.current?.requestSubmit()}
+                    onClick={submitPrompt}
                     type="button"
                   >
                     <Icon className="size-6" icon="mdi:send" />

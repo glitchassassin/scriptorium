@@ -5,7 +5,7 @@ import { MessagePartView } from "~/components/session/message-part-view";
 import type { OpencodeMessagePart } from "~/lib/opencode/events";
 
 describe("MessagePartView", () => {
-  it("hides user tool and file parts", () => {
+  it("hides user tool parts but keeps file attachments", () => {
     const toolPart: OpencodeMessagePart = {
       id: "part-tool",
       sessionID: "session-1",
@@ -39,7 +39,8 @@ describe("MessagePartView", () => {
       </>,
     );
 
-    expect(container).toBeEmptyDOMElement();
+    expect(container).not.toBeEmptyDOMElement();
+    expect(screen.getByText(/file attachment/i)).toBeInTheDocument();
   });
 
   it("renders assistant tool parts", () => {

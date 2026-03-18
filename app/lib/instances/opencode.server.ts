@@ -17,6 +17,7 @@ import { filterRecentSessions } from "~/lib/instances/sidebar";
 import type {
   OpencodeMessageWithParts,
   OpencodeAgent,
+  OpencodePromptInput,
   OpencodePermissionRequest,
   OpencodeSessionInfo,
 } from "~/lib/opencode/events";
@@ -108,15 +109,10 @@ export async function listOpencodeAgents(instance: InstanceRecord) {
 export async function submitOpencodePrompt(
   instance: InstanceRecord,
   sessionId: string,
-  input: { text: string; agent?: string | null },
+  input: { parts: OpencodePromptInput["parts"]; agent?: string | null },
 ) {
   const nextPayload = {
-    parts: [
-      {
-        type: "text",
-        text: input.text,
-      },
-    ],
+    parts: input.parts,
     ...(input.agent ? { agent: input.agent } : {}),
   };
 

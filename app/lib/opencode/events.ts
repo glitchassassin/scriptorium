@@ -339,10 +339,18 @@ export const opencodeSessionSummarySchema = opencodeSessionInfoSchema.transform(
 
 export const opencodePromptInputSchema = z.object({
   parts: z.array(
-    z.object({
-      type: z.literal("text"),
-      text: z.string(),
-    }),
+    z.discriminatedUnion("type", [
+      z.object({
+        type: z.literal("text"),
+        text: z.string(),
+      }),
+      z.object({
+        type: z.literal("file"),
+        mime: z.string(),
+        filename: z.string().optional(),
+        url: z.string(),
+      }),
+    ]),
   ),
   agent: z.string().optional(),
 });
@@ -590,6 +598,7 @@ export function parseOpencodeEvent(value: unknown): OpencodeEventParseResult {
 export type OpencodeEvent = OpencodeKnownEvent;
 export type OpencodeKnownEvent = z.infer<typeof opencodeKnownEventSchema>;
 export type OpencodeAgent = z.infer<typeof opencodeAgentSchema>;
+export type OpencodePromptInput = z.infer<typeof opencodePromptInputSchema>;
 export type OpencodeAgentPart = z.infer<typeof opencodeAgentPartSchema>;
 export type OpencodeCompactionPart = z.infer<typeof opencodeCompactionPartSchema>;
 export type OpencodeFilePart = z.infer<typeof opencodeFilePartSchema>;

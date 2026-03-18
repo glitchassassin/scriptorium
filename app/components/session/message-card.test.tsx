@@ -11,7 +11,7 @@ describe("MessageCard", () => {
       [
         {
           path: "/",
-          element: <MessageCard message={message} />,
+          element: <MessageCard actionPath="/" message={message} />,
         },
       ],
       { initialEntries: ["/"] },

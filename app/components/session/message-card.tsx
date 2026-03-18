@@ -22,6 +22,10 @@ export function MessageCard({ actionPath, message, isSessionBusy = false }: Mess
       return true;
     }
 
+    if (part.type === "file") {
+      return true;
+    }
+
     return !isUser;
   });
 
@@ -34,7 +38,7 @@ export function MessageCard({ actionPath, message, isSessionBusy = false }: Mess
       <div className={`${isUser ? "max-w-[42rem]" : "w-full"} space-y-3 px-3 py-3 text-left`}>
         <div className="flex items-baseline justify-between gap-3">
           <p className="text-sm uppercase tracking-[0.08em]">{message.info.role}</p>
-          {isUser ? (
+          {isUser && actionPath ? (
             <div className="flex items-center gap-1">
               <Form action={actionPath} method="post">
                 <input name="intent" type="hidden" value="revert" />

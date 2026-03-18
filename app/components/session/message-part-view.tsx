@@ -25,16 +25,16 @@ export function MessagePartView({ part, role }: MessagePartViewProps) {
     return <MessagePartReasoning part={part} />;
   }
 
+  if (part.type === "file") {
+    return <MessagePartFile part={part} />;
+  }
+
   if (role === "user") {
     return null;
   }
 
   if (part.type === "tool") {
     return <MessagePartTool part={part} />;
-  }
-
-  if (part.type === "file") {
-    return <MessagePartFile part={part} />;
   }
 
   if (part.type === "step-start" || part.type === "step-finish") {

@@ -28,11 +28,24 @@ afterEach(() => {
 });
 
 describe("submitOpencodePrompt", () => {
-  it("sends agent only when selected", async () => {
+  it("sends prompt parts and agent only when selected", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
 
-    await submitOpencodePrompt(instance, "session-1", { text: "Hello" });
-    await submitOpencodePrompt(instance, "session-1", { text: "Hello", agent: "analysis" });
+    await submitOpencodePrompt(instance, "session-1", {
+      parts: [{ type: "text", text: "Hello" }],
+    });
+    await submitOpencodePrompt(instance, "session-1", {
+      parts: [
+        { type: "text", text: "Hello" },
+        {
+          type: "file",
+          filename: "image.png",
+          mime: "image/png",
+          url: "data:image/png;base64,ZmFrZQ==",
+        },
+      ],
+      agent: "analysis",
+    });
 
     const firstPayload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     const secondPayload = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
@@ -51,6 +64,12 @@ describe("submitOpencodePrompt", () => {
         {
           type: "text",
           text: "Hello",
+        },
+        {
+          type: "file",
+          filename: "image.png",
+          mime: "image/png",
+          url: "data:image/png;base64,ZmFrZQ==",
         },
       ],
       agent: "analysis",
