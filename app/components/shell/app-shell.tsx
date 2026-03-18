@@ -6,6 +6,7 @@ import "@iconify-json/mdi";
 import { SidebarNav } from "~/components/shell/sidebar-nav";
 import type { SidebarInstanceRecord } from "~/lib/instances/sidebar";
 import type { RouteBreadcrumb, RouteHandleIconAction } from "~/lib/route-handle";
+import safeArea from "~/styles/safe-area.module.css";
 
 type AppShellProps = {
   breadcrumbs: RouteBreadcrumb[];
@@ -43,7 +44,7 @@ export function AppShell({ breadcrumbs, iconNavActions, sidebarInstances }: AppS
   }, [isSidebarOpen]);
 
   return (
-    <main className="relative h-dvh bg-white text-black">
+    <main className={`${safeArea.appShell} relative flex min-h-dvh flex-col bg-white text-black`}>
       {isSidebarOpen ? (
         <>
           <button
@@ -52,8 +53,8 @@ export function AppShell({ breadcrumbs, iconNavActions, sidebarInstances }: AppS
             onClick={() => setIsSidebarOpen(false)}
             type="button"
           />
-           <aside className="fixed inset-y-0 left-0 z-30 w-80 border-r-2 border-black bg-white p-4">
-             <div className="flex h-full flex-col gap-4">
+            <aside className={`${safeArea.sidebarShell} fixed inset-y-0 left-0 z-30 w-80 border-r-2 border-black bg-white`}>
+              <div className="flex h-full flex-col gap-4">
               <header className="flex items-center justify-between gap-3">
                 <NavLink
                   className="inline-flex min-h-11 items-center px-3 py-2 text-sm uppercase tracking-[0.08em] text-black"
@@ -93,7 +94,7 @@ export function AppShell({ breadcrumbs, iconNavActions, sidebarInstances }: AppS
           </aside>
         </>
       ) : null}
-      <div className="mx-auto flex h-full max-w-5xl flex-col">
+      <div className={`${safeArea.appShellContent} mx-auto flex w-full max-w-5xl flex-col`}>
         <header className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b-2 border-black">
           <button
             aria-label="Toggle navigation"
@@ -143,7 +144,9 @@ export function AppShell({ breadcrumbs, iconNavActions, sidebarInstances }: AppS
             ))}
           </div>
         </header>
-        <Outlet />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <Outlet />
+        </div>
       </div>
     </main>
   );

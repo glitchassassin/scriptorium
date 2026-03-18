@@ -38,6 +38,7 @@ import type {
 import { getInitialAgent, getNextAgent, getSelectableAgents } from "~/lib/opencode/agents";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
+import safeArea from "~/styles/safe-area.module.css";
 
 import { getSessionBreadcrumbs, getSessionIconNavActions, type SessionRouteContext } from "./+/session-route";
 
@@ -478,7 +479,7 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
     <ScrollableLayout
       stickToBottom
       footer={
-        <div className="border-t-2 border-black px-6 py-4 sm:px-8">
+        <div className={`${safeArea.footerPad4} border-t-2 border-black px-6 pt-4 sm:px-8`}>
           <div className="space-y-3">
             {promptError ? <p className="text-base leading-6">{promptError}</p> : null}
             {abortError ? <p className="text-base leading-6">{abortError}</p> : null}

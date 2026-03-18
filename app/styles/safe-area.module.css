@@ -1,0 +1,47 @@
+:global(:root) {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+}
+
+.appShell {
+  box-sizing: border-box;
+  height: 100dvh;
+  padding-top: var(--safe-area-top);
+  padding-right: var(--safe-area-right);
+  padding-bottom: var(--safe-area-bottom);
+  padding-left: var(--safe-area-left);
+}
+
+.appShellContent {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.pageShell {
+  padding-top: calc(2rem + var(--safe-area-top));
+  padding-right: calc(1.5rem + var(--safe-area-right));
+  padding-bottom: calc(2rem + var(--safe-area-bottom));
+  padding-left: calc(1.5rem + var(--safe-area-left));
+}
+
+.sidebarShell {
+  padding-top: calc(1rem + var(--safe-area-top));
+  padding-right: calc(1rem + var(--safe-area-right));
+  padding-bottom: calc(1rem + var(--safe-area-bottom));
+  padding-left: calc(1rem + var(--safe-area-left));
+}
+
+.footerPad4 {
+  padding-bottom: calc(1rem + var(--safe-area-bottom));
+}
+
+@media (min-width: 40rem) {
+  .pageShell {
+    padding-top: calc(2.5rem + var(--safe-area-top));
+    padding-right: calc(2rem + var(--safe-area-right));
+    padding-bottom: calc(2.5rem + var(--safe-area-bottom));
+    padding-left: calc(2rem + var(--safe-area-left));
+  }
+}

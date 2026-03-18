@@ -11,9 +11,18 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import safeArea from "~/styles/safe-area.module.css";
+import { ServiceWorkerRegistration } from "~/components/pwa/service-worker-registration";
 import { ensureStarted } from "~/lib/instances/runtime.server";
 
-export const links: Route.LinksFunction = () => [];
+export const links: Route.LinksFunction = () => [
+  { rel: "manifest", href: "/manifest.webmanifest" },
+  { rel: "icon", href: "/favicon.ico", sizes: "any" },
+  { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+  { rel: "icon", href: "/icon-192.png", type: "image/png", sizes: "192x192" },
+  { rel: "icon", href: "/icon-512.png", type: "image/png", sizes: "512x512" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+];
 
 export async function loader() {
   await ensureStarted();
@@ -27,14 +36,19 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta charSet="utf-8" />
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, interactive-widget=resizes-content"
+          content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
         />
+        <meta content="#ffffff" name="theme-color" />
+        <meta content="yes" name="apple-mobile-web-app-capable" />
+        <meta content="default" name="apple-mobile-web-app-status-bar-style" />
+        <meta content="Scriptorium" name="apple-mobile-web-app-title" />
         <Meta />
         <Links />
       </head>
       <body>
         {children}
         <ScrollRestoration />
+        <ServiceWorkerRegistration />
         <Scripts />
       </body>
     </html>
@@ -62,7 +76,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="min-h-screen bg-white px-6 py-10 text-black">
+    <main className={`${safeArea.pageShell} min-h-dvh bg-white text-black`}>
       <div className="mx-auto flex max-w-3xl flex-col gap-6 border-t-2 border-black pt-8">
         <div className="space-y-2">
           <p className="text-sm uppercase tracking-[0.08em]">Scriptorium</p>
