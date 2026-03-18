@@ -1,40 +1,36 @@
-# Welcome to React Router!
+# Scriptorium
 
-A modern, production-ready template for building full-stack React applications using React Router.
+Scriptorium is an experimental single-user, multi-device app for browsing local workspaces and running OpenCode-backed coding sessions through a React Router interface.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+This repo is intentionally exploratory. Expect rough edges, fast iteration, and incomplete product decisions while the project settles.
 
-## Features
+## What It Does
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- Launches and tracks local coding instances
+- Browses workspace files and git state from the app
+- Streams session events and message history
+- Uses passkey-based authentication for local access
+
+## Requirements
+
+- Node.js 20+
+- npm
+- `opencode` available on your PATH, or an explicit `OPENCODE_BIN`
+- Optional: Tailscale if you want `npm start` to expose the app through `tailscale serve`
 
 ## Getting Started
 
-### Installation
-
-Install the dependencies:
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-### Development
-
-Start the development server with HMR:
+Run the development server:
 
 ```bash
 npm run dev
 ```
-
-Your application will be available at `http://localhost:5173`.
-
-## Building for Production
 
 Create a production build:
 
@@ -42,46 +38,48 @@ Create a production build:
 npm run build
 ```
 
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
+Start the built app:
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+npm start
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+By default, development runs on `http://localhost:5173`.
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
+## Environment Variables
 
-### DIY Deployment
+Scriptorium works with sensible local defaults, but these variables control the main runtime behavior:
 
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
+- `SESSION_SECRET`: signing secret for the auth cookie; set this in any stable environment so sessions survive restarts
+- `SCRIPTORIUM_DB_PATH`: path to the SQLite database file; defaults to `.data/app.db`
+- `SCRIPTORIUM_BROWSER_ROOT`: root directory exposed in the file browser and new-instance picker; defaults to your home directory
+- `OPENCODE_BIN`: path or command name for the OpenCode executable; defaults to `opencode`
+- `PORT`: port used by `npm start`; defaults to `5174`
+- `HOST`: host binding used by `npm start`; defaults to `0.0.0.0`
 
-Make sure to deploy the output of `npm run build`
+Example:
 
+```bash
+SESSION_SECRET=replace-me \
+SCRIPTORIUM_DB_PATH=.data/app.db \
+SCRIPTORIUM_BROWSER_ROOT=$HOME \
+OPENCODE_BIN=opencode \
+npm run dev
 ```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
 
-## Styling
+## Tailscale On Launch
 
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
+The production start command runs `node ./scripts/start-with-tailscale.ts`, which does two things:
 
----
+1. Starts the built React Router server
+2. Tries to run `tailscale serve --bg http://localhost:$PORT`
 
-Built with ❤️ using React Router.
+If Tailscale is installed and authenticated, that makes the app reachable through your Tailnet. If Tailscale is missing or unavailable, startup continues normally and the app stays local-only.
+
+On shutdown, the script also tries to turn the Tailscale serve configuration back off.
+
+## Notes
+
+- The app is designed around a personal/local workflow, not a multi-tenant hosted service
+- The database directory `.data/` is intentionally gitignored
+- This repository does not include Docker configuration

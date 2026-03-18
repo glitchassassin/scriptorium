@@ -1,6 +1,17 @@
 {
   "name": "scriptorium",
+  "description": "Experimental single-user app for browsing local workspaces and running OpenCode-backed coding sessions.",
+  "version": "0.0.0",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glitchassassin/scriptorium.git"
+  },
+  "homepage": "https://github.com/glitchassassin/scriptorium",
+  "bugs": {
+    "url": "https://github.com/glitchassassin/scriptorium/issues"
+  },
   "type": "module",
   "scripts": {
     "build": "react-router build",
