@@ -65,14 +65,22 @@ function statusLabel(path: string, files: GitChangedFile[]) {
 }
 
 function GitSelectionHeader({
+  canGoNext,
+  canGoPrevious,
   label,
   onBack,
+  onNext,
+  onPrevious,
 }: {
+  canGoNext: boolean;
+  canGoPrevious: boolean;
   label: string;
   onBack: () => void;
+  onNext: () => void;
+  onPrevious: () => void;
 }) {
   return (
-    <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
       <button
         aria-label="Back to changed files"
         className="inline-flex min-h-11 min-w-11 items-center justify-center"
@@ -82,6 +90,26 @@ function GitSelectionHeader({
         <Icon className="size-5" icon="mdi:arrow-left" />
       </button>
       <p className="text-base font-bold break-all">{label}</p>
+      <div className="flex items-center gap-0">
+        <button
+          aria-label="Previous changed file"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
+          disabled={!canGoPrevious}
+          onClick={onPrevious}
+          type="button"
+        >
+          <Icon className="size-5" icon="mdi:arrow-up-bold" />
+        </button>
+        <button
+          aria-label="Next changed file"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
+          disabled={!canGoNext}
+          onClick={onNext}
+          type="button"
+        >
+          <Icon className="size-5" icon="mdi:arrow-down-bold" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -135,6 +163,10 @@ export function GitBrowser({
 }: GitBrowserProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const entries = changed.isRepository ? toEntries(changed.files.map((file) => file.path)) : [];
+  const changedPaths = changed.isRepository ? changed.files.map((file) => file.path) : [];
+  const selectedIndex = selectedPath ? changedPaths.indexOf(selectedPath) : -1;
+  const previousPath = selectedIndex > 0 ? changedPaths[selectedIndex - 1] : null;
+  const nextPath = selectedIndex >= 0 && selectedIndex < changedPaths.length - 1 ? changedPaths[selectedIndex + 1] : null;
 
   function handleSelection(path: string | null) {
     const next = new URLSearchParams(searchParams);
@@ -157,8 +189,20 @@ export function GitBrowser({
       <ScrollableLayout
         header={
           <GitSelectionHeader
+            canGoNext={nextPath !== null}
+            canGoPrevious={previousPath !== null}
             label={selected?.isRepository && selected.oldPath ? `${selected.oldPath} -> ${selectedPath}` : selectedPath}
             onBack={clearSelection}
+            onNext={() => {
+              if (nextPath) {
+                handleSelection(nextPath);
+              }
+            }}
+            onPrevious={() => {
+              if (previousPath) {
+                handleSelection(previousPath);
+              }
+            }}
           />
         }
       >
