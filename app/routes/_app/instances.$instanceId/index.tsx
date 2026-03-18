@@ -116,7 +116,7 @@ function InstanceOverviewHeader({
 
 export default function InstanceDetailRoute({ loaderData }: Route.ComponentProps) {
   const { git, instance, recentSessions, sessionError } = loaderData;
-  const [sessions, setSessions] = useState(() => sortSessions(recentSessions));
+  const [sessions, setSessions] = useState<OpencodeSessionSummary[]>(() => sortSessions(recentSessions));
   const sessionEventTypes = useMemo(
     () => ["session.created", "session.updated", "session.deleted"] as const,
     [],

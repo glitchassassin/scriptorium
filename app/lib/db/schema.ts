@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
@@ -98,5 +99,20 @@ export const instances = sqliteTable(
       "instances_status_check",
       sql`${table.status} in ('starting', 'running', 'stopped', 'error')`,
     ),
+  ],
+);
+
+export const sessionReadStatuses = sqliteTable(
+  "session_read_statuses",
+  {
+    instanceId: text("instance_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    lastReadAt: text("last_read_at").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.instanceId, table.sessionId] }),
+    index("idx_session_read_statuses_updated_at").on(table.updatedAt),
   ],
 );

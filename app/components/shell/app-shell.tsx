@@ -4,18 +4,20 @@ import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
 import { SidebarNav } from "~/components/shell/sidebar-nav";
-import type { SidebarInstanceRecord } from "~/lib/instances/sidebar";
+import { useHasVisibleUnreadSessions } from "~/components/shell/sidebar-state";
+import { UnreadBadge } from "~/components/ui/unread-badge";
+import { cn } from "~/lib/cn";
 import type { RouteBreadcrumb, RouteHandleIconAction } from "~/lib/route-handle";
 import safeArea from "~/styles/safe-area.module.css";
 
 type AppShellProps = {
   breadcrumbs: RouteBreadcrumb[];
   iconNavActions: RouteHandleIconAction[];
-  sidebarInstances: SidebarInstanceRecord[];
 };
 
-export function AppShell({ breadcrumbs, iconNavActions, sidebarInstances }: AppShellProps) {
+export function AppShell({ breadcrumbs, iconNavActions }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const hasUnreadSidebarSessions = useHasVisibleUnreadSessions();
   const location = useLocation();
   const titleLabel = breadcrumbs.map((breadcrumb) => breadcrumb.label).join(" / ");
 
@@ -72,7 +74,7 @@ export function AppShell({ breadcrumbs, iconNavActions, sidebarInstances }: AppS
                 </button>
               </header>
               <div className="flex-1 overflow-y-auto">
-                <SidebarNav instances={sidebarInstances} />
+                <SidebarNav />
               </div>
               <div className="mt-auto space-y-2 border-t-2 border-black">
                 <NavLink
@@ -94,15 +96,20 @@ export function AppShell({ breadcrumbs, iconNavActions, sidebarInstances }: AppS
           </aside>
         </>
       ) : null}
-      <div className={`${safeArea.appShellContent} mx-auto flex w-full max-w-5xl flex-col`}>
+      <div className={cn(safeArea.appShellContent, "mx-auto flex w-full max-w-5xl flex-col")}>
         <header className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b-2 border-black">
           <button
             aria-label="Toggle navigation"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center"
+            className="relative inline-flex min-h-11 min-w-11 items-center justify-center"
             onClick={() => setIsSidebarOpen((isOpen) => !isOpen)}
             type="button"
           >
             <Icon className="size-6" icon={toggleIcon} />
+            {hasUnreadSidebarSessions ? (
+              <span className={cn("pointer-events-none absolute right-1.5 top-0 z-10")}>
+                <UnreadBadge />
+              </span>
+            ) : null}
           </button>
           <div className="min-w-0">
             <h1 aria-label={titleLabel} className="overflow-hidden text-2xl font-bold">

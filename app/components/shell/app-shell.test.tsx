@@ -6,6 +6,7 @@ import { AppShell } from "~/components/shell/app-shell";
 import { getSessionIconNavActions } from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-route";
 
 const useLocationMock = vi.fn();
+const useHasVisibleUnreadSessionsMock = vi.fn();
 
 vi.mock("react-router", () => ({
   Form: ({ children }: { children: ReactNode }) => <form>{children}</form>,
@@ -32,9 +33,14 @@ vi.mock("~/components/shell/sidebar-nav", () => ({
   SidebarNav: () => <div>Sidebar</div>,
 }));
 
+vi.mock("~/components/shell/sidebar-state", () => ({
+  useHasVisibleUnreadSessions: (...args: unknown[]) => useHasVisibleUnreadSessionsMock(...args),
+}));
+
 describe("AppShell", () => {
   it("uses the deepest title and nearest nav actions independently", () => {
     useLocationMock.mockReturnValue({ pathname: "/instances/instance-1/sessions/session-1/git" });
+    useHasVisibleUnreadSessionsMock.mockReturnValue(false);
 
     render(
       <AppShell
@@ -44,7 +50,6 @@ describe("AppShell", () => {
           { label: "git" },
         ]}
         iconNavActions={getSessionIconNavActions("instance-1", "session-1")}
-        sidebarInstances={[]}
       />,
     );
 
@@ -58,5 +63,33 @@ describe("AppShell", () => {
       "/instances/instance-1/sessions/session-1/git",
     );
     expect(screen.queryByLabelText("Instance overview")).not.toBeInTheDocument();
+  });
+
+  it("shows an unread indicator on the navigation toggle when any sidebar session is unread", () => {
+    useLocationMock.mockReturnValue({ pathname: "/instances/instance-1" });
+    useHasVisibleUnreadSessionsMock.mockReturnValue(true);
+
+    render(
+      <AppShell
+        breadcrumbs={[{ label: "Workspace" }]}
+        iconNavActions={[]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Toggle navigation" }).querySelector('[data-testid="unread-badge"]')).not.toBeNull();
+  });
+
+  it("ignores unread sessions outside the visible sidebar limit", () => {
+    useLocationMock.mockReturnValue({ pathname: "/instances/instance-1" });
+    useHasVisibleUnreadSessionsMock.mockReturnValue(false);
+
+    render(
+      <AppShell
+        breadcrumbs={[{ label: "Workspace" }]}
+        iconNavActions={[]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Toggle navigation" }).querySelector('[data-testid="unread-badge"]')).toBeNull();
   });
 });

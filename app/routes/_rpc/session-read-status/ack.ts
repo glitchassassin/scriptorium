@@ -1,0 +1,25 @@
+import { data } from "react-router";
+
+import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
+import { markSessionRead } from "~/lib/session-read-status.server";
+
+import type { Route } from "./+types/ack";
+
+export function shouldRevalidate() {
+  return false;
+}
+
+export async function action({ request }: Route.ActionArgs) {
+  await requireAuthenticatedPasskey(request);
+  const formData = await request.formData();
+  const instanceId = String(formData.get("instanceId") ?? "").trim();
+  const sessionId = String(formData.get("sessionId") ?? "").trim();
+
+  if (!instanceId || !sessionId) {
+    return data({ ok: false }, { status: 400 });
+  }
+
+  markSessionRead({ instanceId, sessionId });
+
+  return data({ ok: true });
+}
