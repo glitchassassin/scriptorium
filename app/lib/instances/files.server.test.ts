@@ -14,6 +14,7 @@ import {
   validateFileSelection,
   validateInstanceFileSelection,
 } from "~/lib/instances/files.server";
+import { resetRuntimeConfigurationCache } from "~/lib/runtime-config.server";
 
 const tempDirectories: string[] = [];
 const originalBrowserRoot = process.env.SCRIPTORIUM_BROWSER_ROOT;
@@ -31,6 +32,7 @@ function createWorkspace() {
 }
 
 afterEach(() => {
+  resetRuntimeConfigurationCache();
   process.env.SCRIPTORIUM_BROWSER_ROOT = originalBrowserRoot;
 
   while (tempDirectories.length) {

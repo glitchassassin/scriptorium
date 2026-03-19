@@ -1,13 +1,19 @@
 import { execSync, spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const port = process.env.PORT?.trim() || "5174";
-const host = process.env.HOST?.trim() || "0.0.0.0";
+import { getRuntimeConfiguration } from "../app/lib/runtime-config.server";
+
+const runtime = getRuntimeConfiguration();
+const port = String(runtime.config.server.port);
+const host = runtime.config.server.host;
+const serverEntry = fileURLToPath(new URL("../build/server/index.js", import.meta.url));
 
 const child = spawn(
-  "npx",
-  ["react-router-serve", "./build/server/index.js"],
+  process.execPath,
+  ["./node_modules/@react-router/serve/dist/bin.js", serverEntry],
   {
     stdio: "inherit",
+    cwd: fileURLToPath(new URL("..", import.meta.url)),
     env: {
       ...process.env,
       PORT: port,
@@ -16,10 +22,12 @@ const child = spawn(
   },
 );
 
-try {
-  execSync(`tailscale serve --bg http://localhost:${port}`, { stdio: "inherit" });
-} catch {
-  // tailscale not available - ignore
+if (runtime.config.network.tailscale) {
+  try {
+    execSync(`tailscale serve --bg http://localhost:${port}`, { stdio: "inherit" });
+  } catch {
+    // tailscale not available - ignore
+  }
 }
 
 let shuttingDown = false;
@@ -31,10 +39,12 @@ function cleanupAndExit(code = 0) {
 
   shuttingDown = true;
 
-  try {
-    execSync("tailscale serve --https=443 off", { stdio: "ignore" });
-  } catch {
-    // tailscale not available - ignore
+  if (runtime.config.network.tailscale) {
+    try {
+      execSync("tailscale serve --https=443 off", { stdio: "ignore" });
+    } catch {
+      // tailscale not available - ignore
+    }
   }
 
   if (child.exitCode === null && !child.killed) {
@@ -45,10 +55,12 @@ function cleanupAndExit(code = 0) {
 }
 
 child.once("exit", (code, signal) => {
-  try {
-    execSync("tailscale serve --https=443 off", { stdio: "ignore" });
-  } catch {
-    // tailscale not available - ignore
+  if (runtime.config.network.tailscale) {
+    try {
+      execSync("tailscale serve --https=443 off", { stdio: "ignore" });
+    } catch {
+      // tailscale not available - ignore
+    }
   }
 
   if (signal) {

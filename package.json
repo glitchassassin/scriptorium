@@ -18,6 +18,7 @@
     "dev": "react-router dev",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "docs:config": "node ./scripts/generate-config-docs.ts",
     "start": "node ./scripts/start-with-tailscale.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -41,6 +42,7 @@
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "yaml": "^2.8.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
