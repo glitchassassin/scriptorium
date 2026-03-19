@@ -3,6 +3,7 @@ import type { OpencodeSessionInfo } from "~/lib/opencode/events";
 
 export const SIDEBAR_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export const SIDEBAR_SESSION_LIMIT = 3;
+export const SESSION_UNREAD_GRACE_MS = 500;
 
 export type SidebarSessionRecord = OpencodeSessionSummary & {
   lastReadAt: number | null;
@@ -37,7 +38,7 @@ export function isSessionUnread(session: OpencodeSessionSummary, lastReadAt: num
     return true;
   }
 
-  return sortTime > lastReadAt;
+  return sortTime - lastReadAt > SESSION_UNREAD_GRACE_MS;
 }
 
 export function withSessionReadState(session: OpencodeSessionSummary, lastReadAt: number | null): SidebarSessionRecord {

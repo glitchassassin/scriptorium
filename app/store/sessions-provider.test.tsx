@@ -103,13 +103,13 @@ describe("SessionsProvider", () => {
         properties: {
           info: {
             sessionID: "session-1",
-            time: { created: 5 },
+            time: { created: 503 },
           },
         },
       });
     });
 
-    expect(screen.getByTestId("activity")).toHaveTextContent("5");
+    expect(screen.getByTestId("activity")).toHaveTextContent("503");
     expect(screen.getByTestId("read")).toHaveTextContent("2");
     expect(screen.getByTestId("unread")).toHaveTextContent("true");
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
@@ -123,7 +123,7 @@ describe("SessionsProvider", () => {
       });
     });
 
-    expect(screen.getByTestId("activity")).toHaveTextContent("5");
+    expect(screen.getByTestId("activity")).toHaveTextContent("503");
     expect(screen.getByTestId("read")).toHaveTextContent("6");
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
@@ -222,5 +222,63 @@ describe("SessionsProvider", () => {
 
     expect(screen.getByTestId("read")).toHaveTextContent("7");
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
+  });
+
+  it("keeps the session read for near-simultaneous optimistic read and activity", () => {
+    let onInstanceEvent: ((event: any) => void) | null = null;
+
+    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onInstanceEvent = handler;
+    });
+    useReadStatusEventsMock.mockImplementation(() => {});
+
+    render(
+      <SessionsProvider initialSessions={initialSessions}>
+        <TestConsumer />
+        <TestMarkReadConsumer />
+      </SessionsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
+
+    if (!onInstanceEvent) {
+      throw new Error("Missing instance event handler");
+    }
+
+    const instanceEventHandler: (event: any) => void = onInstanceEvent;
+
+    act(() => {
+      instanceEventHandler({
+        type: "message.updated",
+        instanceId: "instance-1",
+        properties: {
+          info: {
+            sessionID: "session-1",
+            time: { created: 7 + 500 },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByTestId("activity")).toHaveTextContent("507");
+    expect(screen.getByTestId("read")).toHaveTextContent("7");
+    expect(screen.getByTestId("unread")).toHaveTextContent("false");
+
+    act(() => {
+      instanceEventHandler({
+        type: "message.updated",
+        instanceId: "instance-1",
+        properties: {
+          info: {
+            sessionID: "session-1",
+            time: { created: 7 + 501 },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByTestId("activity")).toHaveTextContent("508");
+    expect(screen.getByTestId("read")).toHaveTextContent("7");
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
   });
 });
