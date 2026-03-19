@@ -44,42 +44,59 @@ Start the built app:
 npm start
 ```
 
-By default, development runs on `http://localhost:5173`.
+Pass runtime flags through `npm start --`:
 
-## Environment Variables
+```bash
+npm start -- --host=127.0.0.1 --port=6200 --no-tailscale
+```
 
-Scriptorium works with sensible local defaults, but these variables control the main runtime behavior:
+By default, development and production both run on port `5174`.
 
-- `SESSION_SECRET`: signing secret for the auth cookie; set this in any stable environment so sessions survive restarts
-- `SCRIPTORIUM_DB_PATH`: path to the SQLite database file; defaults to `.data/app.db`
-- `SCRIPTORIUM_BROWSER_ROOT`: root directory exposed in the file browser and new-instance picker; defaults to your home directory
-- `OPENCODE_BIN`: path or command name for the OpenCode executable; defaults to `opencode`
-- `PORT`: port used by `npm start`; defaults to `5174`
-- `HOST`: host binding used by `npm start`; defaults to `0.0.0.0`
+For the full generated config reference, see `docs/config.md`.
+
+## Configuration
+
+Scriptorium reads runtime settings from:
+
+- CLI flags passed to `npm start -- ...`
+- environment variables
+- `config.yml` for non-sensitive settings
+- `secrets.yml` for secrets such as the session signing secret
+
+Precedence is: CLI flags -> environment variables -> YAML values -> schema defaults.
+
+Common flags and env vars include:
+
+- `--host` / `HOST`
+- `--port` / `PORT`
+- `--browser-root` / `SCRIPTORIUM_BROWSER_ROOT`
+- `--db-path` / `SCRIPTORIUM_DB_PATH`
+- `--opencode-bin` / `OPENCODE_BIN`
+- `--tailscale` / `--no-tailscale`
+- `SESSION_SECRET` to override the generated session secret
 
 Example:
 
 ```bash
-SESSION_SECRET=replace-me \
-SCRIPTORIUM_DB_PATH=.data/app.db \
-SCRIPTORIUM_BROWSER_ROOT=$HOME \
+HOST=127.0.0.1 \
+PORT=6200 \
+SCRIPTORIUM_BROWSER_ROOT=$HOME/src \
 OPENCODE_BIN=opencode \
-npm run dev
+npm start -- --no-tailscale
 ```
 
 ## Tailscale On Launch
 
-The production start command runs `node ./scripts/start-with-tailscale.ts`, which does two things:
+The production start command runs `node ./scripts/start-with-tailscale.ts`, which starts the built React Router server and optionally runs `tailscale serve` when `tailscale: true` is set in config or `--tailscale` is passed.
 
-1. Starts the built React Router server
-2. Tries to run `tailscale serve --bg http://localhost:$PORT`
+Use `--no-tailscale` to force local-only startup for a run.
 
-If Tailscale is installed and authenticated, that makes the app reachable through your Tailnet. If Tailscale is missing or unavailable, startup continues normally and the app stays local-only.
+If Tailscale is enabled and installed/authenticated, that makes the app reachable through your Tailnet. If Tailscale is missing or unavailable, startup continues normally and the app stays local-only.
 
 On shutdown, the script also tries to turn the Tailscale serve configuration back off.
 
 ## Notes
 
 - The app is designed around a personal/local workflow, not a multi-tenant hosted service
-- The database directory `.data/` is intentionally gitignored
+- Runtime config and secrets live in the per-user Scriptorium data directory, documented in `docs/config.md`
 - This repository does not include Docker configuration

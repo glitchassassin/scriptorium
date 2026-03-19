@@ -11,8 +11,10 @@ import {
   buildDocumentationExample,
   collectSchemaDocumentation,
   getRuntimeConfigurationDocumentation,
+  parseRuntimeCliArgs,
   resetRuntimeConfigurationCache,
   renderRuntimeConfigurationMarkdown,
+  renderRuntimeConfigurationHelp,
   resolveRuntimeConfiguration,
 } from "~/lib/runtime-config.server";
 
@@ -80,6 +82,40 @@ describe("runtime configuration", () => {
     expect(first.secrets.auth.sessionSecret).toHaveLength(64);
     expect(second.secrets.auth.sessionSecret).toBe(first.secrets.auth.sessionSecret);
     expect(persistedSecrets).toContain("sessionSecret:");
+  });
+
+  it("parses cli flags from schema metadata", () => {
+    const parsed = parseRuntimeCliArgs([
+      "--host=cli-host",
+      "--port=6200",
+      "--browser-root=/tmp/workspace",
+      "--opencode-bin=custom-opencode",
+      "--no-tailscale",
+      "--db-path=/tmp/scriptorium.db",
+      "--config-dir=/tmp/scriptorium-config",
+    ]);
+
+    expect(parsed).toEqual({
+      cli: {
+        host: "cli-host",
+        port: "6200",
+        "browser-root": "/tmp/workspace",
+        "opencode-bin": "custom-opencode",
+        tailscale: false,
+        "db-path": "/tmp/scriptorium.db",
+      },
+      configDir: "/tmp/scriptorium-config",
+      help: false,
+    });
+  });
+
+  it("renders cli help for generated flags", () => {
+    const help = renderRuntimeConfigurationHelp();
+
+    expect(help).toContain("Usage: scriptorium [options]");
+    expect(help).toContain("--config-dir <path>");
+    expect(help).toContain("--host <string>");
+    expect(help).toContain("--tailscale, --no-tailscale");
   });
 
   it("collects documentation from schema metadata", () => {
