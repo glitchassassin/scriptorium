@@ -1,6 +1,7 @@
 import { ChildProcess, spawn } from "node:child_process";
 
 import type { InstanceRecord } from "~/lib/instances/types";
+import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
 
 const STOP_TIMEOUT_MS = 5000;
 const START_TIMEOUT_MS = 15000;
@@ -13,7 +14,7 @@ export type ManagedInstanceProcess = {
 };
 
 function getOpencodeBinary() {
-  return process.env.OPENCODE_BIN?.trim() || "opencode";
+  return getRuntimeConfiguration().config.opencode.bin;
 }
 
 export function spawnInstanceProcess(instance: InstanceRecord): ManagedInstanceProcess {

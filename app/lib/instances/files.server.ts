@@ -1,7 +1,7 @@
-import { homedir } from "node:os";
 import { basename, isAbsolute, relative, resolve } from "node:path";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 
+import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
 import type {
   FileBrowserContent,
   FileBrowserListing,
@@ -10,7 +10,7 @@ import type {
 } from "~/lib/instances/types";
 
 function getBrowserRoot() {
-  return resolve(process.env.SCRIPTORIUM_BROWSER_ROOT?.trim() || homedir());
+  return resolve(getRuntimeConfiguration().config.workspace.browserRoot);
 }
 
 function isWithinRoot(rootPath: string, candidatePath: string) {

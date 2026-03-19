@@ -5,22 +5,13 @@ import { createCookie } from "react-router";
 
 import { getOrm } from "~/lib/db.server";
 import { sessions } from "~/lib/db/schema";
+import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
 import type { SessionRecord } from "~/lib/auth/types";
 
 const SESSION_COOKIE_NAME = "scriptorium_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-const sessionSecret =
-  process.env.SESSION_SECRET?.trim() || randomBytes(32).toString("hex");
-
-const sessionCookie = createCookie(SESSION_COOKIE_NAME, {
-  httpOnly: true,
-  maxAge: SESSION_TTL_MS / 1000,
-  path: "/",
-  sameSite: "lax",
-  secrets: [sessionSecret],
-  secure: process.env.NODE_ENV === "production",
-});
+let sessionCookie: ReturnType<typeof createCookie> | null = null;
 
 type SessionRow = typeof sessions.$inferSelect;
 
@@ -34,9 +25,24 @@ function mapSession(row: SessionRow): SessionRecord {
   };
 }
 
+function getSessionCookie() {
+  if (!sessionCookie) {
+    sessionCookie = createCookie(SESSION_COOKIE_NAME, {
+      httpOnly: true,
+      maxAge: SESSION_TTL_MS / 1000,
+      path: "/",
+      sameSite: "lax",
+      secrets: [getRuntimeConfiguration().secrets.auth.sessionSecret],
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
+
+  return sessionCookie;
+}
+
 export async function getSessionId(request: Request) {
   const cookieHeader = request.headers.get("Cookie");
-  return (await sessionCookie.parse(cookieHeader)) as string | null;
+  return (await getSessionCookie().parse(cookieHeader)) as string | null;
 }
 
 export async function getAuthenticatedSession(request: Request) {
@@ -78,7 +84,7 @@ export async function createAuthenticatedSession(passkeyId: string) {
     lastSeenAt: createdAt.toISOString(),
   }).run();
 
-  return sessionCookie.serialize(sessionId);
+  return getSessionCookie().serialize(sessionId);
 }
 
 export function destroySessionsForPasskey(passkeyId: string) {
@@ -94,5 +100,5 @@ export async function destroyAuthenticatedSession(request: Request) {
     db.delete(sessions).where(eq(sessions.id, sessionId)).run();
   }
 
-  return sessionCookie.serialize("", { expires: new Date(0), maxAge: undefined });
+  return getSessionCookie().serialize("", { expires: new Date(0), maxAge: undefined });
 }

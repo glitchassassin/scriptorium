@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 
 import { eq, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-sqlite";
@@ -14,6 +15,7 @@ import {
   registrationChallenges,
   sessions,
 } from "~/lib/db/schema";
+import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
 
 let sqlite: DatabaseSync | null = null;
 let orm: ReturnType<typeof drizzle> | null = null;
@@ -21,10 +23,10 @@ const databaseScope = new AsyncLocalStorage<{
   sqlite: DatabaseSync;
   orm: ReturnType<typeof drizzle>;
 }>();
+const migrationsFolder = fileURLToPath(new URL("../../drizzle", import.meta.url));
 
 function resolveDatabasePath() {
-  return process.env.SCRIPTORIUM_DB_PATH?.trim() ||
-    resolve(process.cwd(), ".data/app.db");
+  return resolve(getRuntimeConfiguration().config.database.path);
 }
 
 function resetLegacyAuthSchema(database: DatabaseSync) {
@@ -75,7 +77,7 @@ function openDatabase(path: string) {
   const db = drizzle({ client: database });
 
   migrate(db, {
-    migrationsFolder: resolve(process.cwd(), "drizzle"),
+    migrationsFolder,
   });
 
   cleanEphemeralAuthState(db);

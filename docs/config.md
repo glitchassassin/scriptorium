@@ -1,0 +1,49 @@
+# Configuration Reference
+
+Scriptorium reads non-sensitive settings from `config.yml` and secrets from `secrets.yml` in its per-user config directory.
+CLI flags override environment variables, which override YAML values, which override schema defaults.
+
+| Platform | <scriptorium_data_dir> |
+| --- | --- |
+| macOS | `~/Library/Application Support/scriptorium` |
+| Linux | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |
+| Windows | `%APPDATA%\scriptorium` |
+
+Examples use `<scriptorium_data_dir>` as shorthand for Scriptorium's per-user data directory and `$HOME` for the user's home directory.
+
+## config.yml
+
+```yaml
+server:
+  host: 0.0.0.0
+  port: 5174
+workspace:
+  browserRoot: $HOME
+opencode:
+  bin: opencode
+network:
+  tailscale: false
+database:
+  path: <scriptorium_data_dir>/app.db
+```
+
+| Key | Type | Default | CLI | Env | Description |
+| --- | --- | --- | --- | --- | --- |
+| `server.host` | string | `0.0.0.0` | `--host` | `HOST` | Host interface for the web server. |
+| `server.port` | number | `5174` | `--port` | `PORT` | Port for the web server. |
+| `workspace.browserRoot` | string | `$HOME` | `--browser-root` | `SCRIPTORIUM_BROWSER_ROOT` | Root directory exposed in the workspace browser. |
+| `opencode.bin` | string | `opencode` | `--opencode-bin` | `OPENCODE_BIN` | OpenCode executable name or path. |
+| `network.tailscale` | boolean | `false` | `--tailscale` |  | Expose the app with tailscale serve. |
+| `database.path` | string | `<scriptorium_data_dir>/app.db` | `--db-path` | `SCRIPTORIUM_DB_PATH` | Path to the SQLite database file. |
+
+## secrets.yml
+
+```yaml
+auth:
+  sessionSecret: <generated on first run or set via env>
+```
+
+| Key | Type | Default | CLI | Env | Description |
+| --- | --- | --- | --- | --- | --- |
+| `auth.sessionSecret` | string |  |  | `SESSION_SECRET` | Session signing secret. |
+

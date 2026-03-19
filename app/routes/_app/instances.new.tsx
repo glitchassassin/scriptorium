@@ -1,5 +1,3 @@
-import { homedir } from "node:os";
-
 import { useState } from "react";
 import { Form, redirect } from "react-router";
 
@@ -8,6 +6,7 @@ import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { createInstance } from "~/lib/instances/runtime.server";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
 import { FileExplorer } from "~/routes/_rpc/files.browse";
 
 import type { Route } from "./+types/instances.new";
@@ -20,7 +19,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   await requireAuthenticatedPasskey(request);
 
   return {
-    initialDirectory: process.env.SCRIPTORIUM_BROWSER_ROOT?.trim() || homedir(),
+    initialDirectory: getRuntimeConfiguration().config.workspace.browserRoot,
   };
 }
 
