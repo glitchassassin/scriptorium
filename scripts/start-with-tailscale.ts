@@ -1,12 +1,37 @@
 import { execSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { getRuntimeConfiguration } from "../app/lib/runtime-config.server";
+import {
+  parseRuntimeCliArgs,
+  renderRuntimeConfigurationHelp,
+  resolveRuntimeConfiguration,
+} from "../app/lib/runtime-config.server";
 
-const runtime = getRuntimeConfiguration();
+const parsedCli = parseRuntimeCliArgs(process.argv.slice(2));
+
+if (parsedCli.help) {
+  process.stdout.write(`${renderRuntimeConfigurationHelp()}\n`);
+  process.exit(0);
+}
+
+const runtime = resolveRuntimeConfiguration({
+  cli: parsedCli.cli,
+  configDir: parsedCli.configDir,
+  env: process.env,
+});
 const port = String(runtime.config.server.port);
 const host = runtime.config.server.host;
 const serverEntry = fileURLToPath(new URL("../build/server/index.js", import.meta.url));
+const childEnv = {
+  ...process.env,
+  HOST: host,
+  OPENCODE_BIN: runtime.config.opencode.bin,
+  PORT: port,
+  SCRIPTORIUM_BROWSER_ROOT: runtime.config.workspace.browserRoot,
+  SCRIPTORIUM_CONFIG_DIR: runtime.paths.directory,
+  SCRIPTORIUM_DB_PATH: runtime.config.database.path,
+  SESSION_SECRET: runtime.secrets.auth.sessionSecret,
+};
 
 const child = spawn(
   process.execPath,
@@ -14,11 +39,7 @@ const child = spawn(
   {
     stdio: "inherit",
     cwd: fileURLToPath(new URL("..", import.meta.url)),
-    env: {
-      ...process.env,
-      PORT: port,
-      HOST: host,
-    },
+    env: childEnv,
   },
 );
 

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { parseArgs, type ParseArgsConfig } from "node:util";
 
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { z } from "zod";
@@ -16,6 +17,12 @@ type OverrideSources = {
   cli?: Record<string, unknown>;
   env?: NodeJS.ProcessEnv;
   configDir?: string;
+};
+
+type RuntimeCliParseResult = {
+  cli: Record<string, unknown>;
+  configDir?: string;
+  help: boolean;
 };
 
 type RuntimeConfigPaths = {
@@ -99,7 +106,11 @@ function defaultConfigDirectory(env: NodeJS.ProcessEnv = process.env) {
 }
 
 export function getRuntimeConfigPaths(sources: OverrideSources = {}): RuntimeConfigPaths {
-  const directory = resolve(sources.configDir || defaultConfigDirectory(sources.env));
+  const directory = resolve(
+    sources.configDir ||
+      sources.env?.SCRIPTORIUM_CONFIG_DIR?.trim() ||
+      defaultConfigDirectory(sources.env),
+  );
 
   return {
     directory,
@@ -380,6 +391,70 @@ export function getRuntimeConfigurationDocumentation() {
   };
 }
 
+function getCliRows() {
+  return getRuntimeConfigurationDocumentation().config.filter((row) => row.cli);
+}
+
+function getCliOptionsConfig(): ParseArgsConfig["options"] {
+  const options: ParseArgsConfig["options"] = {
+    help: {
+      type: "boolean",
+    },
+    "config-dir": {
+      type: "string",
+    },
+  };
+
+  for (const row of getCliRows()) {
+    const flag = row.cli!.slice(2);
+    options[flag] = {
+      type: row.type === "boolean" ? "boolean" : "string",
+    };
+
+    if (row.type === "boolean") {
+      options[`no-${flag}`] = {
+        type: "boolean",
+      };
+    }
+  }
+
+  return options;
+}
+
+export function parseRuntimeCliArgs(args: string[]): RuntimeCliParseResult {
+  const parsed = parseArgs({
+    args,
+    options: getCliOptionsConfig(),
+    strict: true,
+    allowPositionals: false,
+  });
+  const values = parsed.values as Record<string, string | boolean | undefined>;
+
+  const cli: Record<string, unknown> = {};
+
+  for (const row of getCliRows()) {
+    const flag = row.cli!.slice(2);
+    const value = values[flag];
+
+    if (value !== undefined) {
+      cli[flag] = value;
+      continue;
+    }
+
+    if (row.type === "boolean" && values[`no-${flag}`] === true) {
+      cli[flag] = false;
+    }
+  }
+
+  return {
+    cli,
+    configDir: typeof values["config-dir"] === "string"
+      ? values["config-dir"]
+      : undefined,
+    help: values.help === true,
+  };
+}
+
 function stringifyDefaultValue(value: unknown) {
   if (value === undefined) {
     return "";
@@ -488,5 +563,24 @@ export function renderRuntimeConfigurationMarkdown() {
     "",
     renderDocumentationTable(documentation.secrets),
     "",
+  ].join("\n");
+}
+
+export function renderRuntimeConfigurationHelp() {
+  const rows = getCliRows();
+
+  return [
+    "Usage: scriptorium [options]",
+    "",
+    "Options:",
+    "  --help                  Show this help message",
+    "  --config-dir <path>     Use an alternate config directory",
+    ...rows.map((row) => {
+      const flag = row.cli!;
+      const typeSuffix = row.type === "boolean" ? "" : ` <${row.type}>`;
+      const negated = row.type === "boolean" ? `, --no-${flag.slice(2)}` : "";
+      const env = row.env ? ` [env: ${row.env}]` : "";
+      return `  ${flag}${typeSuffix}${negated}  ${row.description}${env}`;
+    }),
   ].join("\n");
 }
