@@ -290,6 +290,11 @@ export function getRuntimeConfiguration() {
   return cachedRuntimeConfiguration;
 }
 
+export function initializeRuntimeConfiguration(sources: OverrideSources = {}) {
+  cachedRuntimeConfiguration = resolveRuntimeConfiguration(sources);
+  return cachedRuntimeConfiguration;
+}
+
 export function resetRuntimeConfigurationCache() {
   cachedRuntimeConfiguration = null;
 }

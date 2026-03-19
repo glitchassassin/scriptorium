@@ -1,5 +1,3 @@
-import { execSync } from "node:child_process";
-
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
@@ -12,26 +10,6 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     !process.env.VITEST && reactRouter(),
-    {
-      name: "tailscale-serve",
-      configureServer(server) {
-        server.httpServer?.once("listening", () => {
-          try {
-            execSync(`tailscale serve --bg http://localhost:${APP_PORT}`, { stdio: "inherit" });
-          } catch {
-            // tailscale not available - ignore
-          }
-        });
-
-        server.httpServer?.once("close", () => {
-          try {
-            execSync("tailscale serve --https=443 off", { stdio: "ignore" });
-          } catch {
-            // tailscale not available - ignore
-          }
-        });
-      },
-    },
     tsconfigPaths({
       projects: ["tsconfig.json"],
     }),
