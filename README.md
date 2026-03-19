@@ -32,6 +32,8 @@ Run the development server:
 npm run dev
 ```
 
+`npm run dev` uses the React Router/Vite dev server directly. It does not use the production CLI entrypoint or start Tailscale.
+
 Create a production build:
 
 ```bash
@@ -42,6 +44,12 @@ Start the built app:
 
 ```bash
 npm start
+```
+
+The published package uses the same entrypoint:
+
+```bash
+npx scriptorium
 ```
 
 Pass runtime flags through `npm start --`:
@@ -87,7 +95,7 @@ npm start -- --no-tailscale
 
 ## Tailscale On Launch
 
-The production start command runs `node ./scripts/start-with-tailscale.ts`, which starts the built React Router server and optionally runs `tailscale serve` when `tailscale: true` is set in config or `--tailscale` is passed.
+The production entrypoint starts the built React Router server and optionally runs `tailscale serve` when `tailscale: true` is set in config or `--tailscale` is passed.
 
 Use `--no-tailscale` to force local-only startup for a run.
 

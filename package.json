@@ -1,8 +1,7 @@
 {
   "name": "scriptorium",
   "description": "Experimental single-user app for browsing local workspaces and running OpenCode-backed coding sessions.",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -13,13 +12,31 @@
     "url": "https://github.com/glitchassassin/scriptorium/issues"
   },
   "type": "module",
+  "bin": {
+    "scriptorium": "./bin/scriptorium.js"
+  },
+  "files": [
+    "bin/",
+    "build/client/",
+    "build/runtime/",
+    "build/server/",
+    "docs/config.md",
+    "drizzle/",
+    "README.md",
+    "package.json"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build": "react-router build",
+    "build": "react-router build && npm run build:runtime",
+    "build:runtime": "tsc -p tsconfig.runtime.json",
     "dev": "react-router dev",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "docs:config": "node ./scripts/generate-config-docs.ts",
-    "start": "node ./scripts/start-with-tailscale.ts",
+    "prepack": "npm run docs:config && npm run build",
+    "start": "node ./bin/scriptorium.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "react-router typegen && tsc"
@@ -27,12 +44,15 @@
   "dependencies": {
     "@iconify-json/mdi": "^1.1.67",
     "@iconify/react": "^5.0.2",
+    "@react-router/express": "7.12.0",
     "@react-router/node": "7.12.0",
-    "@react-router/serve": "7.12.0",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
+    "compression": "^1.8.1",
     "drizzle-orm": "^1.0.0-beta.17-8a36f93",
+    "express": "^4.21.2",
     "isbot": "^5.1.31",
+    "morgan": "^1.10.1",
     "prismjs": "^1.30.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -50,6 +70,9 @@
     "@tailwindcss/vite": "^4.1.13",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@types/compression": "^1.8.1",
+    "@types/express": "^5.0.6",
+    "@types/morgan": "^1.9.10",
     "@types/node": "^24.12.0",
     "@types/prismjs": "^1.26.6",
     "@types/react": "^19.2.7",
