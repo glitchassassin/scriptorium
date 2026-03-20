@@ -43,15 +43,15 @@ describe("AppShell", () => {
     useHasVisibleUnreadSessionsMock.mockReturnValue(false);
 
     render(
-      <AppShell
-        breadcrumbs={[
-          { label: "Workspace", to: "/instances/instance-1" },
-          { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
-          { label: "git" },
-        ]}
-        iconNavActions={getSessionIconNavActions("instance-1", "session-1")}
-      />,
-    );
+        <AppShell
+          breadcrumbs={[
+            { label: "Workspace", to: "/instances/instance-1" },
+            { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
+            { label: "git" },
+          ]}
+          iconNavActions={getSessionIconNavActions("instance-1", "session-1")}
+        />,
+      );
 
     expect(screen.getByRole("heading", { name: "Workspace / Planning / git" })).toBeInTheDocument();
     expect(screen.getByLabelText("Chat transcript")).toHaveAttribute(

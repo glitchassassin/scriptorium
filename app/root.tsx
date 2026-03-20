@@ -14,6 +14,7 @@ import "./app.css";
 import safeArea from "~/styles/safe-area.module.css";
 import { ServiceWorkerRegistration } from "~/components/pwa/service-worker-registration";
 import { ensureStarted } from "~/lib/instances/runtime.server";
+import { APP_NAME, getDocumentTitle, normalizeRouteHandleMatches, resolveRouteHandleValue } from "~/lib/route-handle";
 
 export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/manifest.webmanifest" },
@@ -27,6 +28,20 @@ export const links: Route.LinksFunction = () => [
 export async function loader() {
   await ensureStarted();
   return null;
+}
+
+export function getTitleFromMatches(matches: Route.ComponentProps["matches"]) {
+  const breadcrumbs = resolveRouteHandleValue(normalizeRouteHandleMatches(matches), "title");
+
+  return getDocumentTitle(breadcrumbs);
+}
+
+export function getErrorDocumentTitle(error: unknown) {
+  if (isRouteErrorResponse(error)) {
+    return error.status === 404 ? `404 | ${APP_NAME}` : `Error | ${APP_NAME}`;
+  }
+
+  return `Error | ${APP_NAME}`;
 }
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -55,8 +70,13 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-export default function App() {
-  return <Outlet />;
+export default function App({ matches }: Route.ComponentProps) {
+  return (
+    <>
+      <title>{getTitleFromMatches(matches)}</title>
+      <Outlet />
+    </>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
@@ -77,6 +97,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 
   return (
     <main className={`${safeArea.pageShell} min-h-dvh bg-white text-black`}>
+      <title>{getErrorDocumentTitle(error)}</title>
       <div className="mx-auto flex max-w-3xl flex-col gap-6 border-t-2 border-black pt-8">
         <div className="space-y-2">
           <p className="text-sm uppercase tracking-[0.08em]">Scriptorium</p>

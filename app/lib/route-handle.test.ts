@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  APP_NAME,
   defineRouteHandle,
+  getDocumentTitle,
+  getRouteTitleLabels,
   normalizeRouteHandleMatches,
   resolveRouteHandleValue,
   type RouteHandleDefinition,
@@ -112,5 +115,23 @@ describe("route handles", () => {
     expect(resolveRouteHandleValue(matches, "iconNavActions")).toEqual([
       { icon: "mdi:message-outline", label: "Chat transcript", to: "/instances/instance-1/sessions/session-1" },
     ]);
+  });
+
+  it("formats document titles from the deepest breadcrumb labels", () => {
+    expect(getRouteTitleLabels([
+      { label: "Workspace" },
+      { label: "Planning" },
+      { label: "git" },
+    ])).toEqual(["git", "Planning"]);
+    expect(getDocumentTitle([
+      { label: "Workspace" },
+      { label: "Planning" },
+      { label: "git" },
+    ])).toBe("git | Planning | scriptorium");
+  });
+
+  it("falls back to the app name when no breadcrumbs are available", () => {
+    expect(getRouteTitleLabels(undefined)).toEqual([]);
+    expect(getDocumentTitle(undefined)).toBe(APP_NAME);
   });
 });

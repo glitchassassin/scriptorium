@@ -3,9 +3,15 @@ import { useState } from "react";
 
 import { AuthSection, StatusMessage } from "~/components/auth/auth-shell";
 import { getAuthState, isPasskeyAuthRequired } from "~/lib/auth/guards.server";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 
 import type { Route } from "./+types/login";
 import { signInWithPasskey } from "./+/webauthn.client";
+
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  title: [{ label: "login" }],
+});
 
 export async function loader({ request }: Route.LoaderArgs) {
   if (!isPasskeyAuthRequired(request)) {

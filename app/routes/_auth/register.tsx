@@ -3,10 +3,16 @@ import { Link, useNavigate } from "react-router";
 
 import { AuthSection } from "~/components/auth/auth-shell";
 import { StatusMessage } from "~/components/auth/auth-shell";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 
 import type { Route } from "./+types/register";
 import { getFallbackDeviceLabel } from "./+/device-label";
 import { registerPasskey } from "./+/webauthn.client";
+
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  title: [{ label: "register" }],
+});
 
 export default function RegisterRoute({}: Route.ComponentProps) {
   const navigate = useNavigate();

@@ -3,9 +3,24 @@ import { data, Form, Link, redirect, useActionData } from "react-router";
 import { AuthSection, StatusMessage } from "~/components/auth/auth-shell";
 import { consumeActivationCode, getPendingEnrollment } from "~/lib/auth/activation-codes.server";
 import { activatePasskey } from "~/lib/auth/passkeys.server";
+import { defineRouteHandle } from "~/lib/route-handle";
+import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { createAuthenticatedSession } from "~/lib/auth/sessions.server";
 
 import type { Route } from "./+types/confirm-passkey";
+
+export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  title: ({ data }) => {
+    const enrollment = data?.enrollment;
+    const expired = enrollment && enrollment.expiresAt <= new Date().toISOString();
+
+    if (!enrollment || enrollment.status !== "pending" || enrollment.consumedAt || expired) {
+      return [{ label: "Passkey unavailable" }];
+    }
+
+    return [{ label: `Activate ${enrollment.label}` }];
+  },
+});
 
 export async function loader({ request }: Route.LoaderArgs) {
   const enrollmentId = new URL(request.url).searchParams.get("enrollment")?.trim() || "";
