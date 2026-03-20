@@ -7,6 +7,14 @@ const STOP_TIMEOUT_MS = 5000;
 const START_TIMEOUT_MS = 15000;
 const LISTEN_PATTERN = /opencode server listening on http:\/\/[^:]+:(\d+)/;
 
+function getInstanceProcessEnv() {
+  const env = { ...process.env };
+
+  delete env.NODE_ENV;
+
+  return env;
+}
+
 export type ManagedInstanceProcess = {
   child: ChildProcess;
   ready: Promise<number>;
@@ -20,6 +28,7 @@ function getOpencodeBinary() {
 export function spawnInstanceProcess(instance: InstanceRecord): ManagedInstanceProcess {
   const child = spawn(getOpencodeBinary(), ["serve"], {
     cwd: instance.directory,
+    env: getInstanceProcessEnv(),
     stdio: ["ignore", "pipe", "pipe"],
   });
 
