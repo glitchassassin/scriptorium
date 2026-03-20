@@ -71,6 +71,17 @@ Scriptorium reads runtime settings from:
 - `config.yml` for non-sensitive settings
 - `secrets.yml` for secrets such as the session signing secret
 
+Use `--config-dir <path>` / `SCRIPTORIUM_CONFIG_DIR` to override config location.
+Use `--data-dir <path>` / `SCRIPTORIUM_DATA_DIR` to override runtime data location.
+
+Default per-platform directories:
+
+| Platform | Default config dir | Default data dir |
+| --- | --- | --- |
+| macOS | `~/Library/Preferences/scriptorium` | `~/Library/Application Support/scriptorium` |
+| Linux | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |
+| Windows | `%APPDATA%\\scriptorium` | `%LOCALAPPDATA%\\scriptorium` |
+
 Precedence is: CLI flags -> environment variables -> YAML values -> schema defaults.
 
 Common flags and env vars include:

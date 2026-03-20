@@ -41,6 +41,7 @@ afterEach(() => {
 describe("runtime configuration", () => {
   it("applies cli and env overrides on top of config.yml", () => {
     const configDir = createTempConfigDir();
+    const dataDir = createTempConfigDir();
 
     writeFileSync(join(configDir, "config.yml"), [
       "server:",
@@ -55,6 +56,7 @@ describe("runtime configuration", () => {
 
     const runtime = resolveRuntimeConfiguration({
       configDir,
+      dataDir,
       env: {
         HOST: "env-host",
         OPENCODE_BIN: "custom-opencode",
@@ -69,18 +71,20 @@ describe("runtime configuration", () => {
     expect(runtime.config.workspace.browserRoot).toBe("/tmp/workspace");
     expect(runtime.config.network.tailscale).toBe(true);
     expect(runtime.config.opencode.bin).toBe("custom-opencode");
-    expect(runtime.config.database.path).toBe(join(configDir, "app.db"));
+    expect(runtime.config.database.path).toBe(join(dataDir, "app.db"));
   });
 
-  it("generates and persists secrets.yml when no session secret exists", () => {
+  it("initializes config/secrets files and persists session secrets", () => {
     const configDir = createTempConfigDir();
 
     const first = resolveRuntimeConfiguration({ configDir, env: {} });
+    const persistedConfig = readFileSync(join(configDir, "config.yml"), "utf8");
     const persistedSecrets = readFileSync(join(configDir, "secrets.yml"), "utf8");
     const second = resolveRuntimeConfiguration({ configDir, env: {} });
 
     expect(first.secrets.auth.sessionSecret).toHaveLength(64);
     expect(second.secrets.auth.sessionSecret).toBe(first.secrets.auth.sessionSecret);
+    expect(persistedConfig.trim()).not.toHaveLength(0);
     expect(persistedSecrets).toContain("sessionSecret:");
   });
 
@@ -93,6 +97,7 @@ describe("runtime configuration", () => {
       "--no-tailscale",
       "--db-path=/tmp/scriptorium.db",
       "--config-dir=/tmp/scriptorium-config",
+      "--data-dir=/tmp/scriptorium-data",
     ]);
 
     expect(parsed).toEqual({
@@ -105,6 +110,7 @@ describe("runtime configuration", () => {
         "db-path": "/tmp/scriptorium.db",
       },
       configDir: "/tmp/scriptorium-config",
+      dataDir: "/tmp/scriptorium-data",
       help: false,
     });
   });
@@ -114,6 +120,7 @@ describe("runtime configuration", () => {
 
     expect(help).toContain("Usage: scriptorium [options]");
     expect(help).toContain("--config-dir <path>");
+    expect(help).toContain("--data-dir <path>");
     expect(help).toContain("--host <string>");
     expect(help).toContain("--tailscale, --no-tailscale");
   });

@@ -2,14 +2,16 @@
 
 Scriptorium reads non-sensitive settings from `config.yml` and secrets from `secrets.yml` in its per-user config directory.
 CLI flags override environment variables, which override YAML values, which override schema defaults.
+The configuration directory can be overridden with `--config-dir <path>` or `SCRIPTORIUM_CONFIG_DIR`.
+The data directory can be overridden with `--data-dir <path>` or `SCRIPTORIUM_DATA_DIR`.
 
-| Platform | <scriptorium_data_dir> |
-| --- | --- |
-| macOS | `~/Library/Application Support/scriptorium` |
-| Linux | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |
-| Windows | `%APPDATA%\scriptorium` |
+| Platform | <scriptorium_config_dir> | <scriptorium_data_dir> |
+| --- | --- | --- |
+| macOS | `~/Library/Preferences/scriptorium` | `~/Library/Application Support/scriptorium` |
+| Linux | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |
+| Windows | `%APPDATA%\scriptorium` | `%LOCALAPPDATA%\scriptorium` |
 
-Examples use `<scriptorium_data_dir>` as shorthand for Scriptorium's per-user data directory and `$HOME` for the user's home directory.
+Examples use `<scriptorium_config_dir>` and `<scriptorium_data_dir>` as shorthand for Scriptorium's per-user config/data directories and `$HOME` for the user's home directory.
 
 ## config.yml
 
