@@ -1,6 +1,12 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const revalidateOnReconnect = vi.fn();
+
+vi.mock("~/components/events/use-event-stream-reconnect-revalidation", () => ({
+  useEventStreamReconnectRevalidation: () => revalidateOnReconnect,
+}));
+
 import {
   InstanceEventsProvider,
   useInstanceEvents,
@@ -8,15 +14,20 @@ import {
   type InstanceEvent,
   type InstanceEventFilter,
 } from "~/components/events/instance-events-provider";
+import { RECONNECT_DELAYS_MS } from "~/lib/events/persistent-event-source";
 
 class MockEventSource {
-  static instances = new Map<string, MockEventSource>();
+  static instances = new Map<string, MockEventSource[]>();
 
   onmessage: ((event: MessageEvent<string>) => void) | null = null;
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
   readonly close = vi.fn();
 
   constructor(public readonly url: string) {
-    MockEventSource.instances.set(url, this);
+    const instances = MockEventSource.instances.get(url) ?? [];
+    instances.push(this);
+    MockEventSource.instances.set(url, instances);
   }
 
   emit(data: unknown) {
@@ -27,8 +38,20 @@ class MockEventSource {
     this.onmessage?.({ data } as MessageEvent<string>);
   }
 
+  open() {
+    this.onopen?.();
+  }
+
+  fail() {
+    this.onerror?.();
+  }
+
   static reset() {
     MockEventSource.instances.clear();
+  }
+
+  static latest(url: string) {
+    return MockEventSource.instances.get(url)?.at(-1);
   }
 }
 
@@ -46,7 +69,7 @@ function TestSubscriber<TTypes extends readonly InstanceEvent["type"][] | undefi
 }
 
 function emitInstanceEvent(instanceId: string, payload: unknown) {
-  const source = MockEventSource.instances.get(`/instances/${instanceId}/proxy/event`);
+  const source = MockEventSource.latest(`/instances/${instanceId}/proxy/event`);
 
   if (!source) {
     throw new Error(`Missing mock EventSource for instance ${instanceId}.`);
@@ -63,12 +86,15 @@ describe("useInstanceEvents", () => {
   beforeEach(() => {
     MockEventSource.reset();
     globalThis.EventSource = MockEventSource as unknown as typeof EventSource;
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
     MockEventSource.reset();
     globalThis.EventSource = originalEventSource;
+    vi.useRealTimers();
     vi.restoreAllMocks();
+    revalidateOnReconnect.mockReset();
   });
 
   it("delivers known parsed events to subscribers", () => {
@@ -190,7 +216,7 @@ describe("useInstanceEvents", () => {
     });
 
     act(() => {
-      MockEventSource.instances.get(`/instances/alpha/proxy/event`)?.emitRaw("not-json");
+      MockEventSource.latest(`/instances/alpha/proxy/event`)?.emitRaw("not-json");
     });
 
     expect(onEvent).not.toHaveBeenCalled();
@@ -207,7 +233,7 @@ describe("useInstanceEvents", () => {
     );
 
     const alphaSource = MockEventSource.instances.get(`/instances/alpha/proxy/event`);
-    const betaSource = MockEventSource.instances.get(`/instances/beta/proxy/event`);
+    const betaSource = MockEventSource.latest(`/instances/beta/proxy/event`);
 
     view.rerender(
       <InstanceEventsProvider instanceIds={["alpha"]}>
@@ -219,6 +245,34 @@ describe("useInstanceEvents", () => {
 
     view.unmount();
 
-    expect(alphaSource?.close).toHaveBeenCalledTimes(1);
+    expect(alphaSource?.at(-1)?.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("revalidates after an instance stream recovers", () => {
+    render(
+      <InstanceEventsProvider instanceIds={["alpha", "beta"]}>
+        <TestSubscriber onEvent={vi.fn()} />
+      </InstanceEventsProvider>,
+    );
+
+    const alphaSource = MockEventSource.latest("/instances/alpha/proxy/event");
+    const betaSource = MockEventSource.latest("/instances/beta/proxy/event");
+
+    act(() => {
+      alphaSource?.open();
+      alphaSource?.fail();
+      betaSource?.fail();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(RECONNECT_DELAYS_MS[0]);
+    });
+
+    act(() => {
+      MockEventSource.latest("/instances/alpha/proxy/event")?.open();
+      MockEventSource.latest("/instances/beta/proxy/event")?.open();
+    });
+
+    expect(revalidateOnReconnect).toHaveBeenCalledTimes(2);
   });
 });

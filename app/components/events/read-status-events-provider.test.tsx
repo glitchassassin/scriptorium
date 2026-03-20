@@ -1,20 +1,31 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const revalidateOnReconnect = vi.fn();
+
+vi.mock("~/components/events/use-event-stream-reconnect-revalidation", () => ({
+  useEventStreamReconnectRevalidation: () => revalidateOnReconnect,
+}));
+
 import {
   ReadStatusEventsProvider,
   useReadStatusEvents,
   type SessionReadEvent,
 } from "~/components/events/read-status-events-provider";
+import { RECONNECT_DELAYS_MS } from "~/lib/events/persistent-event-source";
 
 class MockEventSource {
-  static instances = new Map<string, MockEventSource>();
+  static instances = new Map<string, MockEventSource[]>();
 
   onmessage: ((event: MessageEvent<string>) => void) | null = null;
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
   readonly close = vi.fn();
 
   constructor(public readonly url: string) {
-    MockEventSource.instances.set(url, this);
+    const instances = MockEventSource.instances.get(url) ?? [];
+    instances.push(this);
+    MockEventSource.instances.set(url, instances);
   }
 
   emit(data: unknown) {
@@ -25,8 +36,20 @@ class MockEventSource {
     this.onmessage?.({ data } as MessageEvent<string>);
   }
 
+  open() {
+    this.onopen?.();
+  }
+
+  fail() {
+    this.onerror?.();
+  }
+
   static reset() {
     MockEventSource.instances.clear();
+  }
+
+  static latest(url: string) {
+    return MockEventSource.instances.get(url)?.at(-1);
   }
 }
 
@@ -42,7 +65,7 @@ function TestSubscriber({
 }
 
 function emitReadStatusEvent(payload: unknown) {
-  const source = MockEventSource.instances.get("/session-read-status/events");
+  const source = MockEventSource.latest("/session-read-status/events");
 
   if (!source) {
     throw new Error("Missing mock EventSource for read status events.");
@@ -59,12 +82,15 @@ describe("useReadStatusEvents", () => {
   beforeEach(() => {
     MockEventSource.reset();
     globalThis.EventSource = MockEventSource as unknown as typeof EventSource;
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
     MockEventSource.reset();
     globalThis.EventSource = originalEventSource;
+    vi.useRealTimers();
     vi.restoreAllMocks();
+    revalidateOnReconnect.mockReset();
   });
 
   it("delivers parsed events to subscribers", () => {
@@ -137,7 +163,7 @@ describe("useReadStatusEvents", () => {
         <TestSubscriber onEvent={vi.fn()} />
       </ReadStatusEventsProvider>,
     );
-    const source = MockEventSource.instances.get("/session-read-status/events");
+    const source = MockEventSource.latest("/session-read-status/events");
 
     act(() => {
       source?.emit({ type: "session.read", sessionId: "session-1" });
@@ -149,5 +175,30 @@ describe("useReadStatusEvents", () => {
     view.unmount();
 
     expect(source?.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("revalidates after the stream recovers", () => {
+    render(
+      <ReadStatusEventsProvider>
+        <TestSubscriber onEvent={vi.fn()} />
+      </ReadStatusEventsProvider>,
+    );
+
+    const source = MockEventSource.latest("/session-read-status/events");
+
+    act(() => {
+      source?.open();
+      source?.fail();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(RECONNECT_DELAYS_MS[0]);
+    });
+
+    act(() => {
+      MockEventSource.latest("/session-read-status/events")?.open();
+    });
+
+    expect(revalidateOnReconnect).toHaveBeenCalledTimes(1);
   });
 });

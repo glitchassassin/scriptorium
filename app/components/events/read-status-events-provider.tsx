@@ -9,6 +9,8 @@ import {
 } from "react";
 
 import { sessionReadEventSchema, type SessionReadEvent } from "~/lib/session-read-status";
+import { PersistentEventSource } from "~/lib/events/persistent-event-source";
+import { useEventStreamReconnectRevalidation } from "~/components/events/use-event-stream-reconnect-revalidation";
 
 type ReadStatusEventFilter = {
   instanceId?: string;
@@ -45,9 +47,10 @@ function matchesFilter(event: SessionReadEvent, filter?: ReadStatusEventFilter) 
 }
 
 export function ReadStatusEventsProvider({ children }: { children: ReactNode }) {
-  const sourceRef = useRef<EventSource | null>(null);
+  const sourceRef = useRef<PersistentEventSource | null>(null);
   const subscribersRef = useRef(new Map<number, Subscriber>());
   const subscriberIdRef = useRef(0);
+  const revalidateOnReconnect = useEventStreamReconnectRevalidation();
 
   const dispatch = useCallback((event: SessionReadEvent) => {
     for (const subscriber of subscribersRef.current.values()) {
@@ -60,34 +63,38 @@ export function ReadStatusEventsProvider({ children }: { children: ReactNode }) 
   }, []);
 
   useEffect(() => {
-    const source = new EventSource("/session-read-status/events");
-    sourceRef.current = source;
-    source.onmessage = (message) => {
-      try {
-        const parsed = sessionReadEventSchema.safeParse(JSON.parse(message.data) as unknown);
+    const source = new PersistentEventSource("/session-read-status/events", {
+      onReconnect: () => {
+        revalidateOnReconnect();
+      },
+      onMessage: (message) => {
+        try {
+          const parsed = sessionReadEventSchema.safeParse(JSON.parse(message.data) as unknown);
 
-        if (!parsed.success) {
-          console.error("[session read events] Event did not match its schema.", {
-            error: parsed.error.format(),
+          if (!parsed.success) {
+            console.error("[session read events] Event did not match its schema.", {
+              error: parsed.error.format(),
+              raw: message.data,
+            });
+            return;
+          }
+
+          dispatch(parsed.data);
+        } catch (error) {
+          console.error("[session read events] Failed to parse SSE payload.", {
+            error,
             raw: message.data,
           });
-          return;
         }
-
-        dispatch(parsed.data);
-      } catch (error) {
-        console.error("[session read events] Failed to parse SSE payload.", {
-          error,
-          raw: message.data,
-        });
-      }
-    };
+      },
+    });
+    sourceRef.current = source;
 
     return () => {
       source.close();
       sourceRef.current = null;
     };
-  }, [dispatch]);
+  }, [dispatch, revalidateOnReconnect]);
 
   const subscribe = useCallback<ReadStatusEventsContextValue["subscribe"]>((handler, filter) => {
     const subscriberId = subscriberIdRef.current;

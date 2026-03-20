@@ -13,6 +13,8 @@ import {
   type OpencodeEvent,
   type OpencodeKnownEventType,
 } from "~/lib/opencode/events";
+import { PersistentEventSource } from "~/lib/events/persistent-event-source";
+import { useEventStreamReconnectRevalidation } from "~/components/events/use-event-stream-reconnect-revalidation";
 
 type InstanceEvent = {
   instanceId: string;
@@ -102,11 +104,12 @@ function getEventSessionId(event: InstanceEvent) {
 }
 
 export function InstanceEventsProvider({ children, instanceIds }: { children: ReactNode; instanceIds: string[] }) {
-  const sourcesRef = useRef(new Map<string, EventSource>());
+  const sourcesRef = useRef(new Map<string, PersistentEventSource>());
   const subscribersRef = useRef(new Map<number, Subscriber>());
   const subscriberIdRef = useRef(0);
   const instanceIdsKey = useMemo(() => [...instanceIds].sort().join(","), [instanceIds]);
   const normalizedInstanceIds = useMemo(() => [...new Set(instanceIds)].sort(), [instanceIdsKey]);
+  const revalidateOnReconnect = useEventStreamReconnectRevalidation();
 
   const dispatch = useCallback((event: InstanceEvent) => {
     for (const subscriber of subscribersRef.current.values()) {
@@ -135,44 +138,47 @@ export function InstanceEventsProvider({ children, instanceIds }: { children: Re
         continue;
       }
 
-      const source = new EventSource(`/instances/${instanceId}/proxy/event`);
-      source.onmessage = (message) => {
-        try {
-          const result = parseOpencodeEvent(JSON.parse(message.data) as unknown);
+      const source = new PersistentEventSource(`/instances/${instanceId}/proxy/event`, {
+        onReconnect: () => {
+          revalidateOnReconnect();
+        },
+        onMessage: (message) => {
+          try {
+            const result = parseOpencodeEvent(JSON.parse(message.data) as unknown);
 
-          if (result.kind === "unknown") {
-            console.warn(`[opencode events] No schema registered for event type \"${result.eventType}\".`, {
-              event: result.data,
-              instanceId,
-            });
-            return;
-          }
-
-          if (result.kind === "invalid") {
-            console.error(
-              `[opencode events] Event ${result.eventType ? `\"${result.eventType}\" ` : ""}did not match its schema.`,
-              {
-                error: result.error.format(),
+            if (result.kind === "unknown") {
+              console.warn(`[opencode events] No schema registered for event type \"${result.eventType}\".`, {
+                event: result.data,
                 instanceId,
-                raw: message.data,
-              },
-            );
-            return;
-          }
+              });
+              return;
+            }
 
-          dispatch({
-            instanceId,
-            ...result.data,
-          });
-        } catch (error) {
-          console.error("[opencode events] Failed to parse SSE payload.", {
-            error,
-            instanceId,
-            raw: message.data,
-          });
-          return;
-        }
-      };
+            if (result.kind === "invalid") {
+              console.error(
+                `[opencode events] Event ${result.eventType ? `\"${result.eventType}\" ` : ""}did not match its schema.`,
+                {
+                  error: result.error.format(),
+                  instanceId,
+                  raw: message.data,
+                },
+              );
+              return;
+            }
+
+            dispatch({
+              instanceId,
+              ...result.data,
+            });
+          } catch (error) {
+            console.error("[opencode events] Failed to parse SSE payload.", {
+              error,
+              instanceId,
+              raw: message.data,
+            });
+          }
+        },
+      });
       sourcesRef.current.set(instanceId, source);
     }
 
@@ -182,7 +188,7 @@ export function InstanceEventsProvider({ children, instanceIds }: { children: Re
       }
       sourcesRef.current.clear();
     };
-  }, [dispatch, instanceIdsKey, normalizedInstanceIds]);
+  }, [dispatch, instanceIdsKey, normalizedInstanceIds, revalidateOnReconnect]);
 
   const subscribe = useCallback<InstanceEventsContextValue["subscribe"]>((handler, filter) => {
     const subscriberId = subscriberIdRef.current;
