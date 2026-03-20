@@ -10,6 +10,7 @@ import { z } from "zod";
 import {
   buildDocumentationExample,
   collectSchemaDocumentation,
+  getRuntimeConfigPaths,
   getRuntimeConfigurationDocumentation,
   parseRuntimeCliArgs,
   resetRuntimeConfigurationCache,
@@ -86,6 +87,30 @@ describe("runtime configuration", () => {
     expect(second.secrets.auth.sessionSecret).toBe(first.secrets.auth.sessionSecret);
     expect(persistedConfig.trim()).not.toHaveLength(0);
     expect(persistedSecrets).toContain("sessionSecret:");
+  });
+
+  it("uses xdg-style config and data directories by default", () => {
+    const paths = getRuntimeConfigPaths({
+      env: {
+        HOME: "/tmp/home",
+      },
+    });
+
+    expect(paths.configDirectory).toBe("/tmp/home/.config/scriptorium");
+    expect(paths.dataDirectory).toBe("/tmp/home/.local/share/scriptorium");
+  });
+
+  it("prefers explicit xdg environment variables for config and data directories", () => {
+    const paths = getRuntimeConfigPaths({
+      env: {
+        HOME: "/tmp/home",
+        XDG_CONFIG_HOME: "/tmp/xdg-config",
+        XDG_DATA_HOME: "/tmp/xdg-data",
+      },
+    });
+
+    expect(paths.configDirectory).toBe("/tmp/xdg-config/scriptorium");
+    expect(paths.dataDirectory).toBe("/tmp/xdg-data/scriptorium");
   });
 
   it("parses cli flags from schema metadata", () => {

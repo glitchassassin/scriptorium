@@ -78,9 +78,9 @@ Default per-platform directories:
 
 | Platform | Default config dir | Default data dir |
 | --- | --- | --- |
-| macOS | `~/Library/Preferences/scriptorium` | `~/Library/Application Support/scriptorium` |
+| macOS | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |
 | Linux | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |
-| Windows | `%APPDATA%\\scriptorium` | `%LOCALAPPDATA%\\scriptorium` |
+| Windows | `%XDG_CONFIG_HOME%\\scriptorium` or `%USERPROFILE%\\.config\\scriptorium` | `%XDG_DATA_HOME%\\scriptorium` or `%USERPROFILE%\\.local\\share\\scriptorium` |
 
 Precedence is: CLI flags -> environment variables -> YAML values -> schema defaults.
 

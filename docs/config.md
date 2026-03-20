@@ -7,9 +7,9 @@ The data directory can be overridden with `--data-dir <path>` or `SCRIPTORIUM_DA
 
 | Platform | <scriptorium_config_dir> | <scriptorium_data_dir> |
 | --- | --- | --- |
-| macOS | `~/Library/Preferences/scriptorium` | `~/Library/Application Support/scriptorium` |
+| macOS | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |
 | Linux | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |
-| Windows | `%APPDATA%\scriptorium` | `%LOCALAPPDATA%\scriptorium` |
+| Windows | `%XDG_CONFIG_HOME%\scriptorium` or `%USERPROFILE%\.config\scriptorium` | `%XDG_DATA_HOME%\scriptorium` or `%USERPROFILE%\.local\share\scriptorium` |
 
 Examples use `<scriptorium_config_dir>` and `<scriptorium_data_dir>` as shorthand for Scriptorium's per-user config/data directories and `$HOME` for the user's home directory.
 

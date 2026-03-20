@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir, platform } from "node:os";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs, type ParseArgsConfig } from "node:util";
 
@@ -96,32 +96,22 @@ function override<T extends z.ZodTypeAny>(schema: T, sources: OverrideSources): 
   }).pipe(schema);
 }
 
-function defaultConfigDirectory(env: NodeJS.ProcessEnv = process.env) {
+function xdgDirectory(env: NodeJS.ProcessEnv, name: "config" | "data") {
   const home = env.HOME?.trim() || homedir();
 
-  switch (platform()) {
-    case "darwin":
-      return resolve(home, "Library/Preferences/scriptorium");
-    case "win32":
-      return resolve(env.APPDATA?.trim() || join(home, "AppData/Roaming"), "scriptorium");
-    default:
-      return resolve(env.XDG_CONFIG_HOME?.trim() || join(home, ".config"), "scriptorium");
+  if (name === "config") {
+    return resolve(env.XDG_CONFIG_HOME?.trim() || join(home, ".config"), "scriptorium");
   }
+
+  return resolve(env.XDG_DATA_HOME?.trim() || join(home, ".local/share"), "scriptorium");
+}
+
+function defaultConfigDirectory(env: NodeJS.ProcessEnv = process.env) {
+  return xdgDirectory(env, "config");
 }
 
 function defaultDataDirectory(env: NodeJS.ProcessEnv = process.env) {
-  const home = env.HOME?.trim() || homedir();
-
-  switch (platform()) {
-    case "darwin":
-      return resolve(home, "Library/Application Support/scriptorium");
-    case "win32": {
-      const localAppData = env.LOCALAPPDATA?.trim() || join(home, "AppData/Local");
-      return resolve(localAppData, "scriptorium");
-    }
-    default:
-      return resolve(env.XDG_DATA_HOME?.trim() || join(home, ".local/share"), "scriptorium");
-  }
+  return xdgDirectory(env, "data");
 }
 
 export function getRuntimeConfigPaths(sources: OverrideSources = {}): RuntimeConfigPaths {
@@ -520,12 +510,8 @@ function normalizeDocumentationValue(value: unknown) {
   }
 
   return value
-    .replaceAll("/path/to/home/Library/Preferences/scriptorium", DOCUMENTATION_CONFIG_DIR)
-    .replaceAll("/path/to/home/Library/Application Support/scriptorium", DOCUMENTATION_DATA_DIR)
     .replaceAll("/path/to/home/.config/scriptorium", DOCUMENTATION_CONFIG_DIR)
     .replaceAll("/path/to/home/.local/share/scriptorium", DOCUMENTATION_DATA_DIR)
-    .replaceAll("C:/Users/you/AppData/Roaming/scriptorium", DOCUMENTATION_CONFIG_DIR)
-    .replaceAll("C:/Users/you/AppData/Local/scriptorium", DOCUMENTATION_DATA_DIR)
     .replaceAll("/path/to/home", DOCUMENTATION_HOME);
 }
 
@@ -597,9 +583,9 @@ export function renderRuntimeConfigurationMarkdown() {
     "",
     `| Platform | ${DOCUMENTATION_CONFIG_DIR} | ${DOCUMENTATION_DATA_DIR} |`,
     "| --- | --- | --- |",
-    "| macOS | `~/Library/Preferences/scriptorium` | `~/Library/Application Support/scriptorium` |",
+    "| macOS | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |",
     "| Linux | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |",
-    "| Windows | `%APPDATA%\\scriptorium` | `%LOCALAPPDATA%\\scriptorium` |",
+    "| Windows | `%XDG_CONFIG_HOME%\\scriptorium` or `%USERPROFILE%\\.config\\scriptorium` | `%XDG_DATA_HOME%\\scriptorium` or `%USERPROFILE%\\.local\\share\\scriptorium` |",
     "",
     `Examples use \`${DOCUMENTATION_CONFIG_DIR}\` and \`${DOCUMENTATION_DATA_DIR}\` as shorthand for Scriptorium's per-user config/data directories and \`${DOCUMENTATION_HOME}\` for the user's home directory.`,
     "",
