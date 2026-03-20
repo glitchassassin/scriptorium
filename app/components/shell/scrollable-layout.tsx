@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 
-const DEFAULT_BOTTOM_TOLERANCE_PX = 24;
+const DEFAULT_BOTTOM_TOLERANCE_PX = 70;
 
 type ScrollableLayoutProps = {
   children: ReactNode;
@@ -11,31 +11,32 @@ type ScrollableLayoutProps = {
 };
 
 export function ScrollableLayout({ children, footer, header, stickToBottom = false }: ScrollableLayoutProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const hasLoadedRef = useRef(false);
-  const isAtBottomRef = useRef(true);
+  const isNearBottomRef = useRef(true);
 
-  const updateIsAtBottom = useCallback(() => {
-    const contentEl = contentRef.current;
+  const updateIsNearBottom = useCallback(() => {
+    const scrollEl = scrollRef.current;
 
-    if (!contentEl) {
-      isAtBottomRef.current = true;
+    if (!scrollEl) {
+      isNearBottomRef.current = true;
       return;
     }
 
-    const remainingScroll = contentEl.scrollHeight - contentEl.scrollTop - contentEl.clientHeight;
-    isAtBottomRef.current = remainingScroll <= DEFAULT_BOTTOM_TOLERANCE_PX;
+    const remainingScroll = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+    isNearBottomRef.current = remainingScroll <= DEFAULT_BOTTOM_TOLERANCE_PX;
   }, []);
 
   const scrollToBottom = useCallback(() => {
-    const contentEl = contentRef.current;
+    const scrollEl = scrollRef.current;
 
-    if (!contentEl) {
+    if (!scrollEl) {
       return;
     }
 
-    contentEl.scrollTop = contentEl.scrollHeight;
-    isAtBottomRef.current = true;
+    scrollEl.scrollTop = scrollEl.scrollHeight;
+    isNearBottomRef.current = true;
     hasLoadedRef.current = true;
   }, []);
 
@@ -44,24 +45,24 @@ export function ScrollableLayout({ children, footer, header, stickToBottom = fal
       return;
     }
 
-    const contentEl = contentRef.current;
+    const scrollEl = scrollRef.current;
 
-    if (!contentEl) {
+    if (!scrollEl) {
       return;
     }
 
-    updateIsAtBottom();
-    contentEl.addEventListener("scroll", updateIsAtBottom);
+    updateIsNearBottom();
+    scrollEl.addEventListener("scroll", updateIsNearBottom);
 
-    return () => contentEl.removeEventListener("scroll", updateIsAtBottom);
-  }, [stickToBottom, updateIsAtBottom]);
+    return () => scrollEl.removeEventListener("scroll", updateIsNearBottom);
+  }, [stickToBottom, updateIsNearBottom]);
 
   useEffect(() => {
     if (!stickToBottom) {
       return;
     }
 
-    if (hasLoadedRef.current && !isAtBottomRef.current) {
+    if (hasLoadedRef.current && !isNearBottomRef.current) {
       return;
     }
 
@@ -75,28 +76,34 @@ export function ScrollableLayout({ children, footer, header, stickToBottom = fal
       return;
     }
 
-    const handleResize = () => {
-      if (!isAtBottomRef.current) {
+    const contentEl = contentRef.current;
+
+    if (!contentEl || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (!isNearBottomRef.current) {
         return;
       }
 
       window.requestAnimationFrame(scrollToBottom);
-    };
+    });
 
-    window.addEventListener("resize", handleResize);
-    window.visualViewport?.addEventListener("resize", handleResize);
+    observer.observe(contentEl);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      window.visualViewport?.removeEventListener("resize", handleResize);
+      observer.disconnect();
     };
   }, [scrollToBottom, stickToBottom]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {header ? <div className="border-b-2 border-black px-6 sm:px-8">{header}</div> : null}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" ref={contentRef}>
-        {children}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" ref={scrollRef}>
+        <div className="flex min-h-full flex-1 flex-col" ref={contentRef}>
+          {children}
+        </div>
       </div>
       {footer ? <footer className="mt-auto">{footer}</footer> : null}
     </div>
