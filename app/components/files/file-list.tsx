@@ -44,6 +44,7 @@ export function SingleColumnFileList({
   getItemDescription,
 }: FileListProps) {
   const canSelectCurrentDirectory = selectionMode === "directory" || selectionMode === "either";
+  const visibleEntries = selectionMode === "directory" ? entries.filter((entry) => entry.type === "directory") : entries;
   const [selected, setSelected] = useState<FileBrowserSelection | null>(
     value
       ? {
@@ -95,12 +96,8 @@ export function SingleColumnFileList({
               </button>
             </li>
           ) : null}
-          {entries.length ? (
-            entries.map((entry) => {
-              const canSelectEntry =
-                selectionMode === "either" ||
-                (selectionMode === "directory" && entry.type === "directory") ||
-                (selectionMode === "file" && entry.type === "file");
+          {visibleEntries.length ? (
+            visibleEntries.map((entry) => {
               const isSelected = effectiveSelection === entry.path;
               const description = getItemDescription?.(entry);
 
@@ -119,7 +116,7 @@ export function SingleColumnFileList({
                       </p>
                       {description ? <p className="truncate text-sm opacity-60">{description}</p> : null}
                     </button>
-                  ) : canSelectEntry ? (
+                  ) : (
                     <button
                       className={`block min-h-9 w-full px-3 py-1 text-left text-base disabled:opacity-25 ${
                         isSelected ? "bg-black text-white" : ""
@@ -140,14 +137,6 @@ export function SingleColumnFileList({
                       </p>
                       {description ? <p className="truncate text-sm opacity-60">{description}</p> : null}
                     </button>
-                  ) : (
-                    <div className="px-3 py-1">
-                      <p className="flex min-w-0 items-baseline gap-2 truncate text-base">
-                        {getItemPrefix?.(entry) ? <span className="w-5 shrink-0">{getItemPrefix(entry)}</span> : null}
-                        <span className="truncate">{entry.name}</span>
-                      </p>
-                      {description ? <p className="truncate text-sm opacity-60">{description}</p> : null}
-                    </div>
                   )}
                 </li>
               );

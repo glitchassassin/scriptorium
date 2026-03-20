@@ -51,6 +51,20 @@ describe("SingleColumnFileList", () => {
     });
   });
 
+  it("hides file rows in directory mode", () => {
+    render(
+      <SingleColumnFileList
+        currentPath="/repo"
+        parentPath={null}
+        entries={LIST_ENTRIES}
+        selectionMode="directory"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "alpha/" })).toBeInTheDocument();
+    expect(screen.queryByText("main.ts")).not.toBeInTheDocument();
+  });
+
   it("can show selected selection state", () => {
     render(
       <SingleColumnFileList
@@ -77,5 +91,19 @@ describe("SingleColumnFileList", () => {
     );
 
     expect(screen.getByText("src/")).toBeInTheDocument();
+  });
+
+  it("shows file rows in either mode", () => {
+    render(
+      <SingleColumnFileList
+        currentPath="/repo"
+        parentPath={null}
+        entries={LIST_ENTRIES}
+        selectionMode="either"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "alpha/" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "main.ts" })).toBeInTheDocument();
   });
 });
