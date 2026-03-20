@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { data, Outlet, redirect, useFetcher, useRevalidator, useSearchParams } from "react-router";
+import { data, Outlet, redirect, useFetcher, useLocation, useNavigate, useRevalidator, useSearchParams } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
@@ -23,6 +23,7 @@ import { getInstanceOrThrow } from "~/lib/instances/runtime.server";
 import { getUserMessageText } from "~/lib/opencode/message-helpers";
 import {
   applyMessagePartDelta,
+  mergeMessages,
   removeMessage,
   removeMessagePart,
   upsertMessage,
@@ -81,9 +82,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const instanceId = params.instanceId;
   const sessionId = params.sessionId;
+  const url = new URL(request.url);
+  const shouldLoadFullHistory = url.searchParams.get("fullHistory") === "1";
   const instance = await getInstanceOrThrow(instanceId);
   const [messages, permissions, session, statuses, agents] = await Promise.all([
-    listOpencodeMessages(instance, sessionId, 50),
+    listOpencodeMessages(instance, sessionId, shouldLoadFullHistory ? undefined : 50),
     listOpencodePermissionRequests(instance, sessionId),
     getOpencodeSession(instance, sessionId),
     getOpencodeSessionStatuses(instance),
@@ -95,6 +98,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     initialPermissions: permissions,
     initialStatus: statuses[sessionId] ?? { type: "idle" },
     initialAgents: agents,
+    loadedFullHistory: shouldLoadFullHistory || messages.length < 50,
     instance,
     session,
   };
@@ -189,11 +193,14 @@ export async function action({ params, request }: Route.ActionArgs) {
 }
 
 export default function InstanceSessionLayoutRoute({ loaderData }: Route.ComponentProps) {
-  const { initialAgents, initialMessages, initialPermissions, initialStatus, instance, session } = loaderData;
+  const { initialAgents, initialMessages, initialPermissions, initialStatus, instance, loadedFullHistory, session } = loaderData;
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const prefilledPrompt = searchParams.get("prompt") ?? "";
   const [composerText, setComposerText] = useState("");
   const [messages, setMessages] = useState<OpencodeMessageWithParts[]>(initialMessages);
+  const [hasLoadedFullHistory, setHasLoadedFullHistory] = useState(loadedFullHistory);
   const [pendingPermissions, setPendingPermissions] = useState<OpencodePermissionRequest[]>(initialPermissions);
   const [sessionState, setSessionState] = useState<OpencodeSessionInfo>(session);
   const [status, setStatus] = useState<OpencodeSessionStatus>(initialStatus);
@@ -211,6 +218,8 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   const defaultAgent = useMemo<string | null>(() => getInitialAgent(initialMessages, initialAgents), [initialMessages, initialAgents]);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(defaultAgent);
   const [images, setImages] = useState<DraftImage[]>([]);
+  const isLoadingFullHistory = searchParams.get("fullHistory") === "1" && !hasLoadedFullHistory;
+  const isTranscriptRoute = location.pathname === `/instances/${instance.id}/sessions/${session.id}`;
   const eventTypes = useMemo(
     () => [
       "message.updated",
@@ -229,15 +238,18 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
 
   useEffect(() => {
     if (sessionIdRef.current === session.id) {
+      setMessages((current) => mergeMessages(current, initialMessages));
+      setHasLoadedFullHistory((current) => current || loadedFullHistory);
       return;
     }
 
     sessionIdRef.current = session.id;
     setMessages(initialMessages);
+    setHasLoadedFullHistory(loadedFullHistory);
     setStatus(initialStatus);
     setSessionState(session);
     setPendingPermissions(initialPermissions);
-  }, [initialMessages, initialPermissions, initialStatus, session]);
+  }, [initialMessages, initialPermissions, initialStatus, loadedFullHistory, session]);
 
   useEffect(() => {
     setComposerText(prefilledPrompt);
@@ -477,9 +489,26 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   const isPromptPending = promptFetcher.state !== "idle";
   const isAbortPending = abortFetcher.state !== "idle";
   const isBusy = status.type !== "idle";
+  const loadFullHistory = useCallback(() => {
+    if (hasLoadedFullHistory || isLoadingFullHistory) {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(location.search);
+    nextSearchParams.set("fullHistory", "1");
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: `?${nextSearchParams.toString()}`,
+      },
+      { preventScrollReset: true, replace: true },
+    );
+  }, [hasLoadedFullHistory, isLoadingFullHistory, location.pathname, location.search, navigate]);
 
   return (
     <ScrollableLayout
+      onReachTop={isTranscriptRoute ? loadFullHistory : undefined}
       stickToBottom
       footer={
         <div className={`${safeArea.footerPad4} border-t-2 border-black px-6 pt-4 sm:px-8`}>
@@ -617,8 +646,11 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
     >
       <Outlet
         context={{
+          hasLoadedFullHistory,
           instance,
+          isLoadingFullHistory,
           insertComposerReference,
+          loadFullHistory,
           messages,
           pendingPermissions,
           replyPermission,

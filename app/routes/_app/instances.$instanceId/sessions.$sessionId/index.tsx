@@ -19,7 +19,7 @@ function statusDescription(status: SessionRouteContext["status"]) {
 }
 
 export default function InstanceSessionTranscriptRoute() {
-  const { instance, messages, pendingPermissions, replyPermission, session, status } = useOutletContext<SessionRouteContext>();
+  const { hasLoadedFullHistory, instance, isLoadingFullHistory, messages, pendingPermissions, replyPermission, session, status } = useOutletContext<SessionRouteContext>();
   const actionPath = `/instances/${instance.id}/sessions/${session.id}`;
   const { revertedMessages, visibleMessages } = partitionMessagesByRevert(messages, session.revert);
   const isBusy = status.type !== "idle";
@@ -106,6 +106,7 @@ export default function InstanceSessionTranscriptRoute() {
     <section className="flex min-h-full flex-1 flex-col gap-6 pr-1">
       {status.type === "retry" ? <p className="pt-4 text-sm leading-6">{statusDescription(status)}</p> : null}
       <section className={cn("space-y-0", showCenteredEmptyState && "flex flex-1 items-center justify-center px-4 text-center")}>
+        {isLoadingFullHistory ? <p className="pt-4 text-sm leading-6">Loading earlier messages...</p> : null}
         {isEmpty ? <p className={cn("text-base leading-6", !showCenteredEmptyState && "pt-4")}>{emptyStateMessage}</p> : null}
         {visibleMessages.map((message) => (
           <MessageCard actionPath={actionPath} isSessionBusy={isBusy} key={message.info.id} message={message} />

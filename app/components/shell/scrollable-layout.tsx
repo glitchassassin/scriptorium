@@ -2,31 +2,47 @@ import { useCallback, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 
 const DEFAULT_BOTTOM_TOLERANCE_PX = 70;
+const DEFAULT_TOP_TOLERANCE_PX = 8;
 
 type ScrollableLayoutProps = {
   children: ReactNode;
   header?: ReactNode;
   footer?: ReactNode;
+  onReachTop?: () => void;
   stickToBottom?: boolean;
 };
 
-export function ScrollableLayout({ children, footer, header, stickToBottom = false }: ScrollableLayoutProps) {
+export function ScrollableLayout({ children, footer, header, onReachTop, stickToBottom = false }: ScrollableLayoutProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const hasLoadedRef = useRef(false);
   const isNearBottomRef = useRef(true);
+  const hasReachedTopRef = useRef(false);
 
-  const updateIsNearBottom = useCallback(() => {
+  const updateScrollState = useCallback(() => {
     const scrollEl = scrollRef.current;
 
     if (!scrollEl) {
       isNearBottomRef.current = true;
+      hasReachedTopRef.current = false;
       return;
     }
 
     const remainingScroll = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
     isNearBottomRef.current = remainingScroll <= DEFAULT_BOTTOM_TOLERANCE_PX;
-  }, []);
+    const isOverflowing = scrollEl.scrollHeight > scrollEl.clientHeight;
+    const isNearTop = isOverflowing && scrollEl.scrollTop <= DEFAULT_TOP_TOLERANCE_PX;
+
+    if (isNearTop && !hasReachedTopRef.current) {
+      hasReachedTopRef.current = true;
+      onReachTop?.();
+      return;
+    }
+
+    if (!isNearTop) {
+      hasReachedTopRef.current = false;
+    }
+  }, [onReachTop]);
 
   const scrollToBottom = useCallback(() => {
     const scrollEl = scrollRef.current;
@@ -41,7 +57,7 @@ export function ScrollableLayout({ children, footer, header, stickToBottom = fal
   }, []);
 
   useEffect(() => {
-    if (!stickToBottom) {
+    if (!stickToBottom && !onReachTop) {
       return;
     }
 
@@ -51,11 +67,11 @@ export function ScrollableLayout({ children, footer, header, stickToBottom = fal
       return;
     }
 
-    updateIsNearBottom();
-    scrollEl.addEventListener("scroll", updateIsNearBottom);
+    updateScrollState();
+    scrollEl.addEventListener("scroll", updateScrollState);
 
-    return () => scrollEl.removeEventListener("scroll", updateIsNearBottom);
-  }, [stickToBottom, updateIsNearBottom]);
+    return () => scrollEl.removeEventListener("scroll", updateScrollState);
+  }, [onReachTop, stickToBottom, updateScrollState]);
 
   useEffect(() => {
     if (!stickToBottom) {

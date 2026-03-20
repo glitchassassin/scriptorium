@@ -141,4 +141,49 @@ describe("ScrollableLayout", () => {
     expect(scrollEl.scrollTop).toBe(500);
   });
 
+  it("calls onReachTop once per boundary crossing", async () => {
+    const onReachTop = vi.fn();
+
+    flushSync(() => {
+      root.render(
+        <ScrollableLayout onReachTop={onReachTop}>
+          <div>history</div>
+        </ScrollableLayout>,
+      );
+    });
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    const scrollEl = container.querySelector(".overflow-y-auto");
+
+    if (!(scrollEl instanceof HTMLElement)) {
+      throw new Error("Missing scroll element");
+    }
+
+    mockElementMetrics(scrollEl, {
+      clientHeight: 200,
+      scrollHeight: 1000,
+      scrollTop: 24,
+    });
+    scrollEl.dispatchEvent(new Event("scroll"));
+
+    mockElementMetrics(scrollEl, {
+      scrollTop: 0,
+    });
+    scrollEl.dispatchEvent(new Event("scroll"));
+    scrollEl.dispatchEvent(new Event("scroll"));
+
+    mockElementMetrics(scrollEl, {
+      scrollTop: 40,
+    });
+    scrollEl.dispatchEvent(new Event("scroll"));
+
+    mockElementMetrics(scrollEl, {
+      scrollTop: 0,
+    });
+    scrollEl.dispatchEvent(new Event("scroll"));
+
+    expect(onReachTop).toHaveBeenCalledTimes(2);
+  });
+
 });

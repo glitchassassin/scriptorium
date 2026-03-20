@@ -8,8 +8,11 @@ import type { InstanceRecord } from "~/lib/instances/types";
 import type { RouteBreadcrumb, RouteHandleIconAction } from "~/lib/route-handle";
 
 export type SessionRouteContext = {
+  hasLoadedFullHistory: boolean;
   instance: InstanceRecord;
+  isLoadingFullHistory: boolean;
   insertComposerReference: (reference: string) => void;
+  loadFullHistory: () => void;
   messages: OpencodeMessageWithParts[];
   pendingPermissions: OpencodePermissionRequest[];
   replyPermission: (requestId: string, reply: "once" | "always" | "reject") => Promise<void>;

@@ -8,6 +8,23 @@ function sortMessages(messages: OpencodeMessageWithParts[]) {
   return [...messages].sort((left, right) => left.info.time.created - right.info.time.created);
 }
 
+export function mergeMessages(
+  currentMessages: OpencodeMessageWithParts[],
+  nextMessages: OpencodeMessageWithParts[],
+) {
+  const merged = new Map<string, OpencodeMessageWithParts>();
+
+  nextMessages.forEach((message) => {
+    merged.set(message.info.id, message);
+  });
+
+  currentMessages.forEach((message) => {
+    merged.set(message.info.id, message);
+  });
+
+  return sortMessages([...merged.values()]);
+}
+
 export function upsertMessage(
   messages: OpencodeMessageWithParts[],
   info: OpencodeMessageInfo,
