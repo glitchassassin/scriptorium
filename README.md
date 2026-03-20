@@ -86,8 +86,8 @@ Precedence is: CLI flags -> environment variables -> YAML values -> schema defau
 
 Common flags and env vars include:
 
-- `--host` / `HOST`
-- `--port` / `PORT`
+- `--host` / `SCRIPTORIUM_HOST`
+- `--port` / `SCRIPTORIUM_PORT`
 - `--browser-root` / `SCRIPTORIUM_BROWSER_ROOT`
 - `--db-path` / `SCRIPTORIUM_DB_PATH`
 - `--opencode-bin` / `OPENCODE_BIN`
@@ -97,8 +97,8 @@ Common flags and env vars include:
 Example:
 
 ```bash
-HOST=127.0.0.1 \
-PORT=6200 \
+SCRIPTORIUM_HOST=127.0.0.1 \
+SCRIPTORIUM_PORT=6200 \
 SCRIPTORIUM_BROWSER_ROOT=$HOME/src \
 OPENCODE_BIN=opencode \
 npm start -- --no-tailscale

@@ -59,7 +59,7 @@ describe("runtime configuration", () => {
       configDir,
       dataDir,
       env: {
-        HOST: "env-host",
+        SCRIPTORIUM_HOST: "env-host",
         OPENCODE_BIN: "custom-opencode",
       },
       cli: {
@@ -157,7 +157,7 @@ describe("runtime configuration", () => {
       path: ["server", "host"],
       type: "string",
       cli: "--host",
-      env: "HOST",
+      env: "SCRIPTORIUM_HOST",
       description: "Host interface for the web server.",
       defaultValue: "0.0.0.0",
     }));

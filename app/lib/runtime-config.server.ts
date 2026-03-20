@@ -146,7 +146,7 @@ function createConfigSchema(sources: OverrideSources = {}) {
       host: override(
         meta(z.string().min(1).default("0.0.0.0"), {
           cli: "host",
-          env: "HOST",
+          env: "SCRIPTORIUM_HOST",
           description: "Host interface for the web server.",
         }),
         sources,
@@ -154,7 +154,7 @@ function createConfigSchema(sources: OverrideSources = {}) {
       port: override(
         meta(z.coerce.number().int().min(1).max(65535).default(5174), {
           cli: "port",
-          env: "PORT",
+          env: "SCRIPTORIUM_PORT",
           description: "Port for the web server.",
         }),
         sources,

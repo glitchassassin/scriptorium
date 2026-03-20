@@ -31,8 +31,8 @@ database:
 
 | Key | Type | Default | CLI | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `server.host` | string | `0.0.0.0` | `--host` | `HOST` | Host interface for the web server. |
-| `server.port` | number | `5174` | `--port` | `PORT` | Port for the web server. |
+| `server.host` | string | `0.0.0.0` | `--host` | `SCRIPTORIUM_HOST` | Host interface for the web server. |
+| `server.port` | number | `5174` | `--port` | `SCRIPTORIUM_PORT` | Port for the web server. |
 | `workspace.browserRoot` | string | `$HOME` | `--browser-root` | `SCRIPTORIUM_BROWSER_ROOT` | Root directory exposed in the workspace browser. |
 | `opencode.bin` | string | `opencode` | `--opencode-bin` | `OPENCODE_BIN` | OpenCode executable name or path. |
 | `network.tailscale` | boolean | `false` | `--tailscale` |  | Expose the app with tailscale serve. |
