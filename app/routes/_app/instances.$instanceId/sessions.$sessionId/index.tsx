@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { useFetcher, useOutletContext } from "react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useOutletContext } from "react-router";
 
 import { MessageCard } from "~/components/session/message-card";
 import { PermissionCard } from "~/components/session/permission-card";
 import { SessionRevertDock } from "~/components/session/session-revert-dock";
 import { cn } from "~/lib/cn";
 import { partitionMessagesByRevert } from "~/lib/opencode/message-helpers";
-import { useMarkSessionReadOptimistic, useSessionUnreadStatus } from "~/store/sessions-provider";
+import { useMarkSessionReadOptimistic, useSession, useUnreadStatusEvents } from "~/store/sessions-provider";
 
 import { type SessionRouteContext } from "./+/session-route";
 
@@ -20,7 +20,6 @@ function statusDescription(status: SessionRouteContext["status"]) {
 
 export default function InstanceSessionTranscriptRoute() {
   const { instance, messages, pendingPermissions, replyPermission, session, status } = useOutletContext<SessionRouteContext>();
-  const ackFetcher = useFetcher();
   const actionPath = `/instances/${instance.id}/sessions/${session.id}`;
   const { revertedMessages, visibleMessages } = partitionMessagesByRevert(messages, session.revert);
   const isBusy = status.type !== "idle";
@@ -29,23 +28,36 @@ export default function InstanceSessionTranscriptRoute() {
   const emptyStateMessage = revertedMessages.length
     ? "All visible messages are currently reverted."
     : "No messages have been recorded for this session yet.";
-  const isUnread = useSessionUnreadStatus(instance.id, session.id);
+  const sessionState = useSession(session.id);
   const markSessionReadOptimistic = useMarkSessionReadOptimistic();
   const [isWindowFocused, setIsWindowFocused] = useState(() => (typeof document === "undefined" ? true : document.hasFocus()));
   const [isDocumentVisible, setIsDocumentVisible] = useState(
     () => (typeof document === "undefined" ? true : document.visibilityState === "visible"),
   );
+  const lastAckedAtRef = useRef<number | null>(null);
 
   const canAck = isWindowFocused && isDocumentVisible;
+  const updatedAt = sessionState?.updatedAt ?? session.time.updated ?? session.time.created ?? 0;
+  const lastReadAt = sessionState?.lastReadAt ?? null;
+  const needsAck = updatedAt > 0 && (lastReadAt === null || updatedAt > lastReadAt);
 
-  const submitAck = useCallback(() => {
+  const submitAck = useCallback((activityAt: number) => {
+    if ((lastAckedAtRef.current ?? 0) >= activityAt) {
+      return;
+    }
+
+    lastAckedAtRef.current = activityAt;
     markSessionReadOptimistic(instance.id, session.id);
 
     const formData = new FormData();
     formData.set("instanceId", instance.id);
     formData.set("sessionId", session.id);
-    ackFetcher.submit(formData, { action: "/session-read-status/ack", method: "post" });
-  }, [ackFetcher, instance.id, markSessionReadOptimistic, session.id]);
+    void fetch("/session-read-status/ack", { body: formData, method: "POST" });
+  }, [instance.id, markSessionReadOptimistic, session.id]);
+
+  useEffect(() => {
+    lastAckedAtRef.current = null;
+  }, [session.id]);
 
   useEffect(() => {
     function handleFocus() {
@@ -71,13 +83,24 @@ export default function InstanceSessionTranscriptRoute() {
     };
   }, []);
 
+  useUnreadStatusEvents(
+    (event) => {
+      if (!canAck) {
+        return;
+      }
+
+      submitAck(event.updatedAt);
+    },
+    { instanceId: instance.id, sessionId: session.id },
+  );
+
   useEffect(() => {
-    if (!canAck || ackFetcher.state !== "idle" || !isUnread) {
+    if (!canAck || !needsAck) {
       return;
     }
 
-    submitAck();
-  }, [ackFetcher.state, canAck, isUnread, submitAck]);
+    submitAck(updatedAt);
+  }, [canAck, needsAck, submitAck, updatedAt]);
 
   return (
     <section className="flex min-h-full flex-1 flex-col gap-6 pr-1">

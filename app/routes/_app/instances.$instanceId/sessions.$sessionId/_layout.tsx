@@ -195,6 +195,7 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   const promptFetcher = useFetcher<typeof action>();
   const abortFetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
+  const sessionIdRef = useRef(session.id);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const composerSelectionRef = useRef({ start: 0, end: 0 });
@@ -221,20 +222,16 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   );
 
   useEffect(() => {
+    if (sessionIdRef.current === session.id) {
+      return;
+    }
+
+    sessionIdRef.current = session.id;
     setMessages(initialMessages);
-  }, [initialMessages, session.id]);
-
-  useEffect(() => {
     setStatus(initialStatus);
-  }, [initialStatus, session.id]);
-
-  useEffect(() => {
     setSessionState(session);
-  }, [session]);
-
-  useEffect(() => {
     setPendingPermissions(initialPermissions);
-  }, [initialPermissions, session.id]);
+  }, [initialMessages, initialPermissions, initialStatus, session]);
 
   useEffect(() => {
     setComposerText(prefilledPrompt);

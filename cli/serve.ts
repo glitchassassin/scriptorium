@@ -69,7 +69,9 @@ export async function serveProductionApp(runtime: RuntimeConfiguration, packageR
     }),
   );
   app.use(express.static(buildPaths.clientDirectory));
-  app.use(morgan("tiny"));
+  app.use(morgan("tiny", {
+    skip: (req) => req.path === "/session-read-status/ack",
+  }));
   app.all(
     "*",
     createRequestHandler({
