@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir, platform } from "node:os";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs, type ParseArgsConfig } from "node:util";
 
@@ -17,16 +17,19 @@ type OverrideSources = {
   cli?: Record<string, unknown>;
   env?: NodeJS.ProcessEnv;
   configDir?: string;
+  dataDir?: string;
 };
 
 type RuntimeCliParseResult = {
   cli: Record<string, unknown>;
   configDir?: string;
+  dataDir?: string;
   help: boolean;
 };
 
 type RuntimeConfigPaths = {
-  directory: string;
+  configDirectory: string;
+  dataDirectory: string;
   configFile: string;
   secretsFile: string;
 };
@@ -44,6 +47,7 @@ const CONFIG_FILE_NAME = "config.yml";
 const SECRETS_FILE_NAME = "secrets.yml";
 const PRIVATE_FILE_MODE = 0o600;
 const DOCUMENTATION_HOME = "$HOME";
+const DOCUMENTATION_CONFIG_DIR = "<scriptorium_config_dir>";
 const DOCUMENTATION_DATA_DIR = "<scriptorium_data_dir>";
 
 let cachedRuntimeConfiguration: RuntimeConfiguration | null = null;
@@ -92,35 +96,46 @@ function override<T extends z.ZodTypeAny>(schema: T, sources: OverrideSources): 
   }).pipe(schema);
 }
 
-function defaultConfigDirectory(env: NodeJS.ProcessEnv = process.env) {
+function xdgDirectory(env: NodeJS.ProcessEnv, name: "config" | "data") {
   const home = env.HOME?.trim() || homedir();
 
-  switch (platform()) {
-    case "darwin":
-      return resolve(home, "Library/Application Support/scriptorium");
-    case "win32":
-      return resolve(env.APPDATA?.trim() || join(home, "AppData/Roaming"), "scriptorium");
-    default:
-      return resolve(env.XDG_DATA_HOME?.trim() || join(home, ".local/share"), "scriptorium");
+  if (name === "config") {
+    return resolve(env.XDG_CONFIG_HOME?.trim() || join(home, ".config"), "scriptorium");
   }
+
+  return resolve(env.XDG_DATA_HOME?.trim() || join(home, ".local/share"), "scriptorium");
+}
+
+function defaultConfigDirectory(env: NodeJS.ProcessEnv = process.env) {
+  return xdgDirectory(env, "config");
+}
+
+function defaultDataDirectory(env: NodeJS.ProcessEnv = process.env) {
+  return xdgDirectory(env, "data");
 }
 
 export function getRuntimeConfigPaths(sources: OverrideSources = {}): RuntimeConfigPaths {
-  const directory = resolve(
+  const configDirectory = resolve(
     sources.configDir ||
       sources.env?.SCRIPTORIUM_CONFIG_DIR?.trim() ||
       defaultConfigDirectory(sources.env),
   );
+  const dataDirectory = resolve(
+    sources.dataDir ||
+      sources.env?.SCRIPTORIUM_DATA_DIR?.trim() ||
+      defaultDataDirectory(sources.env),
+  );
 
   return {
-    directory,
-    configFile: join(directory, CONFIG_FILE_NAME),
-    secretsFile: join(directory, SECRETS_FILE_NAME),
+    configDirectory,
+    dataDirectory,
+    configFile: join(configDirectory, CONFIG_FILE_NAME),
+    secretsFile: join(configDirectory, SECRETS_FILE_NAME),
   };
 }
 
 function getDefaultDatabasePath(sources: OverrideSources) {
-  return join(getRuntimeConfigPaths(sources).directory, "app.db");
+  return join(getRuntimeConfigPaths(sources).dataDirectory, "app.db");
 }
 
 function createConfigSchema(sources: OverrideSources = {}) {
@@ -247,6 +262,18 @@ function writeYamlFile(filePath: string, value: object) {
   }
 }
 
+function ensureRuntimeConfigFiles(paths: RuntimeConfigPaths) {
+  mkdirSync(paths.dataDirectory, { recursive: true });
+
+  if (!existsSync(paths.configFile)) {
+    writeYamlFile(paths.configFile, {});
+  }
+
+  if (!existsSync(paths.secretsFile)) {
+    writeYamlFile(paths.secretsFile, {});
+  }
+}
+
 function ensureSessionSecret(parsedSecrets: ParsedSecrets, paths: RuntimeConfigPaths, sources: OverrideSources): RuntimeSecrets {
   const configuredSecret = parsedSecrets.auth.sessionSecret;
 
@@ -274,6 +301,7 @@ function ensureSessionSecret(parsedSecrets: ParsedSecrets, paths: RuntimeConfigP
 
 export function resolveRuntimeConfiguration(sources: OverrideSources = {}): RuntimeConfiguration {
   const paths = getRuntimeConfigPaths(sources);
+  ensureRuntimeConfigFiles(paths);
   const rawConfig = readYamlFile(paths.configFile);
   const rawSecrets = readYamlFile(paths.secretsFile);
   const config = createConfigSchema(sources).parse(rawConfig);
@@ -385,6 +413,8 @@ export function getRuntimeConfigurationDocumentation() {
     env: {
       APPDATA: "C:/Users/you/AppData/Roaming",
       HOME: "/path/to/home",
+      LOCALAPPDATA: "C:/Users/you/AppData/Local",
+      XDG_CONFIG_HOME: "/path/to/home/.config",
       XDG_DATA_HOME: "/path/to/home/.local/share",
     },
     cli: {},
@@ -406,6 +436,9 @@ function getCliOptionsConfig(): ParseArgsConfig["options"] {
       type: "boolean",
     },
     "config-dir": {
+      type: "string",
+    },
+    "data-dir": {
       type: "string",
     },
   };
@@ -456,6 +489,9 @@ export function parseRuntimeCliArgs(args: string[]): RuntimeCliParseResult {
     configDir: typeof values["config-dir"] === "string"
       ? values["config-dir"]
       : undefined,
+    dataDir: typeof values["data-dir"] === "string"
+      ? values["data-dir"]
+      : undefined,
     help: values.help === true,
   };
 }
@@ -474,9 +510,8 @@ function normalizeDocumentationValue(value: unknown) {
   }
 
   return value
-    .replaceAll("/path/to/home/Library/Application Support/scriptorium", DOCUMENTATION_DATA_DIR)
+    .replaceAll("/path/to/home/.config/scriptorium", DOCUMENTATION_CONFIG_DIR)
     .replaceAll("/path/to/home/.local/share/scriptorium", DOCUMENTATION_DATA_DIR)
-    .replaceAll("C:/Users/you/AppData/Roaming/scriptorium", DOCUMENTATION_DATA_DIR)
     .replaceAll("/path/to/home", DOCUMENTATION_HOME);
 }
 
@@ -543,14 +578,16 @@ export function renderRuntimeConfigurationMarkdown() {
     "",
     "Scriptorium reads non-sensitive settings from `config.yml` and secrets from `secrets.yml` in its per-user config directory.",
     "CLI flags override environment variables, which override YAML values, which override schema defaults.",
+    "The configuration directory can be overridden with `--config-dir <path>` or `SCRIPTORIUM_CONFIG_DIR`.",
+    "The data directory can be overridden with `--data-dir <path>` or `SCRIPTORIUM_DATA_DIR`.",
     "",
-    `| Platform | ${DOCUMENTATION_DATA_DIR} |`,
-    "| --- | --- |",
-    "| macOS | `~/Library/Application Support/scriptorium` |",
-    "| Linux | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |",
-    "| Windows | `%APPDATA%\\scriptorium` |",
+    `| Platform | ${DOCUMENTATION_CONFIG_DIR} | ${DOCUMENTATION_DATA_DIR} |`,
+    "| --- | --- | --- |",
+    "| macOS | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |",
+    "| Linux | `$XDG_CONFIG_HOME/scriptorium` or `~/.config/scriptorium` | `$XDG_DATA_HOME/scriptorium` or `~/.local/share/scriptorium` |",
+    "| Windows | `%XDG_CONFIG_HOME%\\scriptorium` or `%USERPROFILE%\\.config\\scriptorium` | `%XDG_DATA_HOME%\\scriptorium` or `%USERPROFILE%\\.local\\share\\scriptorium` |",
     "",
-    `Examples use \`${DOCUMENTATION_DATA_DIR}\` as shorthand for Scriptorium's per-user data directory and \`${DOCUMENTATION_HOME}\` for the user's home directory.`,
+    `Examples use \`${DOCUMENTATION_CONFIG_DIR}\` and \`${DOCUMENTATION_DATA_DIR}\` as shorthand for Scriptorium's per-user config/data directories and \`${DOCUMENTATION_HOME}\` for the user's home directory.`,
     "",
     "## config.yml",
     "",
@@ -580,6 +617,7 @@ export function renderRuntimeConfigurationHelp() {
     "Options:",
     "  --help                  Show this help message",
     "  --config-dir <path>     Use an alternate config directory",
+    "  --data-dir <path>       Use an alternate data directory",
     ...rows.map((row) => {
       const flag = row.cli!;
       const typeSuffix = row.type === "boolean" ? "" : ` <${row.type}>`;

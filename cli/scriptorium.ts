@@ -23,6 +23,7 @@ export async function main(args = process.argv.slice(2)) {
   const runtime = initializeRuntimeConfiguration({
     cli: parsedCli.cli,
     configDir: parsedCli.configDir,
+    dataDir: parsedCli.dataDir,
     env: process.env,
   });
 
