@@ -66,6 +66,13 @@ describe("route handles", () => {
         { label: ctx.data.instance.name, to: `/instances/${ctx.params.instanceId}` },
         { label: ctx.data.session.title ?? ctx.data.session.id, to: `/instances/${ctx.params.instanceId}/sessions/${ctx.params.sessionId}` },
       ],
+      leadingIconAction: (ctx) => ({
+        icon: "mdi:message-plus-outline",
+        label: "New session",
+        action: `/instances/${ctx.params.instanceId}?index`,
+        method: "post",
+        fields: { intent: "create-session" },
+      }),
       iconNavActions: (ctx) => [
         { icon: "mdi:message-outline", label: "Chat transcript", to: `/instances/${ctx.params.instanceId}/sessions/${ctx.params.sessionId}` },
       ],
@@ -112,6 +119,13 @@ describe("route handles", () => {
       { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
       { label: "git" },
     ]);
+    expect(resolveRouteHandleValue(matches, "leadingIconAction")).toEqual({
+      icon: "mdi:message-plus-outline",
+      label: "New session",
+      action: "/instances/instance-1?index",
+      method: "post",
+      fields: { intent: "create-session" },
+    });
     expect(resolveRouteHandleValue(matches, "iconNavActions")).toEqual([
       { icon: "mdi:message-outline", label: "Chat transcript", to: "/instances/instance-1/sessions/session-1" },
     ]);

@@ -4,8 +4,14 @@ import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleContext, RouteHandleDefinition } from "~/lib/route-handle";
 
 import type { Route } from "./+types/_layout";
+import { getNewSessionIconNavAction } from "./+/instance-route";
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
+  leadingIconAction: (ctx: RouteHandleContext<Route.ComponentProps>) => {
+    const instanceId = ctx.params.instanceId ?? "";
+
+    return getNewSessionIconNavAction(instanceId);
+  },
   iconNavActions: (ctx: RouteHandleContext<Route.ComponentProps>) => {
     const instanceId = ctx.params.instanceId ?? "";
 

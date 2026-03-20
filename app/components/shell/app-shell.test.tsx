@@ -9,7 +9,11 @@ const useLocationMock = vi.fn();
 const useHasVisibleUnreadSessionsMock = vi.fn();
 
 vi.mock("react-router", () => ({
-  Form: ({ children }: { children: ReactNode }) => <form>{children}</form>,
+  Form: ({ action, children, method }: { action?: string; children: ReactNode; method?: string }) => (
+    <form action={action} method={method}>
+      {children}
+    </form>
+  ),
   NavLink: ({ "aria-label": ariaLabel, children, className, to }: {
     "aria-label"?: string;
     children: ReactNode;
@@ -49,6 +53,13 @@ describe("AppShell", () => {
             { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
             { label: "git" },
           ]}
+          leadingIconAction={{
+            icon: "mdi:message-plus-outline",
+            label: "New session",
+            action: "/instances/instance-1?index",
+            method: "post",
+            fields: { intent: "create-session" },
+          }}
           iconNavActions={getSessionIconNavActions("instance-1", "session-1")}
         />,
       );
@@ -62,7 +73,37 @@ describe("AppShell", () => {
       "href",
       "/instances/instance-1/sessions/session-1/git",
     );
+    expect(screen.getByRole("button", { name: "New session" }).closest("form")).toHaveAttribute(
+      "action",
+      "/instances/instance-1?index",
+    );
     expect(screen.queryByLabelText("Instance overview")).not.toBeInTheDocument();
+  });
+
+  it("renders submit-style icon actions as forms with hidden fields", () => {
+    useLocationMock.mockReturnValue({ pathname: "/instances/instance-1" });
+    useHasVisibleUnreadSessionsMock.mockReturnValue(false);
+
+    render(
+      <AppShell
+        breadcrumbs={[{ label: "Workspace" }]}
+        leadingIconAction={undefined}
+        iconNavActions={[{
+          icon: "mdi:message-plus-outline",
+          label: "New session",
+          action: "/instances/instance-1?index",
+          method: "post",
+          fields: { intent: "create-session" },
+        }]}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "New session" });
+    const form = button.closest("form");
+
+    expect(form).toHaveAttribute("action", "/instances/instance-1?index");
+    expect(form).toHaveAttribute("method", "post");
+    expect(screen.getByDisplayValue("create-session")).toHaveAttribute("name", "intent");
   });
 
   it("shows an unread indicator on the navigation toggle when any sidebar session is unread", () => {
@@ -72,6 +113,7 @@ describe("AppShell", () => {
     render(
       <AppShell
         breadcrumbs={[{ label: "Workspace" }]}
+        leadingIconAction={undefined}
         iconNavActions={[]}
       />,
     );
@@ -86,6 +128,7 @@ describe("AppShell", () => {
     render(
       <AppShell
         breadcrumbs={[{ label: "Workspace" }]}
+        leadingIconAction={undefined}
         iconNavActions={[]}
       />,
     );

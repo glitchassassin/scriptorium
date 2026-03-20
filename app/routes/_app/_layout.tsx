@@ -60,6 +60,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 export default function AppLayout({ loaderData, matches }: Route.ComponentProps) {
   const routeMatches = normalizeRouteHandleMatches(matches);
   const breadcrumbs = resolveRouteHandleValue(routeMatches, "title") ?? [{ label: "Scriptorium" }];
+  const leadingIconAction = resolveRouteHandleValue(routeMatches, "leadingIconAction");
   const iconNavActions = resolveRouteHandleValue(routeMatches, "iconNavActions") ?? [];
 
   return (
@@ -69,6 +70,7 @@ export default function AppLayout({ loaderData, matches }: Route.ComponentProps)
           <InstancesProvider initialInstances={loaderData.initialInstances}>
             <AppShell
               breadcrumbs={breadcrumbs}
+              leadingIconAction={leadingIconAction}
               iconNavActions={iconNavActions}
             />
           </InstancesProvider>

@@ -10,12 +10,43 @@ import { cn } from "~/lib/cn";
 import type { RouteBreadcrumb, RouteHandleIconAction } from "~/lib/route-handle";
 import safeArea from "~/styles/safe-area.module.css";
 
+function getIconNavActionClassName(isActive = false) {
+  return `inline-flex min-h-11 min-w-11 items-center justify-center ${isActive ? "bg-black text-white" : "bg-white text-black"}`;
+}
+
 type AppShellProps = {
   breadcrumbs: RouteBreadcrumb[];
+  leadingIconAction?: RouteHandleIconAction;
   iconNavActions: RouteHandleIconAction[];
 };
 
-export function AppShell({ breadcrumbs, iconNavActions }: AppShellProps) {
+function HeaderIconAction({ action }: { action: RouteHandleIconAction }) {
+  if ("to" in action) {
+    return (
+      <NavLink
+        aria-label={action.label}
+        className={({ isActive }) => getIconNavActionClassName(isActive)}
+        end={action.end}
+        to={action.to}
+      >
+        <Icon className="size-6" icon={action.icon} />
+      </NavLink>
+    );
+  }
+
+  return (
+    <Form action={action.action} method={action.method}>
+      {Object.entries(action.fields ?? {}).map(([name, value]) => (
+        <input key={name} name={name} type="hidden" value={value} />
+      ))}
+      <button aria-label={action.label} className={getIconNavActionClassName()} type="submit">
+        <Icon className="size-6" icon={action.icon} />
+      </button>
+    </Form>
+  );
+}
+
+export function AppShell({ breadcrumbs, leadingIconAction, iconNavActions }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const hasUnreadSidebarSessions = useHasVisibleUnreadSessions();
   const location = useLocation();
@@ -98,19 +129,22 @@ export function AppShell({ breadcrumbs, iconNavActions }: AppShellProps) {
       ) : null}
       <div className={cn(safeArea.appShellContent, "mx-auto flex w-full max-w-5xl flex-col")}>
         <header className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b-2 border-black">
-          <button
-            aria-label="Toggle navigation"
-            className="relative inline-flex min-h-11 min-w-11 items-center justify-center"
-            onClick={() => setIsSidebarOpen((isOpen) => !isOpen)}
-            type="button"
-          >
-            <Icon className="size-6" icon={toggleIcon} />
-            {hasUnreadSidebarSessions ? (
-              <span className={cn("pointer-events-none absolute right-1.5 top-0 z-10")}>
-                <UnreadBadge />
-              </span>
-            ) : null}
-          </button>
+          <div className="flex items-center gap-0">
+            <button
+              aria-label="Toggle navigation"
+              className="relative inline-flex min-h-11 min-w-11 items-center justify-center"
+              onClick={() => setIsSidebarOpen((isOpen) => !isOpen)}
+              type="button"
+            >
+              <Icon className="size-6" icon={toggleIcon} />
+              {hasUnreadSidebarSessions ? (
+                <span className={cn("pointer-events-none absolute right-1.5 top-0 z-10")}>
+                  <UnreadBadge />
+                </span>
+              ) : null}
+            </button>
+            {leadingIconAction ? <HeaderIconAction action={leadingIconAction} /> : null}
+          </div>
           <div className="min-w-0">
             <h1 aria-label={titleLabel} className="overflow-hidden text-2xl font-bold">
               <span
@@ -137,17 +171,9 @@ export function AppShell({ breadcrumbs, iconNavActions }: AppShellProps) {
           </div>
           <div className="flex items-center">
             {iconNavActions.map((action) => (
-              <NavLink
-                aria-label={action.label}
-                className={({ isActive }) =>
-                  `inline-flex min-h-11 min-w-11 items-center justify-center ${isActive ? "bg-black text-white" : "bg-white text-black"}`
-                }
-                end={action.end}
-                key={action.to}
-                to={action.to}
-              >
-                <Icon className="size-6" icon={action.icon} />
-              </NavLink>
+              <div key={"to" in action ? action.to : `${action.method}:${action.action}:${action.label}`}>
+                <HeaderIconAction action={action} />
+              </div>
             ))}
           </div>
         </header>

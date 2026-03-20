@@ -39,6 +39,7 @@ import { getInitialAgent, getNextAgent, getSelectableAgents } from "~/lib/openco
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 import safeArea from "~/styles/safe-area.module.css";
+import { getNewSessionIconNavAction } from "~/routes/_app/instances.$instanceId/+/instance-route";
 
 import { getSessionBreadcrumbs, getSessionIconNavActions, type SessionRouteContext } from "./+/session-route";
 
@@ -62,6 +63,11 @@ export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHa
       session: data?.session,
       sessionId: params.sessionId,
     }),
+  leadingIconAction: ({ params }) => {
+    const instanceId = params.instanceId ?? "";
+
+    return getNewSessionIconNavAction(instanceId);
+  },
   iconNavActions: ({ params }) => {
     const instanceId = params.instanceId ?? "";
     const sessionId = params.sessionId ?? "";

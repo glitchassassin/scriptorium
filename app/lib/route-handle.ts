@@ -1,11 +1,21 @@
 type RouteParams = Record<string, string | undefined>;
 
-export type RouteHandleIconAction = {
+export type RouteHandleIconLinkAction = {
   icon: string;
   label: string;
   to: string;
   end?: boolean;
 };
+
+export type RouteHandleIconSubmitAction = {
+  icon: string;
+  label: string;
+  action: string;
+  method: "get" | "post";
+  fields?: Record<string, string>;
+};
+
+export type RouteHandleIconAction = RouteHandleIconLinkAction | RouteHandleIconSubmitAction;
 
 export type RouteBreadcrumb = {
   label: string;
@@ -39,15 +49,17 @@ export type RouteHandleContext<TComponentProps extends RouteComponentPropsLike> 
 
 export type RouteHandleDefinition<TComponentProps extends RouteComponentPropsLike> = {
   title?: RouteHandleValue<RouteBreadcrumb[], TComponentProps>;
+  leadingIconAction?: RouteHandleValue<RouteHandleIconAction | undefined, TComponentProps>;
   iconNavActions?: RouteHandleValue<RouteHandleIconAction[], TComponentProps>;
 };
 
 export type RouteHandle = RouteHandleDefinition<RouteComponentPropsLike>;
 
-export type RouteHandleKey = keyof Pick<RouteHandle, "title" | "iconNavActions">;
+export type RouteHandleKey = keyof Pick<RouteHandle, "title" | "leadingIconAction" | "iconNavActions">;
 
 export type ResolvedHandleValueMap = {
   title: RouteBreadcrumb[];
+  leadingIconAction: RouteHandleIconAction | undefined;
   iconNavActions: RouteHandleIconAction[];
 };
 
@@ -135,6 +147,10 @@ export function resolveRouteHandleValue(
   matches: NormalizedRouteMatch<RouteMatchLike>[],
   key: "iconNavActions",
 ): RouteHandleIconAction[] | undefined;
+export function resolveRouteHandleValue(
+  matches: NormalizedRouteMatch<RouteMatchLike>[],
+  key: "leadingIconAction",
+): RouteHandleIconAction | undefined;
 export function resolveRouteHandleValue(matches: NormalizedRouteMatch<RouteMatchLike>[], key: RouteHandleKey) {
   const activeMatch = [...matches].reverse().find((match) => hasHandleKey(match, key));
 
