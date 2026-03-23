@@ -10,7 +10,7 @@ import {
 
 import { sessionReadEventSchema, type SessionReadEvent } from "~/lib/session-read-status";
 import { PersistentEventSource } from "~/lib/events/persistent-event-source";
-import { useEventStreamReconnectRevalidation } from "~/components/events/use-event-stream-reconnect-revalidation";
+import { useCoalescedRevalidation } from "~/components/events/use-coalesced-revalidation";
 
 type ReadStatusEventFilter = {
   instanceId?: string;
@@ -50,7 +50,7 @@ export function ReadStatusEventsProvider({ children }: { children: ReactNode }) 
   const sourceRef = useRef<PersistentEventSource | null>(null);
   const subscribersRef = useRef(new Map<number, Subscriber>());
   const subscriberIdRef = useRef(0);
-  const revalidateOnReconnect = useEventStreamReconnectRevalidation();
+  const revalidateOnReconnect = useCoalescedRevalidation();
 
   const dispatch = useCallback((event: SessionReadEvent) => {
     for (const subscriber of subscribersRef.current.values()) {

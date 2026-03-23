@@ -2,6 +2,7 @@ import type { Route } from "./+types/_layout";
 
 import { InstanceEventsProvider } from "~/components/events/instance-events-provider";
 import { ReadStatusEventsProvider } from "~/components/events/read-status-events-provider";
+import { useBrowserResumeRevalidation } from "~/components/events/use-browser-resume-revalidation";
 import { getInitialInstances, InstancesProvider } from "~/store/instances-provider";
 import { SessionsProvider } from "~/store/sessions-provider";
 import { AppShell } from "~/components/shell/app-shell";
@@ -58,6 +59,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function AppLayout({ loaderData, matches }: Route.ComponentProps) {
+  useBrowserResumeRevalidation();
   const routeMatches = normalizeRouteHandleMatches(matches);
   const breadcrumbs = resolveRouteHandleValue(routeMatches, "title") ?? [{ label: "Scriptorium" }];
   const leadingIconAction = resolveRouteHandleValue(routeMatches, "leadingIconAction");

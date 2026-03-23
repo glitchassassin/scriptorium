@@ -3,7 +3,7 @@ import { useRevalidator } from "react-router";
 
 let scheduled = false;
 
-export function useEventStreamReconnectRevalidation() {
+export function useCoalescedRevalidation() {
   const revalidator = useRevalidator();
 
   return useCallback(() => {
@@ -19,6 +19,6 @@ export function useEventStreamReconnectRevalidation() {
   }, [revalidator]);
 }
 
-export function resetEventStreamReconnectRevalidationForTests() {
+export function resetCoalescedRevalidationForTests() {
   scheduled = false;
 }

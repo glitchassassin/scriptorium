@@ -14,7 +14,7 @@ import {
   type OpencodeKnownEventType,
 } from "~/lib/opencode/events";
 import { PersistentEventSource } from "~/lib/events/persistent-event-source";
-import { useEventStreamReconnectRevalidation } from "~/components/events/use-event-stream-reconnect-revalidation";
+import { useCoalescedRevalidation } from "~/components/events/use-coalesced-revalidation";
 
 type InstanceEvent = {
   instanceId: string;
@@ -109,7 +109,7 @@ export function InstanceEventsProvider({ children, instanceIds }: { children: Re
   const subscriberIdRef = useRef(0);
   const instanceIdsKey = useMemo(() => [...instanceIds].sort().join(","), [instanceIds]);
   const normalizedInstanceIds = useMemo(() => [...new Set(instanceIds)].sort(), [instanceIdsKey]);
-  const revalidateOnReconnect = useEventStreamReconnectRevalidation();
+  const revalidateOnReconnect = useCoalescedRevalidation();
 
   const dispatch = useCallback((event: InstanceEvent) => {
     for (const subscriber of subscribersRef.current.values()) {

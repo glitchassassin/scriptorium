@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const revalidateOnReconnect = vi.fn();
 
-vi.mock("~/components/events/use-event-stream-reconnect-revalidation", () => ({
-  useEventStreamReconnectRevalidation: () => revalidateOnReconnect,
+vi.mock("~/components/events/use-coalesced-revalidation", () => ({
+  useCoalescedRevalidation: () => revalidateOnReconnect,
 }));
 
 import {
