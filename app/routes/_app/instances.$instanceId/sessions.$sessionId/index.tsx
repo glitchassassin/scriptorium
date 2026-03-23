@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router";
 import { MessageCard } from "~/components/session/message-card";
 import { PermissionCard } from "~/components/session/permission-card";
 import { SessionRevertDock } from "~/components/session/session-revert-dock";
+import { TranscriptScrollableLayout } from "~/components/shell/transcript-scrollable-layout";
 import { cn } from "~/lib/cn";
 import { partitionMessagesByRevert } from "~/lib/opencode/message-helpers";
 import { useMarkSessionReadOptimistic, useSession, useUnreadStatusEvents } from "~/store/sessions-provider";
@@ -19,7 +20,17 @@ function statusDescription(status: SessionRouteContext["status"]) {
 }
 
 export default function InstanceSessionTranscriptRoute() {
-  const { hasLoadedFullHistory, instance, isLoadingFullHistory, messages, pendingPermissions, replyPermission, session, status } = useOutletContext<SessionRouteContext>();
+  const {
+    hasLoadedFullHistory,
+    instance,
+    isLoadingFullHistory,
+    loadFullHistory,
+    messages,
+    pendingPermissions,
+    replyPermission,
+    session,
+    status,
+  } = useOutletContext<SessionRouteContext>();
   const actionPath = `/instances/${instance.id}/sessions/${session.id}`;
   const { revertedMessages, visibleMessages } = partitionMessagesByRevert(messages, session.revert);
   const isBusy = status.type !== "idle";
@@ -103,19 +114,24 @@ export default function InstanceSessionTranscriptRoute() {
   }, [canAck, needsAck, submitAck, updatedAt]);
 
   return (
-    <section className="flex min-h-full flex-1 flex-col gap-6 pr-1">
-      {status.type === "retry" ? <p className="pt-4 text-sm leading-6">{statusDescription(status)}</p> : null}
-      <section className={cn("space-y-0", showCenteredEmptyState && "flex flex-1 items-center justify-center px-4 text-center")}>
-        {isLoadingFullHistory ? <p className="pt-4 text-sm leading-6">Loading earlier messages...</p> : null}
-        {isEmpty ? <p className={cn("text-base leading-6", !showCenteredEmptyState && "pt-4")}>{emptyStateMessage}</p> : null}
-        {visibleMessages.map((message) => (
-          <MessageCard actionPath={actionPath} isSessionBusy={isBusy} key={message.info.id} message={message} />
-        ))}
-        {revertedMessages.length ? (
-          <SessionRevertDock actionPath={actionPath} isSessionBusy={isBusy} messages={revertedMessages} />
-        ) : null}
-        <PermissionCard messages={visibleMessages} onReply={replyPermission} permissions={pendingPermissions} />
+    <TranscriptScrollableLayout
+      onReachTop={loadFullHistory}
+      scrollContextKey={`transcript:${session.id}`}
+    >
+      <section className="flex min-h-full flex-1 flex-col gap-6 pr-1">
+        {status.type === "retry" ? <p className="pt-4 text-sm leading-6">{statusDescription(status)}</p> : null}
+        <section className={cn("space-y-0", showCenteredEmptyState && "flex flex-1 items-center justify-center px-4 text-center")}>
+          {isLoadingFullHistory ? <p className="pt-4 text-sm leading-6">Loading earlier messages...</p> : null}
+          {isEmpty ? <p className={cn("text-base leading-6", !showCenteredEmptyState && "pt-4")}>{emptyStateMessage}</p> : null}
+          {visibleMessages.map((message) => (
+            <MessageCard actionPath={actionPath} isSessionBusy={isBusy} key={message.info.id} message={message} />
+          ))}
+          {revertedMessages.length ? (
+            <SessionRevertDock actionPath={actionPath} isSessionBusy={isBusy} messages={revertedMessages} />
+          ) : null}
+          <PermissionCard messages={visibleMessages} onReply={replyPermission} permissions={pendingPermissions} />
+        </section>
       </section>
-    </section>
+    </TranscriptScrollableLayout>
   );
 }

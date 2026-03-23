@@ -202,7 +202,6 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
     insertComposerReferenceEvents.dispatchEvent(new CustomEvent("insert-reference", { detail: reference }));
   }, [insertComposerReferenceEvents]);
   const isLoadingFullHistory = searchParams.get("fullHistory") === "1" && !hasLoadedFullHistory;
-  const isTranscriptRoute = location.pathname === `/instances/${instance.id}/sessions/${session.id}`;
   const eventTypes = useMemo(
     () => [
       "message.updated",
@@ -354,8 +353,6 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
         </Breadcrumbs.Item>
       </Breadcrumbs>
       <ScrollableLayout
-        onReachTop={isTranscriptRoute ? loadFullHistory : undefined}
-        stickToBottom
         footer={
           <SessionComposer
             agents={agents.map((agent) => agent.name)}
