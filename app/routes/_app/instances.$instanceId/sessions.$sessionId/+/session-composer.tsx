@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { useFetcher } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
@@ -211,6 +211,7 @@ export function SessionComposer({
 }: SessionComposerProps) {
   const promptFetcher = useFetcher();
   const abortFetcher = useFetcher();
+  const lastHandledPromptDataRef = useRef<unknown>(null);
   const {
     addImages,
     clearDraftContent,
@@ -246,7 +247,17 @@ export function SessionComposer({
   useEffect(() => {
     const data = promptFetcher.data as { intent?: string; ok?: boolean } | undefined;
 
+    if (!data) {
+      lastHandledPromptDataRef.current = null;
+      return;
+    }
+
+    if (lastHandledPromptDataRef.current === data) {
+      return;
+    }
+
     if (data?.ok && data.intent === "prompt") {
+      lastHandledPromptDataRef.current = data;
       onClearSessionError();
       void clearDraftContent();
     }

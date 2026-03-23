@@ -327,6 +327,10 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
   );
 
   const isBusy = status.type !== "idle";
+  const clearSessionError = useCallback(() => {
+    setSessionError(null);
+  }, []);
+
   const loadFullHistory = useCallback(() => {
     if (hasLoadedFullHistory || isLoadingFullHistory) {
       return;
@@ -359,7 +363,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
             defaultAgent={defaultAgent}
             insertReferenceEvents={insertComposerReferenceEvents}
             isBusy={isBusy}
-            onClearSessionError={() => setSessionError(null)}
+            onClearSessionError={clearSessionError}
             prefilledPrompt={prefilledPrompt}
             sessionError={sessionError}
             sessionId={session.id}

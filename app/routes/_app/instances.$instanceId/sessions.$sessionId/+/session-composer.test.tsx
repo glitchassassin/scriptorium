@@ -1,9 +1,40 @@
 import "fake-indexeddb/auto";
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const useFetcherMock = vi.fn();
+
+vi.mock("react-router", () => ({
+  useFetcher: () => useFetcherMock(),
+}));
+
+vi.mock("@iconify/react", () => ({
+  Icon: () => null,
+}));
+
+vi.mock("@iconify-json/mdi", () => ({}));
+
+import { SessionComposer } from "./session-composer";
 import { clearStoredSessionComposerDraft, useSessionComposerDraft } from "./session-composer-draft";
+
+type MockFetcher = {
+  data: unknown;
+  state: "idle" | "loading" | "submitting";
+  submit: ReturnType<typeof vi.fn>;
+};
+
+const promptFetcher: MockFetcher = {
+  data: undefined,
+  state: "idle",
+  submit: vi.fn(),
+};
+
+const abortFetcher: MockFetcher = {
+  data: undefined,
+  state: "idle",
+  submit: vi.fn(),
+};
 
 function ComposerDraftHarness({ defaultAgent = "draft", prefilledPrompt = "", sessionId }: { defaultAgent?: string | null; prefilledPrompt?: string; sessionId: string }) {
   const draft = useSessionComposerDraft({ defaultAgent, prefilledPrompt, sessionId });
@@ -41,6 +72,21 @@ async function waitForRestore() {
 
 afterEach(() => {
   window.sessionStorage.clear();
+  promptFetcher.data = undefined;
+  promptFetcher.state = "idle";
+  promptFetcher.submit.mockReset();
+  abortFetcher.data = undefined;
+  abortFetcher.state = "idle";
+  abortFetcher.submit.mockReset();
+});
+
+beforeEach(() => {
+  let fetcherIndex = 0;
+  useFetcherMock.mockImplementation(() => {
+    const fetcher = fetcherIndex % 2 === 0 ? promptFetcher : abortFetcher;
+    fetcherIndex += 1;
+    return fetcher;
+  });
 });
 
 describe("useSessionComposerDraft", () => {
@@ -108,5 +154,48 @@ describe("useSessionComposerDraft", () => {
     expect(screen.queryByAltText("diagram.png")).not.toBeInTheDocument();
 
     await clearStoredSessionComposerDraft(sessionId);
+  });
+
+  it("does not clear a new draft when cycling agents after a successful prompt", async () => {
+    const clearSessionError = vi.fn();
+    const view = render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={clearSessionError}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First prompt" } });
+
+    promptFetcher.data = { intent: "prompt", ok: true };
+    view.rerender(
+      <SessionComposer
+        agents={["draft", "review"]}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={clearSessionError}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue(""));
+    expect(clearSessionError).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second prompt" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cycle agent" }));
+
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue("Second prompt"));
+    expect(clearSessionError).toHaveBeenCalledTimes(1);
   });
 });
