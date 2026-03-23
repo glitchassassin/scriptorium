@@ -7,15 +7,16 @@ import { SidebarNav } from "~/components/shell/sidebar-nav";
 import { useHasVisibleUnreadSessions } from "~/components/shell/sidebar-state";
 import { UnreadBadge } from "~/components/ui/unread-badge";
 import { cn } from "~/lib/cn";
-import type { RouteBreadcrumb, RouteHandleIconAction } from "~/lib/route-handle";
+import type { RouteHandleIconAction } from "~/lib/route-handle";
 import safeArea from "~/styles/safe-area.module.css";
+import type { AppBreadcrumb } from "~/components/shell/breadcrumbs";
 
 function getIconNavActionClassName(isActive = false) {
   return `inline-flex min-h-11 min-w-11 items-center justify-center ${isActive ? "bg-black text-white" : "bg-white text-black"}`;
 }
 
 type AppShellProps = {
-  breadcrumbs: RouteBreadcrumb[];
+  breadcrumbs: AppBreadcrumb[];
   leadingIconAction?: RouteHandleIconAction;
   iconNavActions: RouteHandleIconAction[];
 };
@@ -50,7 +51,9 @@ export function AppShell({ breadcrumbs, leadingIconAction, iconNavActions }: App
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const hasUnreadSidebarSessions = useHasVisibleUnreadSessions();
   const location = useLocation();
-  const titleLabel = breadcrumbs.map((breadcrumb) => breadcrumb.label).join(" / ");
+  const titleLabel = breadcrumbs.map((breadcrumb) =>
+    typeof breadcrumb.content === "string" ? breadcrumb.content : null
+  ).filter(Boolean).join(" / ");
 
   const toggleIcon = isSidebarOpen ? "mdi:menu-open" : "mdi:menu";
 
@@ -151,21 +154,21 @@ export function AppShell({ breadcrumbs, leadingIconAction, iconNavActions }: App
                 className="flex w-full min-w-0 items-center overflow-hidden whitespace-nowrap"
                 style={{ ["--count" as string]: breadcrumbs.length }}
               >
-                {breadcrumbs.map((breadcrumb, index) => (
-                  <span
-                    className="flex flex-[1_1_0] items-center overflow-hidden min-w-[min(max-content,calc(100%/var(--count)))] max-w-max"
-                    key={`${breadcrumb.to ?? breadcrumb.label}-${index}`}
-                  >
-                    {index > 0 ? <span className="mx-2 shrink-0">/</span> : null}
-                    {breadcrumb.to ? (
-                      <NavLink className="block min-w-0 truncate" to={breadcrumb.to}>
-                        {breadcrumb.label}
-                      </NavLink>
-                    ) : (
-                      <span className="block min-w-0 truncate">{breadcrumb.label}</span>
-                    )}
-                  </span>
-                ))}
+                 {breadcrumbs.map((breadcrumb, index) => (
+                   <span
+                     className="flex flex-[1_1_0] items-center overflow-hidden min-w-[min(max-content,calc(100%/var(--count)))] max-w-max"
+                     key={`${breadcrumb.to ?? "breadcrumb"}-${index}`}
+                   >
+                     {index > 0 ? <span className="mx-2 shrink-0">/</span> : null}
+                     {breadcrumb.to ? (
+                       <NavLink className="block min-w-0 truncate" to={breadcrumb.to}>
+                         {breadcrumb.content}
+                       </NavLink>
+                     ) : (
+                       <span className="block min-w-0 truncate">{breadcrumb.content}</span>
+                     )}
+                   </span>
+                 ))}
               </span>
             </h1>
           </div>

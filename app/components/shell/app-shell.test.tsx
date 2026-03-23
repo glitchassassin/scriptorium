@@ -49,9 +49,9 @@ describe("AppShell", () => {
     render(
         <AppShell
           breadcrumbs={[
-            { label: "Workspace", to: "/instances/instance-1" },
-            { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
-            { label: "git" },
+            { content: "Workspace", to: "/instances/instance-1" },
+            { content: "Planning", to: "/instances/instance-1/sessions/session-1" },
+            { content: "git" },
           ]}
           leadingIconAction={{
             icon: "mdi:message-plus-outline",
@@ -86,7 +86,7 @@ describe("AppShell", () => {
 
     render(
       <AppShell
-        breadcrumbs={[{ label: "Workspace" }]}
+        breadcrumbs={[{ content: "Workspace" }]}
         leadingIconAction={undefined}
         iconNavActions={[{
           icon: "mdi:message-plus-outline",
@@ -112,7 +112,7 @@ describe("AppShell", () => {
 
     render(
       <AppShell
-        breadcrumbs={[{ label: "Workspace" }]}
+        breadcrumbs={[{ content: "Workspace" }]}
         leadingIconAction={undefined}
         iconNavActions={[]}
       />,
@@ -127,7 +127,7 @@ describe("AppShell", () => {
 
     render(
       <AppShell
-        breadcrumbs={[{ label: "Workspace" }]}
+        breadcrumbs={[{ content: "Workspace" }]}
         leadingIconAction={undefined}
         iconNavActions={[]}
       />,

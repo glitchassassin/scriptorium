@@ -1,11 +1,12 @@
 import { useOutletContext } from "react-router";
 
+import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { GitBrowser } from "~/components/workspace/git-browser";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { loadInstanceGitRouteData } from "~/routes/_app/instances.$instanceId/git.server";
 
-import { getSessionBreadcrumbs, type SessionRouteContext } from "./+/session-route";
+import { getSessionBreadcrumbs, getSessionName, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/git";
 
@@ -31,19 +32,28 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return loadInstanceGitRouteData({ instanceId, request });
 }
 
-export default function SessionGitRoute({ loaderData }: Route.ComponentProps) {
-  const { insertComposerReference } = useOutletContext<SessionRouteContext>();
+export default function SessionGitRoute({ loaderData, matches }: Route.ComponentProps) {
+  const { insertComposerReference, session } = useOutletContext<SessionRouteContext>();
   const { changed, git, instance, selected, selectedError, selectedPath } = loaderData;
 
   return (
-    <GitBrowser
-      changed={changed}
-      git={git}
-      onInsertReference={insertComposerReference}
-      rootPath={instance.directory}
-      selected={selected}
-      selectedError={selectedError}
-      selectedPath={selectedPath}
-    />
+    <>
+      <Breadcrumbs depth={matches.length}>
+        <Breadcrumbs.Item to={`/instances/${instance.id}`}>{instance.name}</Breadcrumbs.Item>
+        <Breadcrumbs.Item to={`/instances/${instance.id}/sessions/${session.id}`}>
+          {getSessionName(session)}
+        </Breadcrumbs.Item>
+        <Breadcrumbs.Item>git</Breadcrumbs.Item>
+      </Breadcrumbs>
+      <GitBrowser
+        changed={changed}
+        git={git}
+        onInsertReference={insertComposerReference}
+        rootPath={instance.directory}
+        selected={selected}
+        selectedError={selectedError}
+        selectedPath={selectedPath}
+      />
+    </>
   );
 }

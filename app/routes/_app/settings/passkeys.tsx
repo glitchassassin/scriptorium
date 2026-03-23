@@ -2,6 +2,7 @@ import { data, redirect, useFetcher } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
+import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { countActivePasskeys, getPasskeyById, listActivePasskeys, revokePasskey } from "~/lib/auth/passkeys.server";
@@ -107,29 +108,35 @@ function PasskeyRow({
   );
 }
 
-export default function SettingsPasskeysRoute({ actionData, loaderData }: Route.ComponentProps) {
+export default function SettingsPasskeysRoute({ actionData, loaderData, matches }: Route.ComponentProps) {
   return (
-    <ScrollableLayout>
-      <section className="space-y-6 pt-6">
-        <div className="space-y-2 px-6 sm:px-8">
-          <p className="text-sm uppercase tracking-[0.08em]">Active devices</p>
-          <p className="text-base leading-6">
-            Revoke any passkey that should stop signing in. Revoking the device you are using will send you back through registration.
-          </p>
-        </div>
-        {actionData?.error ? (
-          <p className="border-t-2 border-black pt-3 text-base leading-6">{actionData.error}</p>
-        ) : null}
-        <ul className="border-t-2 border-black">
-          {loaderData.passkeys.map((passkey) => (
-            <PasskeyRow
-              currentPasskeyId={loaderData.currentPasskeyId}
-              key={passkey.id}
-              passkey={passkey}
-            />
-          ))}
-        </ul>
-      </section>
-    </ScrollableLayout>
+    <>
+      <Breadcrumbs depth={matches.length}>
+        <Breadcrumbs.Item to="/settings">Settings</Breadcrumbs.Item>
+        <Breadcrumbs.Item>Passkeys</Breadcrumbs.Item>
+      </Breadcrumbs>
+      <ScrollableLayout>
+        <section className="space-y-6 pt-6">
+          <div className="space-y-2 px-6 sm:px-8">
+            <p className="text-sm uppercase tracking-[0.08em]">Active devices</p>
+            <p className="text-base leading-6">
+              Revoke any passkey that should stop signing in. Revoking the device you are using will send you back through registration.
+            </p>
+          </div>
+          {actionData?.error ? (
+            <p className="border-t-2 border-black pt-3 text-base leading-6">{actionData.error}</p>
+          ) : null}
+          <ul className="border-t-2 border-black">
+            {loaderData.passkeys.map((passkey) => (
+              <PasskeyRow
+                currentPasskeyId={loaderData.currentPasskeyId}
+                key={passkey.id}
+                passkey={passkey}
+              />
+            ))}
+          </ul>
+        </section>
+      </ScrollableLayout>
+    </>
   );
 }

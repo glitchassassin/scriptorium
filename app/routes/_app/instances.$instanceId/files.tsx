@@ -1,4 +1,5 @@
 import { FilesBrowser } from "~/components/workspace/files-browser";
+import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 
@@ -20,16 +21,22 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return loadInstanceFilesRouteData({ instanceId, request });
 }
 
-export default function InstanceFilesRoute({ loaderData }: Route.ComponentProps) {
+export default function InstanceFilesRoute({ loaderData, matches }: Route.ComponentProps) {
   const { instance, listing, selected, selectedError, selectedPath } = loaderData;
 
   return (
-    <FilesBrowser
-      listing={listing}
-      rootPath={instance.directory}
-      selected={selected}
-      selectedError={selectedError}
-      selectedPath={selectedPath}
-    />
+    <>
+      <Breadcrumbs depth={matches.length}>
+        <Breadcrumbs.Item to={`/instances/${instance.id}`}>{instance.name}</Breadcrumbs.Item>
+        <Breadcrumbs.Item>files</Breadcrumbs.Item>
+      </Breadcrumbs>
+      <FilesBrowser
+        listing={listing}
+        rootPath={instance.directory}
+        selected={selected}
+        selectedError={selectedError}
+        selectedPath={selectedPath}
+      />
+    </>
   );
 }

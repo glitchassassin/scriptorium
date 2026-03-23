@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
 import { useInstanceEvents } from "~/components/events/instance-events-provider";
+import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { getGitStatusSummary } from "~/lib/instances/git.server";
@@ -114,7 +115,7 @@ function InstanceOverviewHeader({
   );
 }
 
-export default function InstanceDetailRoute({ loaderData }: Route.ComponentProps) {
+export default function InstanceDetailRoute({ loaderData, matches }: Route.ComponentProps) {
   const { git, instance, recentSessions, sessionError } = loaderData;
   const [sessions, setSessions] = useState<OpencodeSessionSummary[]>(() => sortSessions(recentSessions));
   const sessionEventTypes = useMemo(
@@ -150,48 +151,53 @@ export default function InstanceDetailRoute({ loaderData }: Route.ComponentProps
   );
 
   return (
-    <ScrollableLayout
-      header={<InstanceOverviewHeader directory={instance.directory} git={git} status={instance.status} />}
-      footer={
-        <Form method="post">
-          <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
-            Remove instance
-          </button>
-        </Form>
-      }
-    >
-      <section className="space-y-8 pt-6 pr-1">
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-3 px-6 sm:px-8">
-            <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
-            <Form method="post">
-              <input name="intent" type="hidden" value="create-session" />
-              <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
-                New session
-              </button>
-            </Form>
-          </div>
-          {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
-          {sessions.length ? (
-            <ul className="border-t-2 border-black">
-              {sessions.map((session: OpencodeSessionSummary) => (
-                <li className="space-y-1 border-b-2 border-black px-3 py-2" key={session.id}>
-                  <Link className="block space-y-1" to={`/instances/${instance.id}/sessions/${session.id}`}>
-                    <p className="text-base font-bold">{session.title || session.id.slice(0, 12)}</p>
-                    {session.updatedAt ? (
-                      <p className="text-sm leading-6 opacity-60">
-                        Updated {new Date(session.updatedAt).toLocaleString()}
-                      </p>
-                    ) : null}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-base leading-6">No Opencode sessions were found for this instance.</p>
-          )}
+    <>
+      <Breadcrumbs depth={matches.length}>
+        <Breadcrumbs.Item to={`/instances/${instance.id}`}>{instance.name}</Breadcrumbs.Item>
+      </Breadcrumbs>
+      <ScrollableLayout
+        header={<InstanceOverviewHeader directory={instance.directory} git={git} status={instance.status} />}
+        footer={
+          <Form method="post">
+            <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
+              Remove instance
+            </button>
+          </Form>
+        }
+      >
+        <section className="space-y-8 pt-6 pr-1">
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3 px-6 sm:px-8">
+              <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
+              <Form method="post">
+                <input name="intent" type="hidden" value="create-session" />
+                <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
+                  New session
+                </button>
+              </Form>
+            </div>
+            {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
+            {sessions.length ? (
+              <ul className="border-t-2 border-black">
+                {sessions.map((session: OpencodeSessionSummary) => (
+                  <li className="space-y-1 border-b-2 border-black px-3 py-2" key={session.id}>
+                    <Link className="block space-y-1" to={`/instances/${instance.id}/sessions/${session.id}`}>
+                      <p className="text-base font-bold">{session.title || session.id.slice(0, 12)}</p>
+                      {session.updatedAt ? (
+                        <p className="text-sm leading-6 opacity-60">
+                          Updated {new Date(session.updatedAt).toLocaleString()}
+                        </p>
+                      ) : null}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-base leading-6">No Opencode sessions were found for this instance.</p>
+            )}
+          </section>
         </section>
-      </section>
-    </ScrollableLayout>
+      </ScrollableLayout>
+    </>
   );
 }

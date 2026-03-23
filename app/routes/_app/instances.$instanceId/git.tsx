@@ -1,4 +1,5 @@
 import { GitBrowser } from "~/components/workspace/git-browser";
+import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 
@@ -20,17 +21,23 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return loadInstanceGitRouteData({ instanceId, request });
 }
 
-export default function InstanceGitRoute({ loaderData }: Route.ComponentProps) {
+export default function InstanceGitRoute({ loaderData, matches }: Route.ComponentProps) {
   const { changed, git, instance, selected, selectedError, selectedPath } = loaderData;
 
   return (
-    <GitBrowser
-      changed={changed}
-      git={git}
-      rootPath={instance.directory}
-      selected={selected}
-      selectedError={selectedError}
-      selectedPath={selectedPath}
-    />
+    <>
+      <Breadcrumbs depth={matches.length}>
+        <Breadcrumbs.Item to={`/instances/${instance.id}`}>{instance.name}</Breadcrumbs.Item>
+        <Breadcrumbs.Item>git</Breadcrumbs.Item>
+      </Breadcrumbs>
+      <GitBrowser
+        changed={changed}
+        git={git}
+        rootPath={instance.directory}
+        selected={selected}
+        selectedError={selectedError}
+        selectedPath={selectedPath}
+      />
+    </>
   );
 }

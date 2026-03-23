@@ -1,11 +1,12 @@
 import { useOutletContext } from "react-router";
 
+import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { FilesBrowser } from "~/components/workspace/files-browser";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { loadInstanceFilesRouteData } from "~/routes/_app/instances.$instanceId/files.server";
 
-import { getSessionBreadcrumbs, type SessionRouteContext } from "./+/session-route";
+import { getSessionBreadcrumbs, getSessionName, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/files";
 
@@ -31,18 +32,27 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return loadInstanceFilesRouteData({ instanceId, request });
 }
 
-export default function SessionFilesRoute({ loaderData }: Route.ComponentProps) {
-  const { insertComposerReference } = useOutletContext<SessionRouteContext>();
+export default function SessionFilesRoute({ loaderData, matches }: Route.ComponentProps) {
+  const { insertComposerReference, session } = useOutletContext<SessionRouteContext>();
   const { instance, listing, selected, selectedError, selectedPath } = loaderData;
 
   return (
-    <FilesBrowser
-      listing={listing}
-      onInsertReference={insertComposerReference}
-      rootPath={instance.directory}
-      selected={selected}
-      selectedError={selectedError}
-      selectedPath={selectedPath}
-    />
+    <>
+      <Breadcrumbs depth={matches.length}>
+        <Breadcrumbs.Item to={`/instances/${instance.id}`}>{instance.name}</Breadcrumbs.Item>
+        <Breadcrumbs.Item to={`/instances/${instance.id}/sessions/${session.id}`}>
+          {getSessionName(session)}
+        </Breadcrumbs.Item>
+        <Breadcrumbs.Item>files</Breadcrumbs.Item>
+      </Breadcrumbs>
+      <FilesBrowser
+        listing={listing}
+        onInsertReference={insertComposerReference}
+        rootPath={instance.directory}
+        selected={selected}
+        selectedError={selectedError}
+        selectedPath={selectedPath}
+      />
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Form, redirect } from "react-router";
 
+import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { createInstance } from "~/lib/instances/runtime.server";
@@ -39,42 +40,48 @@ export async function action({ request }: Route.ActionArgs) {
   return redirect(`/instances/${instance.id}`);
 }
 
-export default function NewInstanceRoute({ actionData, loaderData }: Route.ComponentProps) {
+export default function NewInstanceRoute({ actionData, loaderData, matches }: Route.ComponentProps) {
   const [currentPath, setCurrentPath] = useState(loaderData.initialDirectory);
   const placeholderName = currentPath.split("/").filter(Boolean).at(-1) || currentPath;
 
   return (
-    <Form className="flex min-h-0 flex-1 flex-col" method="post">
-      <ScrollableLayout
-        header={(
-          <div className="grid min-h-11 w-full grid-cols-[minmax(0,1fr)_minmax(14rem,20rem)_auto] items-center gap-3">
-            <p className="truncate text-base font-bold">{currentPath}</p>
-            <label className="min-w-0">
-              <span className="sr-only">Folder name</span>
-              <input
-                className="min-h-11 w-full border-l-2 border-black px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-black"
-                name="name"
-                placeholder={placeholderName}
-                type="text"
-              />
-            </label>
-            <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
-              Create
-            </button>
-          </div>
-        )}
-      >
-        <section className="space-y-6 pt-6">
-          {actionData?.error ? <p className="text-base leading-6">{actionData.error}</p> : null}
-          <FileExplorer
-            initialPath={loaderData.initialDirectory}
-            name="directory"
-            onBrowsePathChange={setCurrentPath}
-            route="/files/browse"
-            selectionMode="directory"
-          />
-        </section>
-      </ScrollableLayout>
-    </Form>
+    <>
+      <Breadcrumbs depth={matches.length}>
+        <Breadcrumbs.Item to="/instances">Instances</Breadcrumbs.Item>
+        <Breadcrumbs.Item>New instance</Breadcrumbs.Item>
+      </Breadcrumbs>
+      <Form className="flex min-h-0 flex-1 flex-col" method="post">
+        <ScrollableLayout
+          header={(
+            <div className="grid min-h-11 w-full grid-cols-[minmax(0,1fr)_minmax(14rem,20rem)_auto] items-center gap-3">
+              <p className="truncate text-base font-bold">{currentPath}</p>
+              <label className="min-w-0">
+                <span className="sr-only">Folder name</span>
+                <input
+                  className="min-h-11 w-full border-l-2 border-black px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-black"
+                  name="name"
+                  placeholder={placeholderName}
+                  type="text"
+                />
+              </label>
+              <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
+                Create
+              </button>
+            </div>
+          )}
+        >
+          <section className="space-y-6 pt-6">
+            {actionData?.error ? <p className="text-base leading-6">{actionData.error}</p> : null}
+            <FileExplorer
+              initialPath={loaderData.initialDirectory}
+              name="directory"
+              onBrowsePathChange={setCurrentPath}
+              route="/files/browse"
+              selectionMode="directory"
+            />
+          </section>
+        </ScrollableLayout>
+      </Form>
+    </>
   );
 }

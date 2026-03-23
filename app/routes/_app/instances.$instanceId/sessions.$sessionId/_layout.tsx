@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
 import { useInstanceEvents } from "~/components/events/instance-events-provider";
+import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import {
@@ -42,7 +43,7 @@ import type { RouteHandleDefinition } from "~/lib/route-handle";
 import safeArea from "~/styles/safe-area.module.css";
 import { getNewSessionIconNavAction } from "~/routes/_app/instances.$instanceId/+/instance-route";
 
-import { getSessionBreadcrumbs, getSessionIconNavActions, type SessionRouteContext } from "./+/session-route";
+import { getSessionBreadcrumbs, getSessionIconNavActions, getSessionName, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/_layout";
 
@@ -192,7 +193,7 @@ export async function action({ params, request }: Route.ActionArgs) {
   return data({ error: "That action is not supported.", intent, ok: false }, { status: 400 });
 }
 
-export default function InstanceSessionLayoutRoute({ loaderData }: Route.ComponentProps) {
+export default function InstanceSessionLayoutRoute({ loaderData, matches }: Route.ComponentProps) {
   const { initialAgents, initialMessages, initialPermissions, initialStatus, instance, loadedFullHistory, session } = loaderData;
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -240,6 +241,9 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
     if (sessionIdRef.current === session.id) {
       setMessages((current) => mergeMessages(current, initialMessages));
       setHasLoadedFullHistory((current) => current || loadedFullHistory);
+      setStatus(initialStatus);
+      setSessionState(session);
+      setPendingPermissions(initialPermissions);
       return;
     }
 
@@ -507,158 +511,166 @@ export default function InstanceSessionLayoutRoute({ loaderData }: Route.Compone
   }, [hasLoadedFullHistory, isLoadingFullHistory, location.pathname, location.search, navigate]);
 
   return (
-    <ScrollableLayout
-      onReachTop={isTranscriptRoute ? loadFullHistory : undefined}
-      stickToBottom
-      footer={
-        <div className={`${safeArea.footerPad4} border-t-2 border-black px-6 pt-4 sm:px-8`}>
-          <div className="space-y-3">
-            {promptError ? <p className="text-base leading-6">{promptError}</p> : null}
-            {abortError ? <p className="text-base leading-6">{abortError}</p> : null}
-            {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
-            <div className="flex items-stretch gap-2">
-              <div className="min-w-0 flex-1">
-                <promptFetcher.Form className="min-w-0 flex-1" method="post" onSubmit={(event) => event.preventDefault()}>
-                  <input name="intent" type="hidden" value="prompt" />
-                  <input name="agent" type="hidden" value={selectedAgent ?? ""} />
-                  <input
-                    accept="image/*"
-                    className="hidden"
-                    multiple
-                    onChange={(event) => {
-                      if (event.currentTarget.files) {
-                        void addImages(event.currentTarget.files);
-                      }
+    <>
+      <Breadcrumbs depth={matches.length}>
+        <Breadcrumbs.Item to={`/instances/${instance.id}`}>{instance.name}</Breadcrumbs.Item>
+        <Breadcrumbs.Item to={`/instances/${instance.id}/sessions/${session.id}`}>
+          {getSessionName(sessionState)}
+        </Breadcrumbs.Item>
+      </Breadcrumbs>
+      <ScrollableLayout
+        onReachTop={isTranscriptRoute ? loadFullHistory : undefined}
+        stickToBottom
+        footer={
+          <div className={`${safeArea.footerPad4} border-t-2 border-black px-6 pt-4 sm:px-8`}>
+            <div className="space-y-3">
+              {promptError ? <p className="text-base leading-6">{promptError}</p> : null}
+              {abortError ? <p className="text-base leading-6">{abortError}</p> : null}
+              {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
+              <div className="flex items-stretch gap-2">
+                <div className="min-w-0 flex-1">
+                  <promptFetcher.Form className="min-w-0 flex-1" method="post" onSubmit={(event) => event.preventDefault()}>
+                    <input name="intent" type="hidden" value="prompt" />
+                    <input name="agent" type="hidden" value={selectedAgent ?? ""} />
+                    <input
+                      accept="image/*"
+                      className="hidden"
+                      multiple
+                      onChange={(event) => {
+                        if (event.currentTarget.files) {
+                          void addImages(event.currentTarget.files);
+                        }
 
-                      event.currentTarget.value = "";
-                    }}
-                    ref={imageInputRef}
-                    type="file"
-                  />
-                  {images.length ? (
-                    <div className="flex flex-wrap gap-2 border-b-2 border-black px-3 py-3">
-                      {images.map((image) => (
-                        <div key={image.id} className="relative size-20 overflow-hidden border-2 border-black bg-white">
-                          <img alt={image.file.name} className="size-full object-cover" src={image.preview} />
-                          <button
-                            aria-label={`Remove ${image.file.name}`}
-                            className="absolute right-1 top-1 inline-flex size-6 items-center justify-center border-2 border-black bg-white"
-                            onClick={() => removeImage(image.id)}
-                            type="button"
-                          >
-                            <Icon className="size-4" icon="mdi:close" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  <textarea
-                    className="min-h-32 w-full px-3 py-2 text-base leading-7"
-                    name="text"
-                    onBlur={(event) => updateComposerSelection(event.currentTarget)}
-                    onChange={(event) => {
-                      setComposerText(event.currentTarget.value);
-                      updateComposerSelection(event.currentTarget);
-                    }}
-                    onClick={(event) => updateComposerSelection(event.currentTarget)}
-                    onKeyUp={(event) => updateComposerSelection(event.currentTarget)}
-                    onPaste={(event) => {
-                      const files = Array.from(event.clipboardData.files ?? []).filter(isImage);
+                        event.currentTarget.value = "";
+                      }}
+                      ref={imageInputRef}
+                      type="file"
+                    />
+                    {images.length ? (
+                      <div className="flex flex-wrap gap-2 border-b-2 border-black px-3 py-3">
+                        {images.map((image) => (
+                          <div key={image.id} className="relative size-20 overflow-hidden border-2 border-black bg-white">
+                            <img alt={image.file.name} className="size-full object-cover" src={image.preview} />
+                            <button
+                              aria-label={`Remove ${image.file.name}`}
+                              className="absolute right-1 top-1 inline-flex size-6 items-center justify-center border-2 border-black bg-white"
+                              onClick={() => removeImage(image.id)}
+                              type="button"
+                            >
+                              <Icon className="size-4" icon="mdi:close" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <textarea
+                      className="min-h-32 w-full px-3 py-2 text-base leading-7"
+                      name="text"
+                      onBlur={(event) => updateComposerSelection(event.currentTarget)}
+                      onChange={(event) => {
+                        setComposerText(event.currentTarget.value);
+                        updateComposerSelection(event.currentTarget);
+                      }}
+                      onClick={(event) => updateComposerSelection(event.currentTarget)}
+                      onKeyUp={(event) => updateComposerSelection(event.currentTarget)}
+                      onPaste={(event) => {
+                        const files = Array.from(event.clipboardData.files ?? []).filter(isImage);
 
-                      if (files.length === 0) {
-                        return;
-                      }
+                        if (files.length === 0) {
+                          return;
+                        }
 
-                      event.preventDefault();
-                      void addImages(files);
-                    }}
-                    onDragOver={(event) => {
-                      if (Array.from(event.dataTransfer?.files ?? []).some(isImage)) {
                         event.preventDefault();
-                      }
-                    }}
-                    onDrop={(event) => {
-                      const files = Array.from(event.dataTransfer.files ?? []).filter(isImage);
+                        void addImages(files);
+                      }}
+                      onDragOver={(event) => {
+                        if (Array.from(event.dataTransfer?.files ?? []).some(isImage)) {
+                          event.preventDefault();
+                        }
+                      }}
+                      onDrop={(event) => {
+                        const files = Array.from(event.dataTransfer.files ?? []).filter(isImage);
 
-                      if (files.length === 0) {
-                        return;
-                      }
+                        if (files.length === 0) {
+                          return;
+                        }
 
-                      event.preventDefault();
-                      void addImages(files);
-                    }}
-                    onSelect={(event) => updateComposerSelection(event.currentTarget)}
-                    placeholder="Send a message, paste an image, or attach one"
-                    ref={composerInputRef}
-                    value={composerText}
-                  />
-                </promptFetcher.Form>
-              </div>
-              <div className="flex shrink-0 self-stretch flex-col items-stretch justify-between gap-1">
-                <button
-                  aria-label="Cycle agent"
-                  className="min-h-11 bg-white px-3 py-2 text-left text-sm leading-5 disabled:opacity-25"
-                  disabled={!agents.length}
-                  onClick={cycleAgent}
-                  onPointerDown={(event) => event.preventDefault()}
-                  type="button"
-                >
-                  {selectedAgent ?? "No agent"}
-                </button>
-                <div className="flex items-end gap-2">
+                        event.preventDefault();
+                        void addImages(files);
+                      }}
+                      onSelect={(event) => updateComposerSelection(event.currentTarget)}
+                      placeholder="Send a message, paste an image, or attach one"
+                      ref={composerInputRef}
+                      value={composerText}
+                    />
+                  </promptFetcher.Form>
+                </div>
+                <div className="flex shrink-0 self-stretch flex-col items-stretch justify-between gap-1">
                   <button
-                    aria-label="Attach image"
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center bg-white disabled:opacity-25"
-                    disabled={isPromptPending}
-                    onClick={() => imageInputRef.current?.click()}
-                    type="button"
-                  >
-                    <Icon className="size-6" icon="mdi:image-plus" />
-                  </button>
-                  <abortFetcher.Form method="post">
-                    <input name="intent" type="hidden" value="abort" />
-                    <button
-                      aria-label="Stop current response"
-                      className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
-                      disabled={isAbortPending || !isBusy}
-                      onPointerDown={(event) => event.preventDefault()}
-                      type="submit"
-                    >
-                      <Icon className="size-6" icon="mdi:stop-circle" />
-                    </button>
-                  </abortFetcher.Form>
-                  <button
-                    aria-label="Send message"
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center bg-black text-white disabled:opacity-25"
-                    disabled={isPromptPending}
-                    onClick={submitPrompt}
+                    aria-label="Cycle agent"
+                    className="min-h-11 bg-white px-3 py-2 text-left text-sm leading-5 disabled:opacity-25"
+                    disabled={!agents.length}
+                    onClick={cycleAgent}
                     onPointerDown={(event) => event.preventDefault()}
                     type="button"
                   >
-                    <Icon className="size-6" icon="mdi:send" />
+                    {selectedAgent ?? "No agent"}
                   </button>
+                  <div className="flex items-end gap-2">
+                    <button
+                      aria-label="Attach image"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center bg-white disabled:opacity-25"
+                      disabled={isPromptPending}
+                      onClick={() => imageInputRef.current?.click()}
+                      type="button"
+                    >
+                      <Icon className="size-6" icon="mdi:image-plus" />
+                    </button>
+                    <abortFetcher.Form method="post">
+                      <input name="intent" type="hidden" value="abort" />
+                      <button
+                        aria-label="Stop current response"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
+                        disabled={isAbortPending || !isBusy}
+                        onPointerDown={(event) => event.preventDefault()}
+                        type="submit"
+                      >
+                        <Icon className="size-6" icon="mdi:stop-circle" />
+                      </button>
+                    </abortFetcher.Form>
+                    <button
+                      aria-label="Send message"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center bg-black text-white disabled:opacity-25"
+                      disabled={isPromptPending}
+                      onClick={submitPrompt}
+                      onPointerDown={(event) => event.preventDefault()}
+                      type="button"
+                    >
+                      <Icon className="size-6" icon="mdi:send" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      }
-    >
-      <Outlet
-        context={{
-          hasLoadedFullHistory,
-          instance,
-          isLoadingFullHistory,
-          insertComposerReference,
-          loadFullHistory,
-          messages,
-          pendingPermissions,
-          replyPermission,
-          session: sessionState,
-          sessionError,
-          status,
-        } satisfies SessionRouteContext}
-      />
-    </ScrollableLayout>
+        }
+      >
+        <Outlet
+          context={{
+            hasLoadedFullHistory,
+            instance,
+            isLoadingFullHistory,
+            insertComposerReference,
+            loadFullHistory,
+            messages,
+            pendingPermissions,
+            replyPermission,
+            session: sessionState,
+            sessionError,
+            status,
+          } satisfies SessionRouteContext}
+        />
+      </ScrollableLayout>
+    </>
   );
 }
