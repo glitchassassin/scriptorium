@@ -11,3 +11,11 @@ class MockResizeObserver {
 if (typeof globalThis.ResizeObserver === "undefined") {
   globalThis.ResizeObserver = MockResizeObserver as typeof ResizeObserver;
 }
+
+if (typeof globalThis.URL.createObjectURL === "undefined") {
+  globalThis.URL.createObjectURL = () => `blob:${Math.random().toString(16).slice(2)}`;
+}
+
+if (typeof globalThis.URL.revokeObjectURL === "undefined") {
+  globalThis.URL.revokeObjectURL = () => {};
+}
