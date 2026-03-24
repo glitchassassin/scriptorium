@@ -134,4 +134,22 @@ describe("GitBrowser", () => {
     expect(router.state.location.search).toBe("?path=src%2Fnested%2Falpha.ts");
     expect(screen.getByText("src/nested/alpha.ts")).toBeInTheDocument();
   });
+
+  it("preserves collapsed folders when backing out of a selected diff", () => {
+    const { router } = renderGitBrowser("/git");
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse nested/" }));
+
+    expect(screen.queryByRole("button", { name: /alpha.ts/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /beta.ts/ }));
+
+    expect(router.state.location.search).toBe("?path=src%2Fbeta.ts");
+
+    fireEvent.click(screen.getByRole("button", { name: /back to changed files/i }));
+
+    expect(router.state.location.search).toBe("");
+    expect(screen.getByRole("button", { name: "Expand nested/" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /alpha.ts/ })).not.toBeInTheDocument();
+  });
 });

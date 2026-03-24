@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 import { Link, useSearchParams } from "react-router";
@@ -138,12 +139,27 @@ export function GitBrowser({
   selectedPath,
 }: GitBrowserProps) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tree = changed.isRepository ? buildChangedFilesTree(changed.files) : [];
-  const changedPaths = collectFilePaths(tree);
-  const expandedPaths = collectDirectoryPaths(tree);
+  const tree = useMemo(() => (changed.isRepository ? buildChangedFilesTree(changed.files) : []), [changed]);
+  const changedPaths = useMemo(() => collectFilePaths(tree), [tree]);
+  const directoryPaths = useMemo(() => collectDirectoryPaths(tree), [tree]);
+  const previousDirectoryPathsRef = useRef<string[]>(directoryPaths);
+  const [expandedPaths, setExpandedPaths] = useState<string[]>(directoryPaths);
   const selectedIndex = selectedPath ? changedPaths.indexOf(selectedPath) : -1;
   const previousPath = selectedIndex > 0 ? changedPaths[selectedIndex - 1] : null;
   const nextPath = selectedIndex >= 0 && selectedIndex < changedPaths.length - 1 ? changedPaths[selectedIndex + 1] : null;
+
+  useEffect(() => {
+    const previousDirectoryPaths = previousDirectoryPathsRef.current;
+
+    setExpandedPaths((current) => {
+      const currentExpanded = new Set(current);
+      const previousDirectories = new Set(previousDirectoryPaths);
+
+      return directoryPaths.filter((path) => currentExpanded.has(path) || !previousDirectories.has(path));
+    });
+
+    previousDirectoryPathsRef.current = directoryPaths;
+  }, [directoryPaths]);
 
   function buildSelectionUrl(path: string | null) {
     const next = new URLSearchParams(searchParams);
@@ -172,6 +188,12 @@ export function GitBrowser({
 
   function clearSelection() {
     handleSelection(null);
+  }
+
+  function toggleDirectory(path: string) {
+    setExpandedPaths((current) =>
+      current.includes(path) ? current.filter((entry) => entry !== path) : [...current, path],
+    );
   }
 
   if (selectedPath) {
@@ -249,6 +271,7 @@ export function GitBrowser({
             emptyLabel="No uncommitted changes."
             expandedPaths={expandedPaths}
             onSelectionChange={(selection) => handleSelection(selection?.path ?? null)}
+            onToggleDirectory={toggleDirectory}
             renderPrefix={(node) => node.status ?? null}
             selectedPath={selectedPath}
             selectionMode="file"
