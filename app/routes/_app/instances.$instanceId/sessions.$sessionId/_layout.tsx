@@ -11,13 +11,16 @@ import {
   getOpencodeSession,
   getOpencodeSessionStatuses,
   listOpencodeAgents,
+  listOpencodeCommands,
   listOpencodeMessages,
   listOpencodePermissionRequests,
   revertOpencodeSession,
+  submitOpencodeCommand,
   submitOpencodePrompt,
   unrevertOpencodeSession,
 } from "~/lib/instances/opencode.server";
 import { replyToOpencodePermissionRequest } from "~/lib/instances/opencode.client";
+import { parseSlashCommand } from "~/lib/opencode/commands";
 import { getInstanceOrThrow } from "~/lib/instances/runtime.server";
 import { getUserMessageText } from "~/lib/opencode/message-helpers";
 import {
@@ -101,28 +104,43 @@ export async function action({ params, request }: Route.ActionArgs) {
   const instance = await getInstanceOrThrow(instanceId);
   const formData = await request.formData();
   const intent = String(formData.get("intent") ?? "").trim();
+  const files = formData
+    .getAll("attachments")
+    .filter((value): value is File => value instanceof File && value.size > 0 && value.type.startsWith("image/"));
+  const attachments = await Promise.all(
+    files.map(async (file) => ({
+      type: "file" as const,
+      filename: file.name || undefined,
+      mime: file.type,
+      url: `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`,
+    })),
+  );
+  const agent = String(formData.get("agent") ?? "").trim();
+
+  async function submitCommand(input: { arguments: string; command: string; clearDraft: boolean }) {
+    await submitOpencodeCommand(instance, sessionId, {
+      arguments: input.arguments,
+      command: input.command,
+      ...(attachments.length ? { parts: attachments } : {}),
+      ...(agent ? { agent } : {}),
+    });
+
+    return data({ clearDraft: input.clearDraft, error: null, intent: "command", ok: true });
+  }
 
   if (intent === "prompt") {
     const rawText = String(formData.get("text") ?? "");
     const text = rawText.trim();
-    const files = formData
-      .getAll("attachments")
-      .filter((value): value is File => value instanceof File && value.size > 0 && value.type.startsWith("image/"));
+    const commandNames = (await listOpencodeCommands(instance)).map((item) => item.name);
+    const command = parseSlashCommand(rawText, commandNames);
 
-    const attachments = await Promise.all(
-      files.map(async (file) => ({
-        type: "file" as const,
-        filename: file.name || undefined,
-        mime: file.type,
-        url: `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`,
-      })),
-    );
+    if (command) {
+      return submitCommand({ ...command, clearDraft: true });
+    }
 
     if (!text && attachments.length === 0) {
       return data({ error: "Enter a message before sending.", intent, ok: false }, { status: 400 });
     }
-
-    const agent = String(formData.get("agent") ?? "").trim();
     const parts = [
       ...(text ? [{ type: "text" as const, text: rawText }] : []),
       ...attachments,
@@ -133,7 +151,21 @@ export async function action({ params, request }: Route.ActionArgs) {
       ...(agent ? { agent } : {}),
     });
 
-    return data({ error: null, intent, ok: true });
+    return data({ clearDraft: true, error: null, intent, ok: true });
+  }
+
+  if (intent === "command") {
+    const command = String(formData.get("command") ?? "").trim();
+
+    if (!command) {
+      return data({ error: "Choose a command before sending.", intent, ok: false }, { status: 400 });
+    }
+
+    return submitCommand({
+      arguments: String(formData.get("arguments") ?? ""),
+      clearDraft: String(formData.get("clearDraft") ?? "") === "1",
+      command,
+    });
   }
 
   if (intent === "abort") {

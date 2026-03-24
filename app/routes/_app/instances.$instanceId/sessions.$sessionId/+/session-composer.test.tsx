@@ -30,6 +30,12 @@ const promptFetcher: MockFetcher = {
   submit: vi.fn(),
 };
 
+const commandFetcher: MockFetcher = {
+  data: undefined,
+  state: "idle",
+  submit: vi.fn(),
+};
+
 const abortFetcher: MockFetcher = {
   data: undefined,
   state: "idle",
@@ -75,6 +81,9 @@ afterEach(() => {
   promptFetcher.data = undefined;
   promptFetcher.state = "idle";
   promptFetcher.submit.mockReset();
+  commandFetcher.data = undefined;
+  commandFetcher.state = "idle";
+  commandFetcher.submit.mockReset();
   abortFetcher.data = undefined;
   abortFetcher.state = "idle";
   abortFetcher.submit.mockReset();
@@ -83,11 +92,16 @@ afterEach(() => {
 beforeEach(() => {
   let fetcherIndex = 0;
   useFetcherMock.mockImplementation(() => {
-    const fetcher = fetcherIndex % 2 === 0 ? promptFetcher : abortFetcher;
+    const fetcher = [promptFetcher, commandFetcher, abortFetcher][fetcherIndex % 3] ?? abortFetcher;
     fetcherIndex += 1;
     return fetcher;
   });
 });
+
+function getSubmittedFormData(fetcher: MockFetcher, index = 0) {
+  const call = fetcher.submit.mock.calls[index];
+  return call?.[0] as FormData;
+}
 
 describe("useSessionComposerDraft", () => {
   it("restores persisted text, agent, and attachments after remount", async () => {
@@ -175,7 +189,7 @@ describe("useSessionComposerDraft", () => {
 
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "First prompt" } });
 
-    promptFetcher.data = { intent: "prompt", ok: true };
+    promptFetcher.data = { clearDraft: true, intent: "prompt", ok: true };
     view.rerender(
       <SessionComposer
         agents={["draft", "review"]}
@@ -197,5 +211,140 @@ describe("useSessionComposerDraft", () => {
 
     await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue("Second prompt"));
     expect(clearSessionError).toHaveBeenCalledTimes(1);
+  });
+
+  it("submits the review button through the shared fetcher", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Start review" }));
+
+    await waitFor(() => expect(commandFetcher.submit).toHaveBeenCalledTimes(1));
+    expect(getSubmittedFormData(commandFetcher).get("intent")).toBe("command");
+    expect(getSubmittedFormData(commandFetcher).get("agent")).toBe("draft");
+    expect(getSubmittedFormData(commandFetcher).get("arguments")).toBe("");
+    expect(getSubmittedFormData(commandFetcher).get("clearDraft")).toBe("0");
+    expect(getSubmittedFormData(commandFetcher).get("command")).toBe("review");
+  });
+
+  it("does not use composer text when starting review", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Ignore me" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start review" }));
+
+    await waitFor(() => expect(commandFetcher.submit).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("textbox")).toHaveValue("Ignore me");
+  });
+
+  it("keeps attach and send enabled while a command is pending", async () => {
+    commandFetcher.state = "submitting";
+
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: "Start review" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Attach image" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+  });
+
+  it("keeps review enabled while a prompt submission is pending", async () => {
+    promptFetcher.state = "submitting";
+
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: "Start review" })).toBeEnabled();
+  });
+
+  it("submits slash commands from the composer through the shared fetcher", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "/review feature-branch" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(promptFetcher.submit).toHaveBeenCalledTimes(1));
+    expect(getSubmittedFormData(promptFetcher).get("intent")).toBe("prompt");
+    expect(getSubmittedFormData(promptFetcher).get("text")).toBe("/review feature-branch");
+  });
+
+  it("disables review while the session is busy", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={true}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Start review" })).toBeDisabled();
   });
 });

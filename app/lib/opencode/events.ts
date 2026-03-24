@@ -355,6 +355,17 @@ export const opencodePromptInputSchema = z.object({
   agent: z.string().optional(),
 });
 
+export const opencodeCommandInputSchema = z.object({
+  arguments: z.string(),
+  command: z.string(),
+  parts: opencodePromptInputSchema.shape.parts.optional(),
+  agent: z.string().optional(),
+});
+
+export const opencodeCommandInfoSchema = z.object({
+  name: z.string(),
+}).passthrough();
+
 export const opencodeAgentSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
@@ -598,6 +609,8 @@ export function parseOpencodeEvent(value: unknown): OpencodeEventParseResult {
 export type OpencodeEvent = OpencodeKnownEvent;
 export type OpencodeKnownEvent = z.infer<typeof opencodeKnownEventSchema>;
 export type OpencodeAgent = z.infer<typeof opencodeAgentSchema>;
+export type OpencodeCommandInput = z.infer<typeof opencodeCommandInputSchema>;
+export type OpencodeCommandInfo = z.infer<typeof opencodeCommandInfoSchema>;
 export type OpencodePromptInput = z.infer<typeof opencodePromptInputSchema>;
 export type OpencodeAgentPart = z.infer<typeof opencodeAgentPartSchema>;
 export type OpencodeCompactionPart = z.infer<typeof opencodeCompactionPartSchema>;

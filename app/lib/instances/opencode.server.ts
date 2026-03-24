@@ -1,5 +1,7 @@
 import {
   opencodeMessageWithPartsSchema,
+  opencodeCommandInputSchema,
+  opencodeCommandInfoSchema,
   opencodePermissionRequestSchema,
   opencodeAgentSchema,
   opencodePromptInputSchema,
@@ -17,6 +19,8 @@ import { filterRecentSessions } from "~/lib/instances/sidebar";
 import type {
   OpencodeMessageWithParts,
   OpencodeAgent,
+  OpencodeCommandInfo,
+  OpencodeCommandInput,
   OpencodePromptInput,
   OpencodePermissionRequest,
   OpencodeSessionInfo,
@@ -106,6 +110,11 @@ export async function listOpencodeAgents(instance: InstanceRecord) {
   return parseOrThrow(opencodeAgentSchema.array().safeParse(payload)) satisfies OpencodeAgent[];
 }
 
+export async function listOpencodeCommands(instance: InstanceRecord) {
+  const payload = await readJson(await fetch(`${getInstanceBaseUrl(instance)}/command`));
+  return parseOrThrow(opencodeCommandInfoSchema.array().safeParse(payload)) satisfies OpencodeCommandInfo[];
+}
+
 export async function submitOpencodePrompt(
   instance: InstanceRecord,
   sessionId: string,
@@ -130,6 +139,35 @@ export async function submitOpencodePrompt(
 
   if (!response.ok && response.status !== 204) {
     throw new Error(`Prompt request failed with ${response.status}`);
+  }
+}
+
+export async function submitOpencodeCommand(
+  instance: InstanceRecord,
+  sessionId: string,
+  input: { command: string; arguments: string; parts?: OpencodeCommandInput["parts"]; agent?: string | null },
+) {
+  const nextPayload = {
+    arguments: input.arguments,
+    command: input.command,
+    ...(input.parts ? { parts: input.parts } : {}),
+    ...(input.agent ? { agent: input.agent } : {}),
+  };
+
+  const parsedPayload = parseOrThrow(
+    opencodeCommandInputSchema.safeParse(nextPayload),
+  );
+
+  const response = await fetch(`${getInstanceBaseUrl(instance)}/session/${sessionId}/command`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(parsedPayload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Command request failed with ${response.status}`);
   }
 }
 
