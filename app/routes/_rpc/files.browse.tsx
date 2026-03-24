@@ -100,16 +100,13 @@ export function FileExplorer({
     setExpandedPaths(expandedPathDefaults);
     setDirectoryErrors({});
 
-    if (initialListing && matchesInitialListing(initialListing, initialPath)) {
-      setBrowseError(null);
-      setTree(entriesToFileTreeNodes(initialListing.entries));
-      onBrowsePathChange?.(initialSelection ?? initialListing.currentPath);
-      return () => {
-        cancelled = true;
-      };
-    }
-
     async function loadRoot() {
+      if (initialListing && matchesInitialListing(initialListing, initialPath)) {
+        setBrowseError(null);
+        onBrowsePathChange?.(initialSelection ?? initialPath);
+        return;
+      }
+
       const result = await fetchBrowseListing(route, initialPath, selectionMode, baseDirectory);
 
       if (cancelled) {
@@ -132,7 +129,15 @@ export function FileExplorer({
     return () => {
       cancelled = true;
     };
-  }, [baseDirectory, expandedPathDefaults, initialListing, initialPath, initialSelection, onBrowsePathChange, route, selectionMode]);
+  }, [
+    baseDirectory,
+    expandedPathDefaults,
+    initialPath,
+    initialSelection,
+    onBrowsePathChange,
+    route,
+    selectionMode,
+  ]);
 
   useEffect(() => {
     if (value) {

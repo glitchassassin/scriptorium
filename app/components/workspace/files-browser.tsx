@@ -102,17 +102,30 @@ export function FilesBrowser({
     selectFile(null);
   }
 
-  if (selectedPath) {
-    return (
-      <ScrollableLayout
-        header={
+  return (
+    <ScrollableLayout
+      header={
+        selectedPath ? (
           <FileSelectionHeader
             label={selected ? formatWorkspacePath(rootPath, selected.path) : selectedPath}
             onBack={clearSelection}
           />
-        }
-      >
-        {selectedError ? (
+        ) : (
+          <FilesListHeader path={formatWorkspacePath(rootPath, listing.currentPath)} />
+        )
+      }
+    >
+      <section className={selectedPath ? "hidden" : "space-y-8 pr-1"}>
+        <FileExplorer
+          baseDirectory={rootPath}
+          initialListing={listing}
+          initialPath={listing.currentPath}
+          onSelectionChange={(selection) => selectFile(selection?.path ?? null)}
+          selectionMode="either"
+        />
+      </section>
+      {selectedPath ? (
+        selectedError ? (
           <p className="text-base leading-6">{selectedError}</p>
         ) : selected?.binary ? (
           <p className="text-base leading-6">This file cannot be previewed as text.</p>
@@ -156,22 +169,8 @@ export function FilesBrowser({
           </CodeViewerFrame>
         ) : (
           <p className="text-base leading-6">No file content is available for this selection.</p>
-        )}
-      </ScrollableLayout>
-    );
-  }
-
-  return (
-    <ScrollableLayout header={<FilesListHeader path={formatWorkspacePath(rootPath, listing.currentPath)} />}>
-      <section className="space-y-8 pr-1">
-        <FileExplorer
-          baseDirectory={rootPath}
-          initialListing={listing}
-          initialPath={listing.currentPath}
-          onSelectionChange={(selection) => selectFile(selection?.path ?? null)}
-          selectionMode="either"
-        />
-      </section>
+        )
+      ) : null}
     </ScrollableLayout>
   );
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider, useSearchParams } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -79,7 +79,7 @@ describe("files browser references", () => {
     fireEvent.click(screen.getByRole("button", { name: "readme.md" }));
 
     expect(router.state.location.search).toBe("?path=%2Frepo&file=%2Frepo%2Freadme.md");
-    expect(screen.getByText("readme.md")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /back to workspace files/i })).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -94,5 +94,49 @@ describe("files browser references", () => {
     expect(screen.getByRole("button", { name: "alpha/" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "readme.md" })).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves expanded folders when backing out of a selected file", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(typeof input === "string" ? input : input.toString(), "http://localhost");
+
+      if (url.searchParams.get("path") === "/repo/alpha") {
+        return new Response(
+          JSON.stringify({
+            error: null,
+            listing: {
+              currentPath: "/repo/alpha",
+              entries: [{ name: "main.ts", path: "/repo/alpha/main.ts", type: "file" }],
+              parentPath: "/repo",
+              rootPath: "/repo",
+              selectionMode: "either",
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unexpected fetch: ${url.toString()}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const { router } = renderFilesBrowser();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand alpha/" }));
+
+    await screen.findByRole("button", { name: "main.ts" });
+
+    fireEvent.click(screen.getByRole("button", { name: "main.ts" }));
+
+    expect(router.state.location.search).toBe("?path=%2Frepo&file=%2Frepo%2Falpha%2Fmain.ts");
+
+    fireEvent.click(screen.getByRole("button", { name: /back to workspace files/i }));
+
+    await waitFor(() => {
+      expect(router.state.location.search).toBe("?path=%2Frepo");
+    });
+
+    expect(screen.getByRole("button", { name: "Collapse alpha/" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "main.ts" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
