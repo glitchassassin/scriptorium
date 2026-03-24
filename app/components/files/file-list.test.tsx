@@ -1,109 +1,110 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { SingleColumnFileList } from "~/components/files/file-list";
+import { FileTreeList } from "~/components/files/file-list";
+import type { FileTreeNode } from "~/lib/instances/types";
 
-const LIST_ENTRIES: Array<{ name: string; path: string; type: "directory" | "file" }> = [
-  { name: "alpha", path: "/repo/alpha", type: "directory" },
-  { name: "main.ts", path: "/repo/main.ts", type: "file" },
+const TREE: FileTreeNode[] = [
+  {
+    children: [
+      {
+        name: "main.ts",
+        path: "/repo/alpha/main.ts",
+        type: "file",
+      },
+    ],
+    name: "alpha",
+    path: "/repo/alpha",
+    type: "directory",
+  },
+  {
+    name: "readme.md",
+    path: "/repo/readme.md",
+    type: "file",
+  },
 ];
 
-describe("SingleColumnFileList", () => {
-  it("navigates when a directory row is activated", () => {
-    const onBrowseTo = vi.fn();
+describe("FileTreeList", () => {
+  it("toggles a directory when the row is activated in file mode", () => {
+    const onToggleDirectory = vi.fn();
 
-    render(
-      <SingleColumnFileList
-        currentPath="/repo"
-        parentPath="/"
-        entries={LIST_ENTRIES}
-        onBrowseTo={onBrowseTo}
-      />,
-    );
+    render(<FileTreeList onToggleDirectory={onToggleDirectory} selectionMode="file" tree={TREE} />);
 
-    const directoryButton = screen.getByRole("button", { name: "alpha/" });
+    fireEvent.click(screen.getByRole("button", { name: "alpha/" }));
 
-    fireEvent.click(directoryButton);
-
-    expect(onBrowseTo).toHaveBeenCalledWith("/repo/alpha");
+    expect(onToggleDirectory).toHaveBeenCalledWith("/repo/alpha");
   });
 
   it("calls selection callback for file rows", () => {
     const onSelectionChange = vi.fn();
 
     render(
-      <SingleColumnFileList
-        currentPath="/repo"
-        parentPath={null}
-        entries={LIST_ENTRIES}
-        selectionMode="file"
+      <FileTreeList
+        expandedPaths={["/repo/alpha"]}
         onSelectionChange={onSelectionChange}
+        selectionMode="file"
+        tree={TREE}
       />,
     );
 
-    const fileButton = screen.getByRole("button", { name: "main.ts" });
-    fireEvent.click(fileButton);
+    fireEvent.click(screen.getByRole("button", { name: "main.ts" }));
 
     expect(onSelectionChange).toHaveBeenCalledWith({
       name: "main.ts",
-      path: "/repo/main.ts",
+      path: "/repo/alpha/main.ts",
       type: "file",
     });
   });
 
   it("hides file rows in directory mode", () => {
-    render(
-      <SingleColumnFileList
-        currentPath="/repo"
-        parentPath={null}
-        entries={LIST_ENTRIES}
-        selectionMode="directory"
-      />,
-    );
+    render(<FileTreeList expandedPaths={["/repo/alpha"]} selectionMode="directory" tree={TREE} />);
 
     expect(screen.getByRole("button", { name: "alpha/" })).toBeInTheDocument();
-    expect(screen.queryByText("main.ts")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "main.ts" })).not.toBeInTheDocument();
   });
 
-  it("can show selected selection state", () => {
+  it("renders folders in bold and selected files underlined", () => {
     render(
-      <SingleColumnFileList
-        currentPath="/repo"
-        parentPath={null}
-        entries={LIST_ENTRIES}
-        selectedPath="/repo/main.ts"
+      <FileTreeList expandedPaths={["/repo/alpha"]} selectedPath="/repo/alpha/main.ts" selectionMode="file" tree={TREE} />,
+    );
+
+    expect(screen.getByRole("button", { name: "alpha/" })).toHaveClass("font-bold");
+    expect(screen.getByRole("button", { name: "main.ts" })).toHaveClass("underline");
+  });
+
+  it("selects directories in directory mode", () => {
+    const onSelectionChange = vi.fn();
+
+    render(<FileTreeList onSelectionChange={onSelectionChange} selectionMode="directory" tree={TREE} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "alpha/" }));
+
+    expect(onSelectionChange).toHaveBeenCalledWith({
+      name: "alpha",
+      path: "/repo/alpha",
+      type: "directory",
+    });
+  });
+
+  it("renders an indented secondary empty-folder message", () => {
+    render(
+      <FileTreeList
+        expandedPaths={["/repo/alpha"]}
+        selectionMode="file"
+        tree={[
+          {
+            children: [],
+            name: "alpha",
+            path: "/repo/alpha",
+            type: "directory",
+          },
+        ]}
       />,
     );
 
-    const row = screen.getByRole("button", { name: "main.ts" }).parentElement;
+    const emptyMessage = screen.getByText("(empty)");
 
-    expect(row).toHaveClass("font-bold");
-  });
-
-  it("renders item descriptions when provided", () => {
-    render(
-      <SingleColumnFileList
-        currentPath="/repo"
-        parentPath={null}
-        entries={LIST_ENTRIES}
-        getItemDescription={(entry) => (entry.type === "file" ? "src/" : null)}
-      />,
-    );
-
-    expect(screen.getByText("src/")).toBeInTheDocument();
-  });
-
-  it("shows file rows in either mode", () => {
-    render(
-      <SingleColumnFileList
-        currentPath="/repo"
-        parentPath={null}
-        entries={LIST_ENTRIES}
-        selectionMode="either"
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "alpha/" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "main.ts" })).toBeInTheDocument();
+    expect(emptyMessage).toHaveClass("text-lg", "leading-7", "italic", "opacity-60");
+    expect(emptyMessage).toHaveStyle({ paddingLeft: "5.25rem" });
   });
 });

@@ -1,152 +1,153 @@
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { Icon } from "@iconify/react";
+import "@iconify-json/mdi";
 
 import type {
-  FileBrowserEntry,
   FileBrowserSelection,
   FileBrowserSelectionMode,
+  FileTreeNode,
 } from "~/lib/instances/types";
 
-type FileListProps = {
-  currentPath: string;
-  parentPath: string | null;
-  entries: FileBrowserEntry[];
-  selectionMode?: FileBrowserSelectionMode;
+type FileTreeListProps = {
+  currentPath?: string | null;
+  directoryErrors?: Record<string, string>;
+  emptyLabel?: string;
   label?: string;
   name?: string;
-  value?: string | null;
-  selectedPath?: string | null;
-  isLoading?: boolean;
-  onBrowseTo?: (path: string) => void;
   onSelectionChange?: (selection: FileBrowserSelection | null) => void;
-  emptyLabel?: string;
-  getItemPrefix?: (entry: FileBrowserEntry) => string | null;
-  getItemDescription?: (entry: FileBrowserEntry) => string | null;
+  onToggleDirectory?: (path: string) => void;
+  onRetryDirectory?: (path: string) => void;
+  renderPrefix?: (node: FileTreeNode) => ReactNode;
+  selectedPath?: string | null;
+  selectionMode?: FileBrowserSelectionMode;
+  tree: FileTreeNode[];
+  value?: string | null;
+  expandedPaths?: string[];
 };
 
-function getName(path: string) {
-  return path.split("/").filter(Boolean).at(-1) || path;
+function isExpanded(path: string, expandedPaths: string[]) {
+  return expandedPaths.includes(path);
 }
 
-export function SingleColumnFileList({
-  currentPath,
-  parentPath,
-  entries,
-  selectionMode = "either",
+export function FileTreeList({
+  currentPath = null,
+  directoryErrors = {},
+  emptyLabel = "This folder is empty.",
+  expandedPaths = [],
   label,
   name,
-  value = null,
-  selectedPath,
-  isLoading = false,
-  onBrowseTo,
   onSelectionChange,
-  emptyLabel = "This folder is empty.",
-  getItemPrefix,
-  getItemDescription,
-}: FileListProps) {
-  const canSelectCurrentDirectory = selectionMode === "directory" || selectionMode === "either";
-  const visibleEntries = selectionMode === "directory" ? entries.filter((entry) => entry.type === "directory") : entries;
-  const [selected, setSelected] = useState<FileBrowserSelection | null>(
-    value
-      ? {
-          path: value,
-          type: "directory",
-          name: getName(value),
-        }
-      : null,
-  );
+  onToggleDirectory,
+  onRetryDirectory,
+  renderPrefix,
+  selectedPath,
+  selectionMode = "either",
+  tree,
+  value = null,
+}: FileTreeListProps) {
+  const formValue = selectionMode === "directory" ? selectedPath ?? currentPath ?? value ?? "" : selectedPath ?? value ?? "";
 
-  useEffect(() => {
-    const nextPath = selectedPath ?? value;
-
-    if (!nextPath) {
-      setSelected(null);
-      return;
-    }
-
-    setSelected({
-      path: nextPath,
-      type: "directory",
-      name: getName(nextPath),
+  function selectNode(node: FileTreeNode) {
+    onSelectionChange?.({
+      name: node.name,
+      path: node.path,
+      type: node.type,
     });
-  }, [selectedPath, value]);
+  }
 
-  const effectiveSelection = selectedPath !== undefined ? selectedPath : selected?.path ?? null;
-  const formValue = canSelectCurrentDirectory ? currentPath : effectiveSelection ?? "";
+  function renderNodes(nodes: FileTreeNode[], depth = 0): ReactNode {
+    return nodes.map((node) => {
+      const prefix = renderPrefix?.(node);
+      const selected = selectedPath === node.path;
+      const rowClasses = [
+        "flex min-h-11 w-full items-center gap-2 px-3 py-1 text-left text-lg leading-7 disabled:opacity-25",
+        node.type === "directory" ? "font-bold" : "",
+        selected ? "underline underline-offset-4" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
 
-  function setSelection(selection: FileBrowserSelection | null) {
-    setSelected(selection);
-    onSelectionChange?.(selection);
+      if (node.type === "directory") {
+        const expanded = isExpanded(node.path, expandedPaths);
+        const error = directoryErrors[node.path] ?? null;
+        const loading = expanded && node.children === null && !error;
+        const isSelectable = selectionMode === "directory";
+
+        return (
+          <li key={node.path}>
+            <div className="flex min-h-11 items-center" style={{ paddingLeft: `${depth * 1.5}rem` }}>
+              <button
+                aria-label={`${expanded ? "Collapse" : "Expand"} ${node.name}/`}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center"
+                onClick={() => onToggleDirectory?.(node.path)}
+                type="button"
+              >
+                <Icon aria-hidden="true" className="size-5" icon={expanded ? "mdi:chevron-down" : "mdi:chevron-right"} />
+              </button>
+              <button
+                aria-expanded={expanded}
+                className={rowClasses}
+                onClick={() => {
+                  if (isSelectable) {
+                    selectNode(node);
+                    return;
+                  }
+
+                  onToggleDirectory?.(node.path);
+                }}
+                type="button"
+              >
+                {prefix ? <span className="w-5 shrink-0">{prefix}</span> : null}
+                <span className="truncate">{node.name}/</span>
+                {loading ? <span className="text-sm opacity-60">Loading...</span> : null}
+              </button>
+            </div>
+            {expanded && node.children?.length ? <ul>{renderNodes(node.children, depth + 1)}</ul> : null}
+            {expanded && error ? (
+              <div className="flex min-h-11 items-center gap-3 px-3 py-2 text-lg leading-7 opacity-80" style={{ paddingLeft: `${(depth + 2) * 1.5}rem` }}>
+                <span className="min-w-0 flex-1">{error}</span>
+                {onRetryDirectory ? (
+                  <button className="underline underline-offset-4" onClick={() => onRetryDirectory(node.path)} type="button">
+                    Retry
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {expanded && node.children && node.children.length === 0 ? (
+              <div className="min-h-11 px-3 py-2 text-lg leading-7 italic opacity-60" style={{ paddingLeft: `${(depth + 1) * 1.5 + 3.75}rem` }}>
+                (empty)
+              </div>
+            ) : null}
+          </li>
+        );
+      }
+
+      if (selectionMode === "directory") {
+        return null;
+      }
+
+      return (
+        <li key={node.path}>
+          <button
+            className={rowClasses}
+            onClick={() => selectNode(node)}
+            style={{ paddingLeft: `${depth * 1.5 + 3.75}rem` }}
+            type="button"
+          >
+            {prefix ? <span className="w-5 shrink-0">{prefix}</span> : null}
+            <span className="truncate">{node.name}</span>
+          </button>
+        </li>
+      );
+    });
   }
 
   return (
     <section className="space-y-3">
       {label ? <p className="text-sm uppercase tracking-[0.08em]">{label}</p> : null}
       {name ? <input name={name} type="hidden" value={formValue} /> : null}
-      <div role="listbox">
-        <ul className="space-y-1">
-          {parentPath ? (
-            <li>
-              <button
-                className="block min-h-9 w-full px-3 py-1 text-left text-base disabled:opacity-25"
-                disabled={isLoading}
-                onClick={() => onBrowseTo?.(parentPath)}
-                type="button"
-              >
-                <p className="truncate">../</p>
-              </button>
-            </li>
-          ) : null}
-          {visibleEntries.length ? (
-            visibleEntries.map((entry) => {
-              const isSelected = effectiveSelection === entry.path;
-              const description = getItemDescription?.(entry);
-
-              return (
-                <li className={isSelected ? "border-l-4 border-l-black font-bold" : ""} key={entry.path}>
-                  {entry.type === "directory" ? (
-                    <button
-                      className="block min-h-9 w-full px-3 py-1 text-left text-base disabled:opacity-25"
-                      disabled={isLoading}
-                      onClick={() => onBrowseTo?.(entry.path)}
-                      type="button"
-                    >
-                      <p className="flex min-w-0 items-baseline gap-2 truncate">
-                        {getItemPrefix?.(entry) ? <span className="w-5 shrink-0">{getItemPrefix(entry)}</span> : null}
-                        <span className="truncate">{entry.name}/</span>
-                      </p>
-                      {description ? <p className="truncate text-sm opacity-60">{description}</p> : null}
-                    </button>
-                  ) : (
-                    <button
-                      className={`block min-h-9 w-full px-3 py-1 text-left text-base disabled:opacity-25 ${
-                        isSelected ? "bg-black text-white" : ""
-                      }`}
-                      disabled={isLoading}
-                      onClick={() =>
-                        setSelection({
-                          name: entry.name,
-                          path: entry.path,
-                          type: entry.type,
-                        })
-                      }
-                      type="button"
-                    >
-                      <p className="flex min-w-0 items-baseline gap-2 truncate">
-                        {getItemPrefix?.(entry) ? <span className="w-5 shrink-0">{getItemPrefix(entry)}</span> : null}
-                        <span className="truncate">{entry.name}</span>
-                      </p>
-                      {description ? <p className="truncate text-sm opacity-60">{description}</p> : null}
-                    </button>
-                  )}
-                </li>
-              );
-            })
-          ) : (
-            <li className="min-h-11 px-3 py-2 text-base">
-              {isLoading ? "Loading directory..." : emptyLabel}
-            </li>
-          )}
-        </ul>
+      <div role="tree">
+        {tree.length ? <ul>{renderNodes(tree)}</ul> : <p className="min-h-11 px-3 py-2 text-base">{emptyLabel}</p>}
       </div>
     </section>
   );

@@ -1,35 +1,44 @@
 import { useEffect, useState } from "react";
-import { data, useFetcher } from "react-router";
+import { data } from "react-router";
 
 import type {
   FileBrowserListing,
   FileBrowserSelection,
   FileBrowserSelectionMode,
+  FileTreeNode,
 } from "~/lib/instances/types";
 
 import type { Route } from "./+types/files.browse";
 
-import { SingleColumnFileList } from "~/components/files/file-list";
+import { entriesToFileTreeNodes, findNode, replaceDirectoryChildren } from "~/components/files/file-tree";
+import { FileTreeList } from "~/components/files/file-list";
 
 type BrowseLoaderData = {
   error: string | null;
   listing: FileBrowserListing | null;
 };
 
+const EMPTY_EXPANDED_PATHS: string[] = [];
+
 export async function loader({ request }: Route.LoaderArgs) {
   const { requireAuthenticatedPasskey } = await import("~/lib/auth/guards.server");
-  const { browseFiles } = await import("~/lib/instances/files.server");
+  const { browseFiles, resolveBrowserPath } = await import("~/lib/instances/files.server");
 
   await requireAuthenticatedPasskey(request);
 
   const url = new URL(request.url);
   const path = url.searchParams.get("path");
+  const baseDirectoryParam = url.searchParams.get("baseDirectory");
   const selectionMode = parseSelectionMode(url.searchParams.get("selectionMode"));
 
   try {
+    const baseDirectory = baseDirectoryParam
+      ? resolveBrowserPath(baseDirectoryParam).resolvedPath
+      : undefined;
+
     return data<BrowseLoaderData>({
       error: null,
-      listing: browseFiles(path, selectionMode),
+      listing: browseFiles(path, selectionMode, baseDirectory),
     });
   } catch (error) {
     return data<BrowseLoaderData>(
@@ -44,7 +53,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 type FileExplorerProps = {
   route?: string;
+  baseDirectory?: string;
   initialPath: string;
+  initialExpandedPaths?: string[];
+  initialListing?: FileBrowserListing | null;
   selectionMode?: FileBrowserSelectionMode;
   label?: string;
   name?: string;
@@ -55,7 +67,10 @@ type FileExplorerProps = {
 
 export function FileExplorer({
   route = "/files/browse",
+  baseDirectory,
   initialPath,
+  initialExpandedPaths,
+  initialListing = null,
   selectionMode = "either",
   label,
   name,
@@ -63,75 +78,175 @@ export function FileExplorer({
   onBrowsePathChange,
   onSelectionChange,
 }: FileExplorerProps) {
-  const browseFetcher = useFetcher<typeof loader>();
+  const expandedPathDefaults = initialExpandedPaths ?? EMPTY_EXPANDED_PATHS;
+  const initialSelection = value ?? (selectionMode === "directory" ? initialPath : null);
   const [selected, setSelected] = useState<FileBrowserSelection | null>(
-    value
+    initialSelection
       ? {
-          path: value,
-          type: "directory",
-          name: value.split("/").filter(Boolean).at(-1) || value,
+          path: initialSelection,
+          type: selectionMode === "file" ? "file" : "directory",
+          name: initialSelection.split("/").filter(Boolean).at(-1) || initialSelection,
         }
       : null,
   );
+  const [tree, setTree] = useState<FileTreeNode[]>(() => toInitialTree(initialListing, initialPath));
+  const [expandedPaths, setExpandedPaths] = useState<string[]>(expandedPathDefaults);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const [directoryErrors, setDirectoryErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    browseFetcher.load(buildBrowseUrl(route, initialPath, selectionMode));
-  }, [initialPath, route, selectionMode]);
+    let cancelled = false;
+
+    setExpandedPaths(expandedPathDefaults);
+    setDirectoryErrors({});
+
+    if (initialListing && matchesInitialListing(initialListing, initialPath)) {
+      setBrowseError(null);
+      setTree(entriesToFileTreeNodes(initialListing.entries));
+      onBrowsePathChange?.(initialSelection ?? initialListing.currentPath);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    async function loadRoot() {
+      const result = await fetchBrowseListing(route, initialPath, selectionMode, baseDirectory);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (!result.listing) {
+        setBrowseError(result.error);
+        setTree([]);
+        return;
+      }
+
+      setBrowseError(null);
+      setTree(entriesToFileTreeNodes(result.listing.entries));
+      onBrowsePathChange?.(initialSelection ?? result.listing.currentPath);
+    }
+
+    void loadRoot();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseDirectory, expandedPathDefaults, initialListing, initialPath, initialSelection, onBrowsePathChange, route, selectionMode]);
 
   useEffect(() => {
     if (value) {
       setSelected({
         path: value,
-        type: "directory",
+        type: selectionMode === "file" ? "file" : "directory",
         name: value.split("/").filter(Boolean).at(-1) || value,
       });
     }
-  }, [value]);
+  }, [selectionMode, value]);
 
-  const listing = browseFetcher.data?.listing;
-  const browseError = browseFetcher.data?.error;
-  const activePath = listing?.currentPath ?? initialPath;
-  const isLoading = browseFetcher.state !== "idle";
-  const selectedPath = selected?.path ?? value ?? "";
-
-  function browseTo(path: string) {
-    browseFetcher.load(buildBrowseUrl(route, path, selectionMode));
-  }
+  const selectedPath = selected?.path ?? value ?? initialSelection ?? "";
 
   function selectPath(selection: FileBrowserSelection | null) {
     setSelected(selection);
     onSelectionChange?.(selection);
+    onBrowsePathChange?.(selection?.path ?? initialPath);
   }
 
-  useEffect(() => {
-    onBrowsePathChange?.(activePath);
-  }, [activePath, onBrowsePathChange]);
+  async function loadDirectory(path: string) {
+    const result = await fetchBrowseListing(route, path, selectionMode, baseDirectory);
+
+    if (!result.listing) {
+      setDirectoryErrors((current) => ({
+        ...current,
+        [path]: result.error ?? "Failed to browse files.",
+      }));
+      return;
+    }
+
+    const listing = result.listing;
+
+    setBrowseError(null);
+    setDirectoryErrors((current) => {
+      const next = { ...current };
+      delete next[path];
+      return next;
+    });
+    setTree((current) => replaceDirectoryChildren(current, path, entriesToFileTreeNodes(listing.entries)));
+  }
+
+  async function toggleDirectory(path: string) {
+    const expanded = expandedPaths.includes(path);
+
+    if (expanded) {
+      setExpandedPaths((current) => current.filter((entry) => entry !== path));
+      return;
+    }
+
+    setExpandedPaths((current) => (current.includes(path) ? current : [...current, path]));
+
+    const node = findNode(tree, path);
+
+    if (node?.type === "directory" && node.children === null) {
+      void loadDirectory(path);
+    }
+  }
+
+  function retryDirectory(path: string) {
+    void loadDirectory(path);
+  }
 
   return (
     <section className="space-y-3">
       {browseError ? <p className="text-base leading-6">{browseError}</p> : null}
-      <SingleColumnFileList
-        currentPath={activePath}
-        entries={listing?.entries || []}
+      <FileTreeList
+        currentPath={initialPath}
+        directoryErrors={directoryErrors}
         emptyLabel="This folder is empty."
-        isLoading={isLoading}
+        expandedPaths={expandedPaths}
         label={label}
         name={name}
-        onBrowseTo={browseTo}
         onSelectionChange={selectPath}
-        parentPath={listing?.parentPath || null}
+        onRetryDirectory={retryDirectory}
+        onToggleDirectory={(path) => void toggleDirectory(path)}
         selectedPath={selectedPath}
         selectionMode={selectionMode}
+        tree={tree}
       />
     </section>
   );
 }
 
-function buildBrowseUrl(route: string, path: string, selectionMode: FileBrowserSelectionMode) {
+function matchesInitialListing(initialListing: FileBrowserListing | null, initialPath: string) {
+  return initialListing?.currentPath === initialPath;
+}
+
+function toInitialTree(initialListing: FileBrowserListing | null, initialPath: string) {
+  if (!initialListing || !matchesInitialListing(initialListing, initialPath)) {
+    return [];
+  }
+
+  return entriesToFileTreeNodes(initialListing.entries);
+}
+
+async function fetchBrowseListing(
+  route: string,
+  path: string,
+  selectionMode: FileBrowserSelectionMode,
+  baseDirectory?: string,
+) {
+  const response = await fetch(buildBrowseUrl(route, path, selectionMode, baseDirectory));
+  return (await response.json()) as BrowseLoaderData;
+}
+
+function buildBrowseUrl(route: string, path: string, selectionMode: FileBrowserSelectionMode, baseDirectory?: string) {
   const searchParams = new URLSearchParams({
     path,
     selectionMode,
   });
+
+  if (baseDirectory) {
+    searchParams.set("baseDirectory", baseDirectory);
+  }
 
   return `${route}?${searchParams.toString()}`;
 }

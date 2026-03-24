@@ -73,6 +73,7 @@ export default function NewInstanceRoute({ actionData, loaderData, matches }: Ro
           <section className="space-y-6 pt-6">
             {actionData?.error ? <p className="text-base leading-6">{actionData.error}</p> : null}
             <FileExplorer
+              baseDirectory={loaderData.initialDirectory}
               initialPath={loaderData.initialDirectory}
               name="directory"
               onBrowsePathChange={setCurrentPath}

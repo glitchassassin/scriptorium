@@ -7,9 +7,9 @@ import { LineBuilder } from "~/components/files/code-viewer/line-builder";
 import { LineSelectionLayer } from "~/components/files/code-viewer/line-selection-layer";
 import { CodeViewerRows } from "~/components/files/code-viewer/rows";
 import { ScrollIndicator } from "~/components/files/code-viewer/scroll-indicator";
-import { SingleColumnFileList } from "~/components/files/file-list";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import type { FileBrowserContent, FileBrowserListing } from "~/lib/instances/types";
+import { FileExplorer } from "~/routes/_rpc/files.browse";
 
 type FilesBrowserProps = {
   onInsertReference?: (reference: string) => void;
@@ -84,13 +84,6 @@ export function FilesBrowser({
   selectedPath,
 }: FilesBrowserProps) {
   const [searchParams, setSearchParams] = useSearchParams();
-
-  function browseTo(path: string) {
-    const next = new URLSearchParams(searchParams);
-    next.set("path", path);
-    next.delete("file");
-    setSearchParams(next);
-  }
 
   function selectFile(path: string | null) {
     const next = new URLSearchParams(searchParams);
@@ -171,14 +164,11 @@ export function FilesBrowser({
   return (
     <ScrollableLayout header={<FilesListHeader path={formatWorkspacePath(rootPath, listing.currentPath)} />}>
       <section className="space-y-8 pr-1">
-        <SingleColumnFileList
-          currentPath={listing.currentPath}
-          entries={listing.entries}
-          emptyLabel="This folder is empty."
-          onBrowseTo={browseTo}
+        <FileExplorer
+          baseDirectory={rootPath}
+          initialListing={listing}
+          initialPath={listing.currentPath}
           onSelectionChange={(selection) => selectFile(selection?.path ?? null)}
-          parentPath={listing.parentPath}
-          selectedPath={selectedPath}
           selectionMode="either"
         />
       </section>

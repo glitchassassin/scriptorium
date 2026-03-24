@@ -21,6 +21,25 @@ export type FileBrowserEntry = {
   type: "file" | "directory";
 };
 
+export type FileTreeStatus = "A" | "M" | "D";
+
+type FileTreeNodeBase = {
+  name: string;
+  path: string;
+  status?: FileTreeStatus | null;
+};
+
+export type FileTreeFileNode = FileTreeNodeBase & {
+  type: "file";
+};
+
+export type FileTreeDirectoryNode = FileTreeNodeBase & {
+  type: "directory";
+  children: FileTreeNode[] | null;
+};
+
+export type FileTreeNode = FileTreeFileNode | FileTreeDirectoryNode;
+
 export type FileBrowserListing = {
   rootPath: string;
   currentPath: string;

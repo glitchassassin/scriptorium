@@ -7,11 +7,11 @@ import { LineBuilder } from "~/components/files/code-viewer/line-builder";
 import { LineSelectionLayer } from "~/components/files/code-viewer/line-selection-layer";
 import { CodeViewerRows } from "~/components/files/code-viewer/rows";
 import { ScrollIndicator } from "~/components/files/code-viewer/scroll-indicator";
-import { SingleColumnFileList } from "~/components/files/file-list";
+import { buildChangedFilesTree, collectDirectoryPaths, collectFilePaths } from "~/components/files/file-tree";
+import { FileTreeList } from "~/components/files/file-list";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { formatLineReference } from "~/components/workspace/files-browser";
 import type {
-  FileBrowserEntry,
   GitChangedFile,
   GitChangedFiles,
   GitFileDiffResult,
@@ -27,42 +27,6 @@ type GitBrowserProps = {
   selectedError: string | null;
   selectedPath: string | null;
 };
-
-function toEntries(paths: string[]): FileBrowserEntry[] {
-  return paths.map((path) => ({
-    name: path.split("/").at(-1) ?? path,
-    path,
-    type: "file",
-  }));
-}
-
-function parentDirectoryLabel(path: string) {
-  const segments = path.split("/").filter(Boolean);
-
-  if (segments.length <= 1) {
-    return null;
-  }
-
-  return `${segments.slice(0, -1).join("/")}/`;
-}
-
-function statusLabel(path: string, files: GitChangedFile[]) {
-  const match = files.find((file) => file.path === path);
-
-  if (!match) {
-    return null;
-  }
-
-  if (match.changeType === "added" || match.changeType === "untracked") {
-    return "A";
-  }
-
-  if (match.changeType === "deleted") {
-    return "D";
-  }
-
-  return "M";
-}
 
 function GitSelectionHeader({
   label,
@@ -174,8 +138,9 @@ export function GitBrowser({
   selectedPath,
 }: GitBrowserProps) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const entries = changed.isRepository ? toEntries(changed.files.map((file) => file.path)) : [];
-  const changedPaths = changed.isRepository ? changed.files.map((file) => file.path) : [];
+  const tree = changed.isRepository ? buildChangedFilesTree(changed.files) : [];
+  const changedPaths = collectFilePaths(tree);
+  const expandedPaths = collectDirectoryPaths(tree);
   const selectedIndex = selectedPath ? changedPaths.indexOf(selectedPath) : -1;
   const previousPath = selectedIndex > 0 ? changedPaths[selectedIndex - 1] : null;
   const nextPath = selectedIndex >= 0 && selectedIndex < changedPaths.length - 1 ? changedPaths[selectedIndex + 1] : null;
@@ -277,22 +242,19 @@ export function GitBrowser({
   }
 
   return (
-    <ScrollableLayout header={<GitListHeader git={git} />}>
-      <section className="space-y-8 pr-1">
-        <SingleColumnFileList
-          currentPath={rootPath}
-          entries={entries}
-          emptyLabel="No uncommitted changes."
-          getItemDescription={(entry) => parentDirectoryLabel(entry.path)}
-          getItemPrefix={(entry) =>
-            changed.isRepository ? statusLabel(entry.path, changed.files) : null
-          }
-          onSelectionChange={(selection) => handleSelection(selection?.path ?? null)}
-          parentPath={null}
-          selectedPath={selectedPath}
-          selectionMode="file"
-        />
-      </section>
-    </ScrollableLayout>
+      <ScrollableLayout header={<GitListHeader git={git} />}>
+        <section className="space-y-8 pr-1">
+          <FileTreeList
+            currentPath={rootPath}
+            emptyLabel="No uncommitted changes."
+            expandedPaths={expandedPaths}
+            onSelectionChange={(selection) => handleSelection(selection?.path ?? null)}
+            renderPrefix={(node) => node.status ?? null}
+            selectedPath={selectedPath}
+            selectionMode="file"
+            tree={tree}
+          />
+        </section>
+      </ScrollableLayout>
   );
 }
