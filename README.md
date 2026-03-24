@@ -18,6 +18,8 @@ This repo is intentionally exploratory. Expect rough edges, fast iteration, and 
 - `opencode` available on your PATH, or an explicit `OPENCODE_BIN`
 - Optional: Tailscale if you want `npm start` to expose the app through `tailscale serve`
 
+This repository uses `npm` as its canonical package manager.
+
 ## Getting Started
 
 Install dependencies:
