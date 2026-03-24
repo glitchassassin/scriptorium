@@ -51,7 +51,7 @@ export function SidebarInstanceItem({ instance }: SidebarInstanceItemProps) {
 
 function SidebarSessionItem({ instanceId, sessionId }: { instanceId: string; sessionId: string }) {
   const session = useSession(sessionId);
-  const unread = useSessionUnreadStatus(instanceId, sessionId);
+  const unread = useSessionUnreadStatus(sessionId);
 
   if (!session) {
     return null;

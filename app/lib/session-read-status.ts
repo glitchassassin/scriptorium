@@ -2,7 +2,6 @@ import { z } from "zod";
 
 export const sessionReadEventSchema = z.object({
   type: z.literal("session.read"),
-  instanceId: z.string(),
   sessionId: z.string(),
   lastReadAt: z.number(),
 });

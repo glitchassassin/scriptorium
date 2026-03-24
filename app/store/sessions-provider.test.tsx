@@ -23,8 +23,8 @@ vi.mock("~/components/events/read-status-events-provider", () => ({
 }));
 
 function TestConsumer() {
-  const unread = useSessionUnreadStatus("instance-1", "session-1");
-  const session = useSession(getSessionStateId("instance-1", "session-1"));
+  const unread = useSessionUnreadStatus("session-1");
+  const session = useSession(getSessionStateId("session-1"));
 
   return (
     <div>
@@ -49,7 +49,7 @@ function TestMarkReadConsumer() {
   const markReadOptimistic = useMarkSessionReadOptimistic();
 
   return (
-    <button onClick={() => markReadOptimistic("instance-1", "session-1", 7)} type="button">
+    <button onClick={() => markReadOptimistic("session-1", 7)} type="button">
       Mark read
     </button>
   );
@@ -117,7 +117,6 @@ describe("SessionsProvider", () => {
     act(() => {
       readStatusEventHandler({
         type: "session.read",
-        instanceId: "instance-1",
         sessionId: "session-1",
         lastReadAt: 6,
       });

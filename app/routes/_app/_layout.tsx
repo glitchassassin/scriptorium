@@ -19,7 +19,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const instances = await listInstances();
   const readStatuses = listSessionReadStatuses();
   const readStatusMap = new Map(
-    readStatuses.map((status) => [`${status.instanceId}:${status.sessionId}`, status.lastReadAt]),
+    readStatuses.map((status) => [status.sessionId, status.lastReadAt]),
   );
   const sidebarInstances = sortSidebarInstances(await Promise.all(instances.map(async (instance) => {
     try {
@@ -28,7 +28,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         name: instance.name,
         status: instance.status,
         recentSessions: (await listRecentSidebarSessions(instance)).map((session) =>
-          withSessionReadState(session, readStatusMap.get(`${instance.id}:${session.id}`) ?? null),
+          withSessionReadState(session, readStatusMap.get(session.id) ?? null),
         ),
       };
     } catch {

@@ -105,14 +105,13 @@ export const instances = sqliteTable(
 export const sessionReadStatuses = sqliteTable(
   "session_read_statuses",
   {
-    instanceId: text("instance_id").notNull(),
     sessionId: text("session_id").notNull(),
     lastReadAt: text("last_read_at").notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.instanceId, table.sessionId] }),
+    primaryKey({ columns: [table.sessionId] }),
     index("idx_session_read_statuses_updated_at").on(table.updatedAt),
   ],
 );

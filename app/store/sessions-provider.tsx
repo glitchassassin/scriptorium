@@ -35,7 +35,7 @@ type SessionsEventsContextValue = {
 };
 
 type SessionsActionsContextValue = {
-  markReadOptimistic: (instanceId: string, sessionId: string, lastReadAt?: number) => void;
+  markReadOptimistic: (sessionId: string, lastReadAt?: number) => void;
 };
 
 type SessionsAction =
@@ -47,7 +47,7 @@ const SessionsContext = createContext<SessionsContextValue | null>(null);
 const SessionsActionsContext = createContext<SessionsActionsContextValue | null>(null);
 const SessionsEventsContext = createContext<SessionsEventsContextValue | null>(null);
 
-export function getSessionStateId(_instanceId: string, sessionId: string) {
+export function getSessionStateId(sessionId: string) {
   return sessionId;
 }
 
@@ -168,10 +168,10 @@ export function SessionsProvider({ children, initialSessions }: { children: Reac
     }
   }, []);
 
-  const markReadOptimistic = useCallback<SessionsActionsContextValue["markReadOptimistic"]>((instanceId, sessionId, lastReadAt = Date.now()) => {
+  const markReadOptimistic = useCallback<SessionsActionsContextValue["markReadOptimistic"]>((sessionId, lastReadAt = Date.now()) => {
     dispatch({
       type: "mark-read",
-      sessionId: getSessionStateId(instanceId, sessionId),
+      sessionId: getSessionStateId(sessionId),
       lastReadAt,
     });
   }, []);
@@ -313,8 +313,8 @@ export function useSession(id: string) {
   return sessions[id] ?? null;
 }
 
-export function useSessionUnreadStatus(instanceId: string, sessionId: string) {
-  const session = useSession(getSessionStateId(instanceId, sessionId));
+export function useSessionUnreadStatus(sessionId: string) {
+  const session = useSession(getSessionStateId(sessionId));
 
   if (!session) {
     return false;

@@ -57,7 +57,7 @@ function TestSubscriber({
   filter,
   onEvent,
 }: {
-  filter?: { instanceId?: string; sessionId?: string };
+  filter?: { sessionId?: string };
   onEvent: (event: SessionReadEvent) => void;
 }) {
   useReadStatusEvents(onEvent, filter);
@@ -104,45 +104,34 @@ describe("useReadStatusEvents", () => {
 
     emitReadStatusEvent({
       type: "session.read",
-      instanceId: "instance-1",
       sessionId: "session-1",
       lastReadAt: 6,
     });
 
     expect(onEvent).toHaveBeenCalledWith({
       type: "session.read",
-      instanceId: "instance-1",
       sessionId: "session-1",
       lastReadAt: 6,
     });
   });
 
-  it("filters by instance and session", () => {
+  it("filters by session", () => {
     const onEvent = vi.fn<(event: SessionReadEvent) => void>();
 
     render(
       <ReadStatusEventsProvider>
-        <TestSubscriber filter={{ instanceId: "instance-1", sessionId: "session-1" }} onEvent={onEvent} />
+        <TestSubscriber filter={{ sessionId: "session-1" }} onEvent={onEvent} />
       </ReadStatusEventsProvider>,
     );
 
     emitReadStatusEvent({
       type: "session.read",
-      instanceId: "instance-2",
-      sessionId: "session-1",
-      lastReadAt: 6,
-    });
-
-    emitReadStatusEvent({
-      type: "session.read",
-      instanceId: "instance-1",
       sessionId: "session-2",
       lastReadAt: 6,
     });
 
     emitReadStatusEvent({
       type: "session.read",
-      instanceId: "instance-1",
       sessionId: "session-1",
       lastReadAt: 6,
     });
@@ -150,7 +139,6 @@ describe("useReadStatusEvents", () => {
     expect(onEvent).toHaveBeenCalledTimes(1);
     expect(onEvent).toHaveBeenCalledWith({
       type: "session.read",
-      instanceId: "instance-1",
       sessionId: "session-1",
       lastReadAt: 6,
     });

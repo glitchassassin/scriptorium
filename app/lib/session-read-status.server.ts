@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { getOrm } from "~/lib/db.server";
 import { sessionReadStatuses } from "~/lib/db/schema";
@@ -7,7 +7,6 @@ import { type SessionReadEvent } from "~/lib/session-read-status";
 type SessionReadStatusRow = typeof sessionReadStatuses.$inferSelect;
 
 type SessionReadKey = {
-  instanceId: string;
   sessionId: string;
 };
 
@@ -27,7 +26,6 @@ function mapSessionReadStatus(row: SessionReadStatusRow): SessionReadStatusRecor
   }
 
   return {
-    instanceId: row.instanceId,
     sessionId: row.sessionId,
     lastReadAt,
   };
@@ -49,10 +47,7 @@ export function listSessionReadStatuses() {
 
 export function markSessionRead(input: SessionReadKey, now = new Date()) {
   const db = getOrm();
-  const current = db.select().from(sessionReadStatuses).where(and(
-    eq(sessionReadStatuses.instanceId, input.instanceId),
-    eq(sessionReadStatuses.sessionId, input.sessionId),
-  )).get();
+  const current = db.select().from(sessionReadStatuses).where(eq(sessionReadStatuses.sessionId, input.sessionId)).get();
   const lastReadAt = now.toISOString();
 
   if (current && Date.parse(current.lastReadAt) >= now.getTime()) {
@@ -65,14 +60,10 @@ export function markSessionRead(input: SessionReadKey, now = new Date()) {
         lastReadAt,
         updatedAt: lastReadAt,
       })
-      .where(and(
-        eq(sessionReadStatuses.instanceId, input.instanceId),
-        eq(sessionReadStatuses.sessionId, input.sessionId),
-      ))
+      .where(eq(sessionReadStatuses.sessionId, input.sessionId))
       .run();
   } else {
     db.insert(sessionReadStatuses).values({
-      instanceId: input.instanceId,
       sessionId: input.sessionId,
       lastReadAt,
       createdAt: lastReadAt,
@@ -82,7 +73,6 @@ export function markSessionRead(input: SessionReadKey, now = new Date()) {
 
   const event: SessionReadEvent = {
     type: "session.read",
-    instanceId: input.instanceId,
     sessionId: input.sessionId,
     lastReadAt: now.getTime(),
   };
@@ -90,7 +80,6 @@ export function markSessionRead(input: SessionReadKey, now = new Date()) {
   publishSessionReadEvent(event);
 
   return {
-    instanceId: input.instanceId,
     sessionId: input.sessionId,
     lastReadAt: event.lastReadAt,
   } satisfies SessionReadStatusRecord;

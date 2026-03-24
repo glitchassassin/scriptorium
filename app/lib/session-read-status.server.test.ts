@@ -14,12 +14,11 @@ describe("session read status", () => {
     await withTestDatabase(() => {
       expect(listSessionReadStatuses()).toEqual([]);
 
-      markSessionRead({ instanceId: "instance-1", sessionId: "session-1" }, new Date("2026-03-18T12:00:00.000Z"));
-      markSessionRead({ instanceId: "instance-1", sessionId: "session-1" }, new Date("2026-03-18T12:05:00.000Z"));
+      markSessionRead({ sessionId: "session-1" }, new Date("2026-03-18T12:00:00.000Z"));
+      markSessionRead({ sessionId: "session-1" }, new Date("2026-03-18T12:05:00.000Z"));
 
       expect(listSessionReadStatuses()).toEqual([
         {
-          instanceId: "instance-1",
           sessionId: "session-1",
           lastReadAt: Date.parse("2026-03-18T12:05:00.000Z"),
         },
@@ -29,12 +28,11 @@ describe("session read status", () => {
 
   it("does not move timestamps backwards", async () => {
     await withTestDatabase(() => {
-      markSessionRead({ instanceId: "instance-1", sessionId: "session-1" }, new Date("2026-03-18T12:05:00.000Z"));
-      markSessionRead({ instanceId: "instance-1", sessionId: "session-1" }, new Date("2026-03-18T12:00:00.000Z"));
+      markSessionRead({ sessionId: "session-1" }, new Date("2026-03-18T12:05:00.000Z"));
+      markSessionRead({ sessionId: "session-1" }, new Date("2026-03-18T12:00:00.000Z"));
 
       expect(listSessionReadStatuses()).toEqual([
         {
-          instanceId: "instance-1",
           sessionId: "session-1",
           lastReadAt: Date.parse("2026-03-18T12:05:00.000Z"),
         },
@@ -53,7 +51,7 @@ describe("session read status", () => {
         subscriberTwo.add(event.lastReadAt);
       });
 
-      markSessionRead({ instanceId: "instance-1", sessionId: "session-1" }, new Date("2026-03-18T12:00:00.000Z"));
+      markSessionRead({ sessionId: "session-1" }, new Date("2026-03-18T12:00:00.000Z"));
 
       unsubscribeOne();
       unsubscribeTwo();

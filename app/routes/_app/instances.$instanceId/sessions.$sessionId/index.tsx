@@ -58,13 +58,12 @@ export default function InstanceSessionTranscriptRoute() {
     }
 
     lastAckedAtRef.current = activityAt;
-    markSessionReadOptimistic(instance.id, session.id);
+    markSessionReadOptimistic(session.id);
 
     const formData = new FormData();
-    formData.set("instanceId", instance.id);
     formData.set("sessionId", session.id);
     void fetch("/session-read-status/ack", { body: formData, method: "POST" });
-  }, [instance.id, markSessionReadOptimistic, session.id]);
+  }, [markSessionReadOptimistic, session.id]);
 
   useEffect(() => {
     lastAckedAtRef.current = null;

@@ -13,7 +13,6 @@ import { PersistentEventSource } from "~/lib/events/persistent-event-source";
 import { useCoalescedRevalidation } from "~/components/events/use-coalesced-revalidation";
 
 type ReadStatusEventFilter = {
-  instanceId?: string;
   sessionId?: string;
 };
 
@@ -33,10 +32,6 @@ const ReadStatusEventsContext = createContext<ReadStatusEventsContextValue | nul
 function matchesFilter(event: SessionReadEvent, filter?: ReadStatusEventFilter) {
   if (!filter) {
     return true;
-  }
-
-  if (filter.instanceId && filter.instanceId !== event.instanceId) {
-    return false;
   }
 
   if (filter.sessionId && filter.sessionId !== event.sessionId) {
@@ -127,7 +122,7 @@ export function useReadStatusEvents(handler: ReadStatusEventHandler, filter?: Re
     }
 
     return context.subscribe((event) => handlerRef.current(event), filter);
-  }, [context, filter?.instanceId, filter?.sessionId]);
+  }, [context, filter?.sessionId]);
 }
 
 export type { ReadStatusEventFilter, SessionReadEvent };

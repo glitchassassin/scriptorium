@@ -12,14 +12,13 @@ export function shouldRevalidate() {
 export async function action({ request }: Route.ActionArgs) {
   await requireAuthenticatedPasskey(request);
   const formData = await request.formData();
-  const instanceId = String(formData.get("instanceId") ?? "").trim();
   const sessionId = String(formData.get("sessionId") ?? "").trim();
 
-  if (!instanceId || !sessionId) {
+  if (!sessionId) {
     return data({ ok: false }, { status: 400 });
   }
 
-  markSessionRead({ instanceId, sessionId });
+  markSessionRead({ sessionId });
 
   return data({ ok: true });
 }
