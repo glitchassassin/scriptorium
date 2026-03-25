@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 process.env.NODE_ENV = process.env.NODE_ENV ?? "production";
 
-const runtimeCliPath = fileURLToPath(new URL("../build/runtime/cli/scriptorium.js", import.meta.url));
+const runtimeCliPath = fileURLToPath(new URL("../build/runtime/server/index.js", import.meta.url));
 
 if (!existsSync(runtimeCliPath)) {
   process.stderr.write(

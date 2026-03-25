@@ -26,12 +26,12 @@
     "package.json"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "build": "react-router build && npm run build:runtime",
     "build:runtime": "tsc -p tsconfig.runtime.json",
-    "dev": "react-router dev",
+    "dev": "cross-env NODE_ENV=development node server/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "docs:config": "node ./scripts/generate-config-docs.ts",
@@ -78,6 +78,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^1.0.0-beta.17-8a36f93",
+    "cross-env": "^10.1.0",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^28.1.0",
     "tailwindcss": "^4.1.13",

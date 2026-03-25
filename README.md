@@ -13,10 +13,10 @@ This repo is intentionally exploratory. Expect rough edges, fast iteration, and 
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 24+
 - npm
 - `opencode` available on your PATH, or an explicit `OPENCODE_BIN`
-- Optional: Tailscale if you want `npm start` to expose the app through `tailscale serve`
+- Optional: Tailscale if you want Scriptorium exposed through `tailscale serve`
 
 This repository uses `npm` as its canonical package manager.
 
@@ -34,7 +34,13 @@ Run the development server:
 npm run dev
 ```
 
-`npm run dev` uses the React Router/Vite dev server directly. It does not use the production CLI entrypoint or start Tailscale.
+The dev server runs through Scriptorium's unified Node server entrypoint with Vite in middleware mode.
+
+To expose the dev server through Tailscale for a run:
+
+```bash
+npm run dev -- --tailscale
+```
 
 Create a production build:
 
@@ -47,6 +53,8 @@ Start the built app:
 ```bash
 npm start
 ```
+
+`npm start` uses the same server entrypoint as development, but serves the built React Router app instead of Vite middleware.
 
 The published package uses the same entrypoint:
 
@@ -108,7 +116,7 @@ npm start -- --no-tailscale
 
 ## Tailscale On Launch
 
-The production entrypoint starts the built React Router server and optionally runs `tailscale serve` when `tailscale: true` is set in config or `--tailscale` is passed.
+The unified server optionally runs `tailscale serve` when `network.tailscale: true` is set in config or `--tailscale` is passed.
 
 Use `--no-tailscale` to force local-only startup for a run.
 

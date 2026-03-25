@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "include": [
     "app/lib/runtime-config.server.ts",
-    "cli/**/*.ts"
+    "server/**/*.ts"
   ],
   "compilerOptions": {
     "lib": ["ES2022"],
@@ -12,6 +12,7 @@
     "outDir": "build/runtime",
     "rootDir": ".",
     "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
     "jsx": "preserve"
   }
 }
