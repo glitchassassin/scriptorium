@@ -443,7 +443,7 @@ describe("useSessionComposerDraft", () => {
     expect(screen.getByRole("button", { name: "Insert /review" })).toBeEnabled();
   });
 
-  it("submits slash commands from the composer through the shared fetcher", async () => {
+  it("submits slash commands without a model override until one is selected", async () => {
     render(
       <SessionComposer
         agents={["draft", "review"]}
@@ -471,15 +471,18 @@ describe("useSessionComposerDraft", () => {
     expect(getSubmittedFormData(commandFetcher).get("command")).toBe("review");
     expect(getSubmittedFormData(commandFetcher).get("arguments")).toBe("feature-branch");
     expect(getSubmittedFormData(commandFetcher).get("clearDraft")).toBe("1");
-    expect(getSubmittedFormData(commandFetcher).get("modelProviderID")).toBe("openai");
-    expect(getSubmittedFormData(commandFetcher).get("modelID")).toBe("gpt-5");
+    expect(getSubmittedFormData(commandFetcher).get("modelProviderID")).toBe("");
+    expect(getSubmittedFormData(commandFetcher).get("modelID")).toBe("");
   });
 
   it("submits the selected model and variant with prompts", async () => {
-    renderSessionComposer({ defaultVariant: "high" });
+    renderSessionComposer();
 
     await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
 
+    fireEvent.click(screen.getByRole("button", { name: "Toggle model tray" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use OpenAI GPT 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cycle variant" }));
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Hello" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -487,6 +490,14 @@ describe("useSessionComposerDraft", () => {
     expect(getSubmittedFormData(promptFetcher).get("modelProviderID")).toBe("openai");
     expect(getSubmittedFormData(promptFetcher).get("modelID")).toBe("gpt-5");
     expect(getSubmittedFormData(promptFetcher).get("variant")).toBe("high");
+  });
+
+  it("shows Default before a model is explicitly selected", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: "Toggle model tray" })).toHaveTextContent("Default");
   });
 
   it("clears the textarea immediately after a slash-command submit", async () => {
@@ -704,6 +715,11 @@ describe("useSessionComposerDraft", () => {
 
     const variantButton = screen.getByRole("button", { name: "Cycle variant" });
     expect(variantButton).toHaveTextContent("Auto");
+    expect(variantButton).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle model tray" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use OpenAI GPT 5" }));
+    expect(variantButton).toBeEnabled();
 
     fireEvent.click(variantButton);
     expect(variantButton).toHaveTextContent("high");

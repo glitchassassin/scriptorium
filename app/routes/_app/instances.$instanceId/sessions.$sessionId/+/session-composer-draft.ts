@@ -276,7 +276,7 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
   const [images, setImages] = useState<DraftImage[]>([]);
   const [isRestoringAttachments, setIsRestoringAttachments] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(defaultAgent);
-  const [selectedModel, setSelectedModel] = useState<OpencodeModelRef | null>(defaultModel);
+  const [selectedModel, setSelectedModel] = useState<OpencodeModelRef | null>(null);
   const [variants, setVariants] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -305,12 +305,8 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
     const nextText = storedDraft?.text ?? prefilledPrompt;
     const nextSelection = storedDraft?.selection ?? { start: nextText.length, end: nextText.length };
     const nextAgent = storedDraft?.selectedAgent ?? defaultAgent;
-    const nextModel = storedDraft?.selectedModel ?? defaultModel;
+    const nextModel = storedDraft?.selectedModel ?? null;
     const nextVariants = { ...(storedDraft?.variants ?? {}) };
-
-    if (defaultModel && defaultVariant) {
-      nextVariants[getModelKey(defaultModel)] ??= defaultVariant;
-    }
 
     selectionRef.current = nextSelection;
     setComposerText(nextText);
@@ -330,7 +326,7 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
       hydratedRef.current = true;
       setIsRestoringAttachments(false);
     });
-  }, [defaultAgent, defaultModel, defaultVariant, prefilledPrompt, sessionId]);
+  }, [defaultAgent, prefilledPrompt, sessionId]);
 
   useEffect(() => {
     if (!focusAfterRestoreRef.current) {

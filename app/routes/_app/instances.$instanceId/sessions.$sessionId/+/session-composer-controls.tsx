@@ -73,7 +73,7 @@ export function SessionComposerControls({
           onPointerDown={(event) => event.preventDefault()}
           type="button"
         >
-          {getModelLabel(selectedModel, providers)}
+          {selectedModel ? getModelLabel(selectedModel, providers) : "Default"}
         </button>
         <button
           aria-label="Cycle variant"
