@@ -34,6 +34,7 @@ import {
 import type {
   OpencodeMessageWithParts,
   OpencodeAgent,
+  OpencodeCommandInfo,
   OpencodePermissionRequest,
   OpencodeSessionInfo,
   OpencodeSessionStatus,
@@ -77,12 +78,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const shouldLoadFullHistory = url.searchParams.get("fullHistory") === "1";
   const instance = await getInstanceOrThrow(instanceId);
-  const [messages, permissions, session, statuses, agents] = await Promise.all([
+  const [messages, permissions, session, statuses, agents, commands] = await Promise.all([
     listOpencodeMessages(instance, sessionId, shouldLoadFullHistory ? undefined : 50),
     listOpencodePermissionRequests(instance, sessionId),
     getOpencodeSession(instance, sessionId),
     getOpencodeSessionStatuses(instance),
     listOpencodeAgents(instance),
+    listOpencodeCommands(instance),
   ]);
 
   return {
@@ -90,6 +92,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     initialPermissions: permissions,
     initialStatus: statuses[sessionId] ?? { type: "idle" },
     initialAgents: agents,
+    initialCommands: commands,
     loadedFullHistory: shouldLoadFullHistory || messages.length < 50,
     instance,
     session,
@@ -214,7 +217,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 }
 
 export default function InstanceSessionLayoutRoute({ loaderData, matches }: Route.ComponentProps) {
-  const { initialAgents, initialMessages, initialPermissions, initialStatus, instance, loadedFullHistory, session } = loaderData;
+  const { initialAgents, initialCommands, initialMessages, initialPermissions, initialStatus, instance, loadedFullHistory, session } = loaderData;
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -228,6 +231,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
   const revalidator = useRevalidator();
   const sessionIdRef = useRef(session.id);
   const agents = useMemo<OpencodeAgent[]>(() => getSelectableAgents(initialAgents), [initialAgents]);
+  const commands = useMemo<OpencodeCommandInfo[]>(() => initialCommands, [initialCommands]);
   const defaultAgent = useMemo<string | null>(() => getInitialAgent(initialMessages, initialAgents), [initialMessages, initialAgents]);
   const insertComposerReferenceEvents = useMemo(() => new EventTarget(), []);
   const insertComposerReference = useCallback((reference: string) => {
@@ -392,6 +396,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
         footer={
           <SessionComposer
             agents={agents.map((agent) => agent.name)}
+            commands={commands}
             defaultAgent={defaultAgent}
             insertReferenceEvents={insertComposerReferenceEvents}
             isBusy={isBusy}

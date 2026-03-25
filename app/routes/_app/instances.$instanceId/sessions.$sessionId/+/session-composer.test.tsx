@@ -42,6 +42,10 @@ const abortFetcher: MockFetcher = {
   submit: vi.fn(),
 };
 
+const DEFAULT_COMMANDS = [
+  { description: "Review changes [commit|branch|pr], defaults to uncommitted", name: "review" },
+];
+
 function ComposerDraftHarness({ defaultAgent = "draft", prefilledPrompt = "", sessionId }: { defaultAgent?: string | null; prefilledPrompt?: string; sessionId: string }) {
   const draft = useSessionComposerDraft({ defaultAgent, prefilledPrompt, sessionId });
 
@@ -101,6 +105,16 @@ beforeEach(() => {
 function getSubmittedFormData(fetcher: MockFetcher, index = 0) {
   const call = fetcher.submit.mock.calls[index];
   return call?.[0] as FormData;
+}
+
+function getImageInput(container: HTMLElement) {
+  const input = container.querySelector('input[type="file"]');
+
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("Expected image input");
+  }
+
+  return input;
 }
 
 describe("useSessionComposerDraft", () => {
@@ -175,6 +189,7 @@ describe("useSessionComposerDraft", () => {
     const view = render(
       <SessionComposer
         agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
         insertReferenceEvents={new EventTarget()}
         isBusy={false}
@@ -193,6 +208,7 @@ describe("useSessionComposerDraft", () => {
     view.rerender(
       <SessionComposer
         agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
         insertReferenceEvents={new EventTarget()}
         isBusy={false}
@@ -213,36 +229,11 @@ describe("useSessionComposerDraft", () => {
     expect(clearSessionError).toHaveBeenCalledTimes(1);
   });
 
-  it("submits the review button through the shared fetcher", async () => {
+  it("replaces composer text when selecting a command from the tray", async () => {
     render(
       <SessionComposer
         agents={["draft", "review"]}
-        defaultAgent="draft"
-        insertReferenceEvents={new EventTarget()}
-        isBusy={false}
-        onClearSessionError={() => {}}
-        prefilledPrompt=""
-        sessionError={null}
-        sessionId="session-component"
-      />,
-    );
-
-    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Start review" }));
-
-    await waitFor(() => expect(commandFetcher.submit).toHaveBeenCalledTimes(1));
-    expect(getSubmittedFormData(commandFetcher).get("intent")).toBe("command");
-    expect(getSubmittedFormData(commandFetcher).get("agent")).toBe("draft");
-    expect(getSubmittedFormData(commandFetcher).get("arguments")).toBe("");
-    expect(getSubmittedFormData(commandFetcher).get("clearDraft")).toBe("0");
-    expect(getSubmittedFormData(commandFetcher).get("command")).toBe("review");
-  });
-
-  it("does not use composer text when starting review", async () => {
-    render(
-      <SessionComposer
-        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
         insertReferenceEvents={new EventTarget()}
         isBusy={false}
@@ -256,18 +247,43 @@ describe("useSessionComposerDraft", () => {
     await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
 
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Ignore me" } });
-    fireEvent.click(screen.getByRole("button", { name: "Start review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insert /review" }));
 
-    await waitFor(() => expect(commandFetcher.submit).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("textbox")).toHaveValue("Ignore me");
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue("/review "));
+  });
+
+  it("shows the selected command description after inserting from the tray", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insert /review" }));
+
+    expect(await screen.findByText("Review changes [commit|branch|pr], defaults to uncommitted")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert /review" })).not.toBeInTheDocument();
   });
 
   it("keeps attach and send enabled while a command is pending", async () => {
     commandFetcher.state = "submitting";
 
-    render(
+    const view = render(
       <SessionComposer
         agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
         insertReferenceEvents={new EventTarget()}
         isBusy={false}
@@ -280,17 +296,21 @@ describe("useSessionComposerDraft", () => {
 
     await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: "Start review" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
+
+    expect(screen.getByRole("button", { name: "Insert /review" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Attach image" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+    expect(getImageInput(view.container)).toBeInTheDocument();
   });
 
-  it("keeps review enabled while a prompt submission is pending", async () => {
+  it("keeps command insertion enabled while a prompt submission is pending", async () => {
     promptFetcher.state = "submitting";
 
     render(
       <SessionComposer
         agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
         insertReferenceEvents={new EventTarget()}
         isBusy={false}
@@ -303,13 +323,16 @@ describe("useSessionComposerDraft", () => {
 
     await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: "Start review" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
+
+    expect(screen.getByRole("button", { name: "Insert /review" })).toBeEnabled();
   });
 
   it("submits slash commands from the composer through the shared fetcher", async () => {
     render(
       <SessionComposer
         agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
         insertReferenceEvents={new EventTarget()}
         isBusy={false}
@@ -325,15 +348,76 @@ describe("useSessionComposerDraft", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "/review feature-branch" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    await waitFor(() => expect(promptFetcher.submit).toHaveBeenCalledTimes(1));
-    expect(getSubmittedFormData(promptFetcher).get("intent")).toBe("prompt");
-    expect(getSubmittedFormData(promptFetcher).get("text")).toBe("/review feature-branch");
+    await waitFor(() => expect(commandFetcher.submit).toHaveBeenCalledTimes(1));
+    expect(getSubmittedFormData(commandFetcher).get("intent")).toBe("command");
+    expect(getSubmittedFormData(commandFetcher).get("command")).toBe("review");
+    expect(getSubmittedFormData(commandFetcher).get("arguments")).toBe("feature-branch");
+    expect(getSubmittedFormData(commandFetcher).get("clearDraft")).toBe("1");
   });
 
-  it("disables review while the session is busy", async () => {
+  it("clears the textarea immediately after a slash-command submit", async () => {
     render(
       <SessionComposer
         agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "/review feature-branch" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue(""));
+  });
+
+  it("shows slash-command errors returned through the command fetcher", async () => {
+    const view = render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    commandFetcher.data = { error: "Command failed", intent: "command" };
+    view.rerender(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    expect(screen.getByText("Command failed")).toBeInTheDocument();
+  });
+
+  it("disables command insertion while the session is busy", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
         insertReferenceEvents={new EventTarget()}
         isBusy={true}
@@ -345,6 +429,213 @@ describe("useSessionComposerDraft", () => {
     );
 
     await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Start review" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
+    expect(screen.getByRole("button", { name: "Insert /review" })).toBeDisabled();
+  });
+
+  it("highlights and toggles the commands tray button", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    const commandsButton = screen.getByRole("button", { name: "Toggle commands tray" });
+    expect(commandsButton).not.toHaveClass("bg-black");
+
+    fireEvent.click(commandsButton);
+    expect(commandsButton).toHaveClass("bg-black", "text-white");
+    expect(screen.getByRole("button", { name: "Insert /review" })).toBeInTheDocument();
+
+    fireEvent.click(commandsButton);
+    expect(commandsButton).not.toHaveClass("bg-black");
+    expect(screen.queryByRole("button", { name: "Insert /review" })).not.toBeInTheDocument();
+  });
+
+  it("shows the command description when the composer starts with a valid slash command", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "/review feature-branch" } });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
+
+    expect(screen.getByText("Review changes [commit|branch|pr], defaults to uncommitted")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert /review" })).not.toBeInTheDocument();
+  });
+
+  it("shows the command list when the composer has an invalid slash command", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "/unknown thing" } });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
+
+    expect(screen.getByRole("button", { name: "Insert /review" })).toBeInTheDocument();
+    expect(screen.queryByText("Review changes [commit|branch|pr], defaults to uncommitted")).not.toBeInTheDocument();
+  });
+
+  it("highlights and toggles the model tray button", async () => {
+    render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    const modelButton = screen.getByRole("button", { name: "Toggle model tray" });
+    expect(modelButton).not.toHaveClass("bg-black");
+
+    fireEvent.click(modelButton);
+    expect(modelButton).toHaveClass("bg-black", "text-white");
+    expect(screen.getByText("Model choices will land here in a follow-up change.")).toBeInTheDocument();
+
+    fireEvent.click(modelButton);
+    expect(modelButton).not.toHaveClass("bg-black");
+    expect(screen.queryByText("Model choices will land here in a follow-up change.")).not.toBeInTheDocument();
+  });
+
+  it("shows images in the default tray and closes it when all images are removed", async () => {
+    const view = render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(getImageInput(view.container), {
+      target: {
+        files: [new File(["image"], "diagram.png", { type: "image/png" })],
+      },
+    });
+
+    expect(await screen.findByAltText("diagram.png")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert /review" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove diagram.png" }));
+
+    await waitFor(() => expect(screen.queryByAltText("diagram.png")).not.toBeInTheDocument());
+  });
+
+  it("keeps the image tray behind explicit trays", async () => {
+    const view = render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-component"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(getImageInput(view.container), {
+      target: {
+        files: [new File(["image"], "diagram.png", { type: "image/png" })],
+      },
+    });
+
+    expect(await screen.findByAltText("diagram.png")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
+
+    expect(screen.getByRole("button", { name: "Insert /review" })).toBeInTheDocument();
+    expect(screen.queryByAltText("diagram.png")).not.toBeInTheDocument();
+  });
+
+  it("resets explicit tray state when the session changes", async () => {
+    const view = render(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-a"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
+    expect(screen.getByRole("button", { name: "Insert /review" })).toBeInTheDocument();
+
+    view.rerender(
+      <SessionComposer
+        agents={["draft", "review"]}
+        commands={DEFAULT_COMMANDS}
+        defaultAgent="draft"
+        insertReferenceEvents={new EventTarget()}
+        isBusy={false}
+        onClearSessionError={() => {}}
+        prefilledPrompt=""
+        sessionError={null}
+        sessionId="session-b"
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Insert /review" })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Toggle commands tray" })).not.toHaveClass("bg-black");
   });
 });

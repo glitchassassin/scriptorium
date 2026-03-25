@@ -363,6 +363,7 @@ export const opencodeCommandInputSchema = z.object({
 });
 
 export const opencodeCommandInfoSchema = z.object({
+  description: z.string().optional(),
   name: z.string(),
 }).passthrough();
 
