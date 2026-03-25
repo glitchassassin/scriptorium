@@ -1,0 +1,315 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFetcher } from "react-router";
+
+import { parseSlashCommand } from "~/lib/opencode/commands";
+import type { OpencodeCommandInfo, OpencodeModelRef, OpencodeProvider } from "~/lib/opencode/events";
+import { getModelMetadata, getModelVariants } from "~/lib/opencode/models";
+import { useSessionComposerDraft } from "./session-composer-draft";
+import type { SessionComposerController, VisibleTray } from "./session-composer-types";
+
+type UseSessionComposerControllerOptions = {
+  agents: string[];
+  commands: OpencodeCommandInfo[];
+  defaultAgent: string | null;
+  defaultModel: OpencodeModelRef | null;
+  defaultVariant: string | null;
+  insertReferenceEvents: EventTarget;
+  onClearSessionError: () => void;
+  prefilledPrompt: string;
+  providers: OpencodeProvider[];
+  sessionId: string;
+};
+
+function getImageFiles(items: FileList | File[]) {
+  return Array.from(items).filter((file) => file.type.startsWith("image/"));
+}
+
+export function useSessionComposerController({
+  agents,
+  commands,
+  defaultAgent,
+  defaultModel,
+  defaultVariant,
+  insertReferenceEvents,
+  onClearSessionError,
+  prefilledPrompt,
+  providers,
+  sessionId,
+}: UseSessionComposerControllerOptions): SessionComposerController {
+  const promptFetcher = useFetcher();
+  const commandFetcher = useFetcher();
+  const abortFetcher = useFetcher();
+  const lastHandledPromptDataRef = useRef<unknown>(null);
+  const [activeTray, setActiveTray] = useState<VisibleTray | "commands" | null>(null);
+  const [modelSearch, setModelSearch] = useState("");
+  const [collapsedProviderIDs, setCollapsedProviderIDs] = useState<Set<string>>(() => new Set());
+  const {
+    addImages,
+    clearDraftContent,
+    composerInputRef,
+    composerText,
+    imageInputRef,
+    images,
+    insertComposerReference,
+    isRestoringAttachments,
+    removeImage,
+    selectedAgent,
+    selectedModel,
+    selectedVariant,
+    setComposerText,
+    setSelectedAgent,
+    setSelectedModel,
+    setSelectedVariant,
+    updateComposerSelection,
+  } = useSessionComposerDraft({ defaultAgent, defaultModel, defaultVariant, prefilledPrompt, sessionId });
+
+  useEffect(() => {
+    function handleInsertReference(event: Event) {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string") {
+        return;
+      }
+
+      insertComposerReference(event.detail);
+    }
+
+    insertReferenceEvents.addEventListener("insert-reference", handleInsertReference);
+
+    return () => {
+      insertReferenceEvents.removeEventListener("insert-reference", handleInsertReference);
+    };
+  }, [insertComposerReference, insertReferenceEvents]);
+
+  useEffect(() => {
+    const data = promptFetcher.data as { clearDraft?: boolean; intent?: string; ok?: boolean } | undefined;
+
+    if (!data) {
+      lastHandledPromptDataRef.current = null;
+      return;
+    }
+
+    if (lastHandledPromptDataRef.current === data) {
+      return;
+    }
+
+    if (data.ok && data.clearDraft) {
+      lastHandledPromptDataRef.current = data;
+      onClearSessionError();
+      void clearDraftContent();
+    }
+  }, [clearDraftContent, onClearSessionError, promptFetcher.data]);
+
+  useEffect(() => {
+    setActiveTray(null);
+    setModelSearch("");
+    setCollapsedProviderIDs(new Set());
+  }, [sessionId]);
+
+  const cycleAgent = useCallback(() => {
+    setSelectedAgent((current) => {
+      if (agents.length === 0) {
+        return current;
+      }
+
+      const currentIndex = current ? agents.indexOf(current) : -1;
+
+      if (currentIndex === -1) {
+        return agents[0] ?? null;
+      }
+
+      return agents[(currentIndex + 1) % agents.length] ?? null;
+    });
+  }, [agents, setSelectedAgent]);
+
+  const commandNames = useMemo(() => commands.map((command) => command.name), [commands]);
+  const parsedSlashCommand = useMemo(() => parseSlashCommand(composerText, commandNames), [commandNames, composerText]);
+  const matchedCommand = useMemo(() => {
+    if (!parsedSlashCommand) {
+      return null;
+    }
+
+    return commands.find((command) => command.name === parsedSlashCommand.command) ?? null;
+  }, [commands, parsedSlashCommand]);
+
+  const variantOptions = useMemo(() => selectedModel ? getModelVariants(selectedModel, providers) : [], [providers, selectedModel]);
+  const currentVariant = selectedVariant && variantOptions.includes(selectedVariant) ? selectedVariant : null;
+  const modelGroups = useMemo(() => {
+    const query = modelSearch.trim().toLowerCase();
+
+    return providers.map((provider) => ({
+      providerID: provider.id,
+      providerLabel: provider.name,
+      models: Object.values(provider.models).map((info) => ({
+        key: `${provider.id}/${info.id}`,
+        metadata: getModelMetadata(info),
+        model: { modelID: info.id, providerID: provider.id },
+        modelLabel: info.name,
+      })).filter((entry) => {
+        if (!query) {
+          return true;
+        }
+
+        return [
+          entry.key,
+          entry.modelLabel,
+          provider.name,
+          entry.metadata.context,
+          entry.metadata.cost,
+          entry.metadata.status,
+          entry.metadata.variants,
+          entry.metadata.capabilities.reasoning ? "reasoning" : "",
+          entry.metadata.capabilities.tools ? "tools" : "",
+          entry.metadata.capabilities.files ? "files" : "",
+        ].some((value) => (value ?? "").toLowerCase().includes(query));
+      }),
+    })).filter((group) => group.models.length > 0);
+  }, [modelSearch, providers]);
+
+  const submitPrompt = useCallback(() => {
+    const formData = new FormData();
+    formData.set("agent", selectedAgent ?? "");
+    formData.set("modelProviderID", selectedModel?.providerID ?? "");
+    formData.set("modelID", selectedModel?.modelID ?? "");
+    formData.set("variant", currentVariant ?? "");
+    images.forEach((image) => formData.append("attachments", image.file, image.file.name));
+
+    if (parsedSlashCommand) {
+      onClearSessionError();
+      void clearDraftContent();
+      formData.set("intent", "command");
+      formData.set("arguments", parsedSlashCommand.arguments);
+      formData.set("clearDraft", "1");
+      formData.set("command", parsedSlashCommand.command);
+      commandFetcher.submit(formData, { encType: "multipart/form-data", method: "post" });
+      return;
+    }
+
+    formData.set("intent", "prompt");
+    formData.set("text", composerText);
+    promptFetcher.submit(formData, { encType: "multipart/form-data", method: "post" });
+  }, [clearDraftContent, commandFetcher, composerText, currentVariant, images, onClearSessionError, parsedSlashCommand, promptFetcher, selectedAgent, selectedModel]);
+
+  const submitAbort = useCallback(() => {
+    const formData = new FormData();
+    formData.set("intent", "abort");
+    abortFetcher.submit(formData, { method: "post" });
+  }, [abortFetcher]);
+
+  const toggleCommandsTray = useCallback(() => {
+    setActiveTray((current) => current === "commands" ? null : "commands");
+  }, []);
+
+  const toggleModelTray = useCallback(() => {
+    setActiveTray((current) => current === "model" ? null : "model");
+  }, []);
+
+  const toggleProvider = useCallback((providerID: string) => {
+    setCollapsedProviderIDs((current) => {
+      const next = new Set(current);
+
+      if (next.has(providerID)) {
+        next.delete(providerID);
+      } else {
+        next.add(providerID);
+      }
+
+      return next;
+    });
+  }, []);
+
+  const cycleVariant = useCallback(() => {
+    if (variantOptions.length === 0) {
+      return;
+    }
+
+    if (!currentVariant) {
+      setSelectedVariant(variantOptions[0] ?? null);
+      return;
+    }
+
+    const index = variantOptions.indexOf(currentVariant);
+
+    if (index === -1 || index === variantOptions.length - 1) {
+      setSelectedVariant(null);
+      return;
+    }
+
+    setSelectedVariant(variantOptions[index + 1] ?? null);
+  }, [currentVariant, setSelectedVariant, variantOptions]);
+
+  const populateCommand = useCallback((commandName: string) => {
+    const nextText = `/${commandName} `;
+    setComposerText(nextText);
+
+    window.requestAnimationFrame(() => {
+      const input = composerInputRef.current;
+
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      input.setSelectionRange(nextText.length, nextText.length);
+      updateComposerSelection(input);
+    });
+  }, [composerInputRef, setComposerText, updateComposerSelection]);
+
+  const selectModel = useCallback((model: OpencodeModelRef) => {
+    setSelectedModel(model);
+    setActiveTray(null);
+    setModelSearch("");
+  }, [setSelectedModel]);
+
+  const promptData = promptFetcher.data as { error?: string | null; intent?: string } | undefined;
+  const commandData = commandFetcher.data as { error?: string | null; intent?: string } | undefined;
+  const abortData = abortFetcher.data as { error?: string | null; intent?: string } | undefined;
+  const commandError = commandData?.intent === "command" ? commandData.error ?? null : null;
+  const promptError = promptData?.intent === "prompt" ? promptData.error ?? null : null;
+  const abortError = abortData?.intent === "abort" ? abortData.error ?? null : null;
+  const visibleTray: VisibleTray = activeTray === "model"
+    ? "model"
+    : activeTray === "commands"
+      ? matchedCommand?.description
+        ? "commands-description"
+        : "commands-list"
+      : images.length
+        ? "images"
+        : null;
+
+  return {
+    abortError,
+    collapsedProviderIDs,
+    commandDescription: matchedCommand?.description ?? null,
+    commandError,
+    commands,
+    composerInputRef,
+    composerText,
+    currentVariant,
+    imageInputRef,
+    images,
+    isAbortPending: abortFetcher.state !== "idle",
+    isCommandPending: commandFetcher.state !== "idle",
+    isPromptPending: promptFetcher.state !== "idle",
+    isRestoringAttachments,
+    modelGroups,
+    modelSearch,
+    promptError,
+    selectedAgent,
+    selectedModel,
+    variantOptions,
+    visibleTray,
+    onAbort: submitAbort,
+    onAddImages: (items) => addImages(getImageFiles(items)),
+    onCommand: populateCommand,
+    onCommandsToggle: toggleCommandsTray,
+    onComposerTextChange: setComposerText,
+    onCycleAgent: cycleAgent,
+    onModelSearchChange: setModelSearch,
+    onModelSelect: selectModel,
+    onModelToggle: toggleModelTray,
+    onProviderToggle: toggleProvider,
+    onRemoveImage: removeImage,
+    onSubmit: submitPrompt,
+    onUpdateSelection: updateComposerSelection,
+    onVariantCycle: cycleVariant,
+  };
+}
