@@ -10,6 +10,7 @@ import {
   forkOpencodeSession,
   getOpencodeSession,
   getOpencodeSessionStatuses,
+  getOpencodeProviderCatalog,
   listOpencodeAgents,
   listOpencodeCommands,
   listOpencodeMessages,
@@ -35,11 +36,14 @@ import type {
   OpencodeMessageWithParts,
   OpencodeAgent,
   OpencodeCommandInfo,
+  OpencodeModelRef,
   OpencodePermissionRequest,
+  OpencodeProvider,
   OpencodeSessionInfo,
   OpencodeSessionStatus,
 } from "~/lib/opencode/events";
 import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
+import { getInitialSessionModel, getInitialSessionVariant } from "~/lib/opencode/models";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { getNewSessionIconNavAction } from "~/routes/_app/instances.$instanceId/+/instance-route";
@@ -78,13 +82,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const shouldLoadFullHistory = url.searchParams.get("fullHistory") === "1";
   const instance = await getInstanceOrThrow(instanceId);
-  const [messages, permissions, session, statuses, agents, commands] = await Promise.all([
+  const [messages, permissions, session, statuses, agents, commands, providerCatalog] = await Promise.all([
     listOpencodeMessages(instance, sessionId, shouldLoadFullHistory ? undefined : 50),
     listOpencodePermissionRequests(instance, sessionId),
     getOpencodeSession(instance, sessionId),
     getOpencodeSessionStatuses(instance),
     listOpencodeAgents(instance),
     listOpencodeCommands(instance),
+    getOpencodeProviderCatalog(instance),
   ]);
 
   return {
@@ -93,6 +98,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     initialStatus: statuses[sessionId] ?? { type: "idle" },
     initialAgents: agents,
     initialCommands: commands,
+    initialProviderDefaults: providerCatalog.default,
+    initialProviders: providerCatalog.providers,
     loadedFullHistory: shouldLoadFullHistory || messages.length < 50,
     instance,
     session,
@@ -119,6 +126,10 @@ export async function action({ params, request }: Route.ActionArgs) {
     })),
   );
   const agent = String(formData.get("agent") ?? "").trim();
+  const modelProviderID = String(formData.get("modelProviderID") ?? "").trim();
+  const modelID = String(formData.get("modelID") ?? "").trim();
+  const variant = String(formData.get("variant") ?? "").trim();
+  const model: OpencodeModelRef | null = modelProviderID && modelID ? { modelID, providerID: modelProviderID } : null;
 
   async function submitCommand(input: { arguments: string; command: string; clearDraft: boolean }) {
     await submitOpencodeCommand(instance, sessionId, {
@@ -126,6 +137,8 @@ export async function action({ params, request }: Route.ActionArgs) {
       command: input.command,
       ...(attachments.length ? { parts: attachments } : {}),
       ...(agent ? { agent } : {}),
+      ...(model ? { model: `${model.providerID}/${model.modelID}` } : {}),
+      ...(variant ? { variant } : {}),
     });
 
     return data({ clearDraft: input.clearDraft, error: null, intent: "command", ok: true });
@@ -152,6 +165,8 @@ export async function action({ params, request }: Route.ActionArgs) {
     await submitOpencodePrompt(instance, sessionId, {
       parts,
       ...(agent ? { agent } : {}),
+      ...(model ? { model } : {}),
+      ...(variant ? { variant } : {}),
     });
 
     return data({ clearDraft: true, error: null, intent, ok: true });
@@ -217,7 +232,18 @@ export async function action({ params, request }: Route.ActionArgs) {
 }
 
 export default function InstanceSessionLayoutRoute({ loaderData, matches }: Route.ComponentProps) {
-  const { initialAgents, initialCommands, initialMessages, initialPermissions, initialStatus, instance, loadedFullHistory, session } = loaderData;
+  const {
+    initialAgents,
+    initialCommands,
+    initialMessages,
+    initialPermissions,
+    initialProviderDefaults,
+    initialProviders,
+    initialStatus,
+    instance,
+    loadedFullHistory,
+    session,
+  } = loaderData;
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -232,7 +258,16 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
   const sessionIdRef = useRef(session.id);
   const agents = useMemo<OpencodeAgent[]>(() => getSelectableAgents(initialAgents), [initialAgents]);
   const commands = useMemo<OpencodeCommandInfo[]>(() => initialCommands, [initialCommands]);
+  const providers = useMemo<OpencodeProvider[]>(() => initialProviders, [initialProviders]);
   const defaultAgent = useMemo<string | null>(() => getInitialAgent(initialMessages, initialAgents), [initialMessages, initialAgents]);
+  const defaultModel = useMemo<OpencodeModelRef | null>(
+    () => getInitialSessionModel(initialMessages, { default: initialProviderDefaults, providers: initialProviders }),
+    [initialMessages, initialProviderDefaults, initialProviders],
+  );
+  const defaultVariant = useMemo(
+    () => getInitialSessionVariant(initialMessages, defaultModel, initialProviders),
+    [defaultModel, initialMessages, initialProviders],
+  );
   const insertComposerReferenceEvents = useMemo(() => new EventTarget(), []);
   const insertComposerReference = useCallback((reference: string) => {
     insertComposerReferenceEvents.dispatchEvent(new CustomEvent("insert-reference", { detail: reference }));
@@ -398,9 +433,12 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
             agents={agents.map((agent) => agent.name)}
             commands={commands}
             defaultAgent={defaultAgent}
+            defaultModel={defaultModel}
+            defaultVariant={defaultVariant}
             insertReferenceEvents={insertComposerReferenceEvents}
             isBusy={isBusy}
             onClearSessionError={clearSessionError}
+            providers={providers}
             prefilledPrompt={prefilledPrompt}
             sessionError={sessionError}
             sessionId={session.id}

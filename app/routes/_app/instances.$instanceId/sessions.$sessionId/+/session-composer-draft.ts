@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { OpencodeModelRef } from "~/lib/opencode/events";
+import { getModelKey } from "~/lib/opencode/models";
+
 type ComposerSelection = {
   start: number;
   end: number;
@@ -15,9 +18,11 @@ type StoredDraftAttachment = {
 
 type StoredDraft = {
   attachments: StoredDraftAttachment[];
+  selectedModel: OpencodeModelRef | null;
   selectedAgent: string | null;
   selection: ComposerSelection;
   text: string;
+  variants: Record<string, string>;
 };
 
 type StoredAttachmentRecord = StoredDraftAttachment & {
@@ -33,6 +38,8 @@ export type DraftImage = {
 
 type UseSessionComposerDraftOptions = {
   defaultAgent: string | null;
+  defaultModel: OpencodeModelRef | null;
+  defaultVariant: string | null;
   prefilledPrompt: string;
   sessionId: string;
 };
@@ -69,6 +76,19 @@ function revokeDraftImages(images: DraftImage[]) {
 
 export function getSessionComposerStorageKey(sessionId: string) {
   return `session-composer:${sessionId}`;
+}
+
+function getStoredModel(value: unknown): OpencodeModelRef | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const modelID = "modelID" in value ? value.modelID : undefined;
+  const providerID = "providerID" in value ? value.providerID : undefined;
+
+  return typeof modelID === "string" && typeof providerID === "string"
+    ? { modelID, providerID }
+    : null;
 }
 
 function getStoredDraftAttachment(image: DraftImage): StoredDraftAttachment {
@@ -108,11 +128,19 @@ function readStoredDraft(sessionId: string): StoredDraft | null {
           ),
         )
         : [],
+      selectedModel: getStoredModel(parsed.selectedModel),
       selectedAgent: typeof parsed.selectedAgent === "string" ? parsed.selectedAgent : null,
       selection: parsed.selection && typeof parsed.selection.start === "number" && typeof parsed.selection.end === "number"
         ? parsed.selection
         : EMPTY_SELECTION,
       text: typeof parsed.text === "string" ? parsed.text : "",
+      variants: parsed.variants && typeof parsed.variants === "object"
+        ? Object.fromEntries(
+          Object.entries(parsed.variants).filter((entry): entry is [string, string] =>
+            typeof entry[0] === "string" && typeof entry[1] === "string",
+          ),
+        )
+        : {},
     };
   } catch {
     return null;
@@ -235,7 +263,7 @@ async function loadStoredImages(sessionId: string, attachments: StoredDraftAttac
   return restored.filter((image): image is DraftImage => image !== null);
 }
 
-export function useSessionComposerDraft({ defaultAgent, prefilledPrompt, sessionId }: UseSessionComposerDraftOptions) {
+export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVariant, prefilledPrompt, sessionId }: UseSessionComposerDraftOptions) {
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectionRef = useRef<ComposerSelection>(EMPTY_SELECTION);
@@ -248,6 +276,8 @@ export function useSessionComposerDraft({ defaultAgent, prefilledPrompt, session
   const [images, setImages] = useState<DraftImage[]>([]);
   const [isRestoringAttachments, setIsRestoringAttachments] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(defaultAgent);
+  const [selectedModel, setSelectedModel] = useState<OpencodeModelRef | null>(defaultModel);
+  const [variants, setVariants] = useState<Record<string, string>>({});
 
   useEffect(() => {
     imagesRef.current = images;
@@ -275,10 +305,18 @@ export function useSessionComposerDraft({ defaultAgent, prefilledPrompt, session
     const nextText = storedDraft?.text ?? prefilledPrompt;
     const nextSelection = storedDraft?.selection ?? { start: nextText.length, end: nextText.length };
     const nextAgent = storedDraft?.selectedAgent ?? defaultAgent;
+    const nextModel = storedDraft?.selectedModel ?? defaultModel;
+    const nextVariants = { ...(storedDraft?.variants ?? {}) };
+
+    if (defaultModel && defaultVariant) {
+      nextVariants[getModelKey(defaultModel)] ??= defaultVariant;
+    }
 
     selectionRef.current = nextSelection;
     setComposerText(nextText);
     setSelectedAgent(nextAgent);
+    setSelectedModel(nextModel);
+    setVariants(nextVariants);
     focusAfterRestoreRef.current = !storedDraft?.text && Boolean(prefilledPrompt);
 
     void loadStoredImages(sessionId, storedDraft?.attachments ?? []).then((restoredImages) => {
@@ -292,7 +330,7 @@ export function useSessionComposerDraft({ defaultAgent, prefilledPrompt, session
       hydratedRef.current = true;
       setIsRestoringAttachments(false);
     });
-  }, [defaultAgent, prefilledPrompt, sessionId]);
+  }, [defaultAgent, defaultModel, defaultVariant, prefilledPrompt, sessionId]);
 
   useEffect(() => {
     if (!focusAfterRestoreRef.current) {
@@ -321,11 +359,13 @@ export function useSessionComposerDraft({ defaultAgent, prefilledPrompt, session
 
     writeStoredDraft(sessionId, {
       attachments: images.map(getStoredDraftAttachment),
+      selectedModel,
       selectedAgent,
       selection: selectionRef.current,
       text: composerText,
+      variants,
     });
-  }, [composerText, images, selectedAgent, sessionId]);
+  }, [composerText, images, selectedAgent, selectedModel, sessionId, variants]);
 
   const updateComposerSelection = useCallback((target?: HTMLTextAreaElement | null) => {
     const input = target ?? composerInputRef.current;
@@ -342,12 +382,14 @@ export function useSessionComposerDraft({ defaultAgent, prefilledPrompt, session
     if (hydratedRef.current) {
       writeStoredDraft(sessionId, {
         attachments: imagesRef.current.map(getStoredDraftAttachment),
+        selectedModel,
         selectedAgent,
         selection: selectionRef.current,
         text: input.value,
+        variants,
       });
     }
-  }, [selectedAgent, sessionId]);
+  }, [selectedAgent, selectedModel, sessionId, variants]);
 
   const insertComposerReference = useCallback((reference: string) => {
     let nextSelectionStart = 0;
@@ -437,12 +479,33 @@ export function useSessionComposerDraft({ defaultAgent, prefilledPrompt, session
     if (selectedAgent || hydratedRef.current) {
       writeStoredDraft(sessionId, {
         attachments: [],
+        selectedModel,
         selectedAgent,
         selection: EMPTY_SELECTION,
         text: "",
+        variants,
       });
     }
-  }, [selectedAgent, sessionId]);
+  }, [selectedAgent, selectedModel, sessionId, variants]);
+
+  const selectedVariant = selectedModel ? variants[getModelKey(selectedModel)] ?? null : null;
+
+  const setSelectedVariant = useCallback((value: string | null) => {
+    setVariants((current) => {
+      if (!selectedModel) {
+        return current;
+      }
+
+      const key = getModelKey(selectedModel);
+
+      if (!value) {
+        const { [key]: _removed, ...rest } = current;
+        return rest;
+      }
+
+      return { ...current, [key]: value };
+    });
+  }, [selectedModel]);
 
   return {
     addImages,
@@ -455,8 +518,12 @@ export function useSessionComposerDraft({ defaultAgent, prefilledPrompt, session
     isRestoringAttachments,
     removeImage,
     selectedAgent,
+    selectedModel,
+    selectedVariant,
     setComposerText,
     setSelectedAgent,
+    setSelectedModel,
+    setSelectedVariant,
     updateComposerSelection,
   };
 }

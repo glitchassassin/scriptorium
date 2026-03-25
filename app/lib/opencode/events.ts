@@ -74,6 +74,23 @@ const opencodeModelRefSchema = z.object({
   modelID: z.string(),
 });
 
+const opencodeModelCatalogEntrySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  variants: z.record(z.string(), recordOfUnknown).optional(),
+}).passthrough();
+
+export const opencodeProviderSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  models: z.record(z.string(), opencodeModelCatalogEntrySchema),
+}).passthrough();
+
+export const opencodeProviderCatalogSchema = z.object({
+  default: z.record(z.string(), z.string()),
+  providers: z.array(opencodeProviderSchema),
+});
+
 const opencodeFileDiffSchema = z.object({
   file: z.string(),
   before: z.string(),
@@ -353,6 +370,8 @@ export const opencodePromptInputSchema = z.object({
     ]),
   ),
   agent: z.string().optional(),
+  model: opencodeModelRefSchema.optional(),
+  variant: z.string().optional(),
 });
 
 export const opencodeCommandInputSchema = z.object({
@@ -360,6 +379,8 @@ export const opencodeCommandInputSchema = z.object({
   command: z.string(),
   parts: opencodePromptInputSchema.shape.parts.optional(),
   agent: z.string().optional(),
+  model: z.string().optional(),
+  variant: z.string().optional(),
 });
 
 export const opencodeCommandInfoSchema = z.object({
@@ -612,6 +633,9 @@ export type OpencodeKnownEvent = z.infer<typeof opencodeKnownEventSchema>;
 export type OpencodeAgent = z.infer<typeof opencodeAgentSchema>;
 export type OpencodeCommandInput = z.infer<typeof opencodeCommandInputSchema>;
 export type OpencodeCommandInfo = z.infer<typeof opencodeCommandInfoSchema>;
+export type OpencodeModelRef = z.infer<typeof opencodeModelRefSchema>;
+export type OpencodeProvider = z.infer<typeof opencodeProviderSchema>;
+export type OpencodeProviderCatalog = z.infer<typeof opencodeProviderCatalogSchema>;
 export type OpencodePromptInput = z.infer<typeof opencodePromptInputSchema>;
 export type OpencodeAgentPart = z.infer<typeof opencodeAgentPartSchema>;
 export type OpencodeCompactionPart = z.infer<typeof opencodeCompactionPartSchema>;

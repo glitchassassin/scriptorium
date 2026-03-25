@@ -6,7 +6,8 @@ import "@iconify-json/mdi";
 import { ComposerHorizontalTray, ComposerPanelTray, ComposerTrayFrame } from "~/components/ui/composer-trays";
 import { cn } from "~/lib/cn";
 import { parseSlashCommand } from "~/lib/opencode/commands";
-import type { OpencodeCommandInfo } from "~/lib/opencode/events";
+import type { OpencodeCommandInfo, OpencodeModelRef, OpencodeProvider } from "~/lib/opencode/events";
+import { getModelLabel, getModelMetadata, getModelVariants, type ModelCapabilities } from "~/lib/opencode/models";
 import safeArea from "~/styles/safe-area.module.css";
 import { useSessionComposerDraft, type DraftImage } from "./session-composer-draft";
 
@@ -14,9 +15,12 @@ type SessionComposerProps = {
   agents: string[];
   commands: OpencodeCommandInfo[];
   defaultAgent: string | null;
+  defaultModel: OpencodeModelRef | null;
+  defaultVariant: string | null;
   insertReferenceEvents: EventTarget;
   isBusy: boolean;
   onClearSessionError: () => void;
+  providers: OpencodeProvider[];
   prefilledPrompt: string;
   sessionError: string | null;
   sessionId: string;
@@ -42,6 +46,19 @@ function activeCommandsButtonClass(visibleTray: VisibleTray) {
     : "bg-white text-black";
 }
 
+function ModelCapabilityIcons({ capabilities, isSelected }: { capabilities: ModelCapabilities; isSelected: boolean }) {
+  const iconClassName = cn("size-4", isSelected ? "text-white" : "text-black");
+  const placeholderClassName = cn("inline-block size-4", isSelected ? "text-white/25" : "text-black/25");
+
+  return (
+    <span className="inline-flex items-center gap-1" aria-hidden="true">
+      {capabilities.reasoning ? <Icon className={iconClassName} icon="mdi:brain" /> : <span className={placeholderClassName} />}
+      {capabilities.tools ? <Icon className={iconClassName} icon="mdi:wrench" /> : <span className={placeholderClassName} />}
+      {capabilities.files ? <Icon className={iconClassName} icon="mdi:paperclip" /> : <span className={placeholderClassName} />}
+    </span>
+  );
+}
+
 function SessionComposerView({
   abortError,
   agents,
@@ -50,6 +67,7 @@ function SessionComposerView({
   commandError,
   composerInputRef,
   composerText,
+  currentVariant,
   imageInputRef,
   images,
   isAbortPending,
@@ -57,20 +75,30 @@ function SessionComposerView({
   isCommandPending,
   isPromptPending,
   isRestoringAttachments,
+  modelSearch,
+  modelGroups,
+  providers,
+  collapsedProviderIDs,
+  selectedModel,
   visibleTray,
   onAbort,
   onAddImages,
   onComposerTextChange,
   onCommandsToggle,
   onCycleAgent,
+  onModelSearchChange,
+  onModelSelect,
+  onProviderToggle,
   onModelToggle,
   onRemoveImage,
   onCommand,
   onSubmit,
   onUpdateSelection,
+  onVariantCycle,
   promptError,
   selectedAgent,
   sessionError,
+  variantOptions,
 }: {
   abortError: string | null;
   agents: string[];
@@ -79,6 +107,7 @@ function SessionComposerView({
   commandError: string | null;
   composerInputRef: RefObject<HTMLTextAreaElement | null>;
   composerText: string;
+  currentVariant: string | null;
   imageInputRef: RefObject<HTMLInputElement | null>;
   images: DraftImage[];
   isAbortPending: boolean;
@@ -86,21 +115,48 @@ function SessionComposerView({
   isCommandPending: boolean;
   isPromptPending: boolean;
   isRestoringAttachments: boolean;
+  modelSearch: string;
+  modelGroups: Array<{
+    providerID: string;
+    providerLabel: string;
+    models: Array<{
+      key: string;
+      metadata: {
+        capabilities: ModelCapabilities;
+        context: string | null;
+        cost: string | null;
+        status: string | null;
+        variants: string | null;
+      };
+      model: OpencodeModelRef;
+      modelLabel: string;
+    }>;
+  }>;
+  collapsedProviderIDs: Set<string>;
+  providers: OpencodeProvider[];
+  selectedModel: OpencodeModelRef | null;
   visibleTray: VisibleTray;
   onAbort: () => void;
   onAddImages: (items: FileList | File[]) => Promise<void>;
   onComposerTextChange: (value: string) => void;
   onCommandsToggle: () => void;
   onCycleAgent: () => void;
+  onModelSearchChange: (value: string) => void;
+  onModelSelect: (model: OpencodeModelRef) => void;
+  onProviderToggle: (providerID: string) => void;
   onModelToggle: () => void;
   onRemoveImage: (id: string) => Promise<void>;
   onCommand: (commandName: string) => void;
   onSubmit: () => void;
   onUpdateSelection: (target?: HTMLTextAreaElement | null) => void;
+  onVariantCycle: () => void;
   promptError: string | null;
   selectedAgent: string | null;
   sessionError: string | null;
+  variantOptions: string[];
 }) {
+  const effectiveCollapsedProviderIDs = modelSearch.trim() ? new Set<string>() : collapsedProviderIDs;
+
   return (
     <div className={`${safeArea.footerPad4} relative border-t-2 border-black px-6 pt-4 sm:px-8`}>
       <div className="space-y-3">
@@ -156,16 +212,68 @@ function SessionComposerView({
       ) : null}
       {visibleTray === "model" ? (
         <ComposerTrayFrame>
-          <ComposerPanelTray title="Model picker">
+          <ComposerPanelTray title="Model">
             <input
               aria-label="Search models"
               className="min-h-11 w-full bg-white px-3 py-2 text-base"
               placeholder="Search models"
-              readOnly
+              onChange={(event) => onModelSearchChange(event.currentTarget.value)}
               type="text"
-              value=""
+              value={modelSearch}
             />
-            <p className="text-base leading-6">Model choices will land here in a follow-up change.</p>
+            <div className="space-y-4">
+              {modelGroups.length ? modelGroups.map((group) => (
+                <section className="space-y-2" key={group.providerID}>
+                  <button
+                    aria-label={`Toggle ${group.providerLabel} models`}
+                    className="flex min-h-11 w-full items-center gap-2 text-left text-sm font-bold uppercase tracking-[0.08em]"
+                    onClick={() => onProviderToggle(group.providerID)}
+                    type="button"
+                  >
+                    <Icon
+                      className={cn(
+                        "size-4 transition-transform",
+                        effectiveCollapsedProviderIDs.has(group.providerID) ? "-rotate-90" : "rotate-0",
+                      )}
+                      icon="mdi:chevron-down"
+                    />
+                    <span>{group.providerLabel}</span>
+                  </button>
+                  <div hidden={effectiveCollapsedProviderIDs.has(group.providerID)}>
+                    {group.models.map((entry, index) => {
+                      const isSelected = selectedModel?.providerID === entry.model.providerID && selectedModel?.modelID === entry.model.modelID;
+
+                      return (
+                        <button
+                          aria-label={`Use ${group.providerLabel} ${entry.modelLabel}`}
+                          className={cn(
+                            "flex min-h-14 w-full items-start justify-between gap-3 px-1 py-3 text-left text-base",
+                            index > 0 ? "border-t border-black" : "",
+                            isSelected ? "bg-black text-white" : "bg-white text-black",
+                          )}
+                          key={entry.key}
+                          onClick={() => onModelSelect(entry.model)}
+                          type="button"
+                        >
+                          <span className="min-w-0 space-y-1">
+                            <span className="block">{entry.modelLabel}</span>
+                            <span className={cn("flex items-center gap-3 text-sm", isSelected ? "text-white/80" : "text-black/70")}>
+                              <ModelCapabilityIcons capabilities={entry.metadata.capabilities} isSelected={isSelected} />
+                              <span>
+                                {[entry.metadata.context, entry.metadata.cost].filter(Boolean).join(" ")}
+                              </span>
+                              {entry.metadata.status || entry.metadata.variants ? (
+                                <span>{[entry.metadata.status, entry.metadata.variants].filter(Boolean).join(" · ")}</span>
+                              ) : null}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )) : <p className="text-base leading-6">No models match that search.</p>}
+            </div>
           </ComposerPanelTray>
         </ComposerTrayFrame>
       ) : null}
@@ -259,7 +367,17 @@ function SessionComposerView({
                   onPointerDown={(event) => event.preventDefault()}
                   type="button"
                 >
-                  Model
+                  {getModelLabel(selectedModel, providers)}
+                </button>
+                <button
+                  aria-label="Cycle variant"
+                  className={trayToggleButtonClass(false)}
+                  disabled={variantOptions.length === 0}
+                  onClick={onVariantCycle}
+                  onPointerDown={(event) => event.preventDefault()}
+                  type="button"
+                >
+                  {currentVariant ?? "Auto"}
                 </button>
               </div>
               <div className="ml-auto flex shrink-0 items-stretch gap-2">
@@ -309,9 +427,12 @@ export function SessionComposer({
   agents,
   commands,
   defaultAgent,
+  defaultModel,
+  defaultVariant,
   insertReferenceEvents,
   isBusy,
   onClearSessionError,
+  providers,
   prefilledPrompt,
   sessionError,
   sessionId,
@@ -321,6 +442,8 @@ export function SessionComposer({
   const abortFetcher = useFetcher();
   const lastHandledPromptDataRef = useRef<unknown>(null);
   const [activeTray, setActiveTray] = useState<ComposerTray>(null);
+  const [modelSearch, setModelSearch] = useState("");
+  const [collapsedProviderIDs, setCollapsedProviderIDs] = useState<Set<string>>(() => new Set());
   const {
     addImages,
     clearDraftContent,
@@ -332,10 +455,14 @@ export function SessionComposer({
     isRestoringAttachments,
     removeImage,
     selectedAgent,
+    selectedModel,
+    selectedVariant,
     setComposerText,
     setSelectedAgent,
+    setSelectedModel,
+    setSelectedVariant,
     updateComposerSelection,
-  } = useSessionComposerDraft({ defaultAgent, prefilledPrompt, sessionId });
+  } = useSessionComposerDraft({ defaultAgent, defaultModel, defaultVariant, prefilledPrompt, sessionId });
 
   useEffect(() => {
     function handleInsertReference(event: Event) {
@@ -374,6 +501,8 @@ export function SessionComposer({
 
   useEffect(() => {
     setActiveTray(null);
+    setModelSearch("");
+    setCollapsedProviderIDs(new Set());
   }, [sessionId]);
 
   const cycleAgent = useCallback(() => {
@@ -394,10 +523,46 @@ export function SessionComposer({
 
   const commandNames = useMemo(() => commands.map((command) => command.name), [commands]);
   const parsedSlashCommand = useMemo(() => parseSlashCommand(composerText, commandNames), [commandNames, composerText]);
+  const variantOptions = useMemo(() => selectedModel ? getModelVariants(selectedModel, providers) : [], [providers, selectedModel]);
+  const currentVariant = selectedVariant && variantOptions.includes(selectedVariant) ? selectedVariant : null;
+  const modelGroups = useMemo(() => {
+    const query = modelSearch.trim().toLowerCase();
+
+    return providers.map((provider) => ({
+      providerID: provider.id,
+      providerLabel: provider.name,
+      models: Object.values(provider.models).map((info) => ({
+        key: `${provider.id}/${info.id}`,
+        metadata: getModelMetadata(info),
+        model: { modelID: info.id, providerID: provider.id },
+        modelLabel: info.name,
+      })).filter((entry) => {
+        if (!query) {
+          return true;
+        }
+
+        return [
+          entry.key,
+          entry.modelLabel,
+          provider.name,
+          entry.metadata.context,
+          entry.metadata.cost,
+          entry.metadata.status,
+          entry.metadata.variants,
+          entry.metadata.capabilities.reasoning ? "reasoning" : "",
+          entry.metadata.capabilities.tools ? "tools" : "",
+          entry.metadata.capabilities.files ? "files" : "",
+        ].some((value) => (value ?? "").toLowerCase().includes(query));
+      }),
+    })).filter((group) => group.models.length > 0);
+  }, [modelSearch, providers]);
 
   const submitPrompt = useCallback(() => {
     const formData = new FormData();
     formData.set("agent", selectedAgent ?? "");
+    formData.set("modelProviderID", selectedModel?.providerID ?? "");
+    formData.set("modelID", selectedModel?.modelID ?? "");
+    formData.set("variant", currentVariant ?? "");
     images.forEach((image) => formData.append("attachments", image.file, image.file.name));
 
     if (parsedSlashCommand) {
@@ -414,7 +579,7 @@ export function SessionComposer({
     formData.set("intent", "prompt");
     formData.set("text", composerText);
     promptFetcher.submit(formData, { encType: "multipart/form-data", method: "post" });
-  }, [clearDraftContent, commandFetcher, composerText, images, onClearSessionError, parsedSlashCommand, promptFetcher, selectedAgent]);
+  }, [clearDraftContent, commandFetcher, composerText, currentVariant, images, onClearSessionError, parsedSlashCommand, promptFetcher, selectedAgent, selectedModel]);
 
   const promptData = promptFetcher.data as { error?: string | null; intent?: string } | undefined;
   const commandData = commandFetcher.data as { error?: string | null; intent?: string } | undefined;
@@ -439,6 +604,40 @@ export function SessionComposer({
   const toggleModelTray = useCallback(() => {
     setActiveTray((current) => current === "model" ? null : "model");
   }, []);
+
+  const toggleProvider = useCallback((providerID: string) => {
+    setCollapsedProviderIDs((current) => {
+      const next = new Set(current);
+
+      if (next.has(providerID)) {
+        next.delete(providerID);
+      } else {
+        next.add(providerID);
+      }
+
+      return next;
+    });
+  }, []);
+
+  const cycleVariant = useCallback(() => {
+    if (variantOptions.length === 0) {
+      return;
+    }
+
+    if (!currentVariant) {
+      setSelectedVariant(variantOptions[0] ?? null);
+      return;
+    }
+
+    const index = variantOptions.indexOf(currentVariant);
+
+    if (index === -1 || index === variantOptions.length - 1) {
+      setSelectedVariant(null);
+      return;
+    }
+
+    setSelectedVariant(variantOptions[index + 1] ?? null);
+  }, [currentVariant, setSelectedVariant, variantOptions]);
 
   const matchedCommand = useMemo(() => {
     if (!parsedSlashCommand) {
@@ -469,6 +668,12 @@ export function SessionComposer({
     populateCommand(commandName);
   }, [populateCommand]);
 
+  const selectModel = useCallback((model: OpencodeModelRef) => {
+    setSelectedModel(model);
+    setActiveTray(null);
+    setModelSearch("");
+  }, [setSelectedModel]);
+
   const visibleTray: VisibleTray = activeTray === "model"
     ? "model"
     : activeTray === "commands"
@@ -488,6 +693,7 @@ export function SessionComposer({
       commandError={commandError}
       composerInputRef={composerInputRef}
       composerText={composerText}
+      currentVariant={currentVariant}
       imageInputRef={imageInputRef}
       images={images}
       isAbortPending={isAbortPending}
@@ -495,17 +701,27 @@ export function SessionComposer({
       isCommandPending={isCommandPending}
       isPromptPending={isPromptPending}
       isRestoringAttachments={isRestoringAttachments}
+      collapsedProviderIDs={collapsedProviderIDs}
+      modelSearch={modelSearch}
+      modelGroups={modelGroups}
+      providers={providers}
+      selectedModel={selectedModel}
+      variantOptions={variantOptions}
       visibleTray={visibleTray}
       onAbort={submitAbort}
       onAddImages={addImages}
       onComposerTextChange={setComposerText}
       onCommandsToggle={toggleCommandsTray}
       onCycleAgent={cycleAgent}
+      onModelSearchChange={setModelSearch}
+      onModelSelect={selectModel}
+      onProviderToggle={toggleProvider}
       onModelToggle={toggleModelTray}
       onRemoveImage={removeImage}
       onCommand={insertCommandFromTray}
       onSubmit={submitPrompt}
       onUpdateSelection={updateComposerSelection}
+      onVariantCycle={cycleVariant}
       promptError={promptError}
       selectedAgent={selectedAgent}
       sessionError={sessionError}

@@ -4,6 +4,7 @@ import {
   opencodeCommandInfoSchema,
   opencodePermissionRequestSchema,
   opencodeAgentSchema,
+  opencodeProviderCatalogSchema,
   opencodePromptInputSchema,
   opencodeSessionInfoSchema,
   opencodeSessionStatusMapSchema,
@@ -22,6 +23,7 @@ import type {
   OpencodeCommandInfo,
   OpencodeCommandInput,
   OpencodePromptInput,
+  OpencodeProviderCatalog,
   OpencodePermissionRequest,
   OpencodeSessionInfo,
 } from "~/lib/opencode/events";
@@ -115,14 +117,32 @@ export async function listOpencodeCommands(instance: InstanceRecord) {
   return parseOrThrow(opencodeCommandInfoSchema.array().safeParse(payload)) satisfies OpencodeCommandInfo[];
 }
 
+export async function getOpencodeProviderCatalog(instance: InstanceRecord) {
+  const response = await fetch(`${getInstanceBaseUrl(instance)}/config/providers`);
+
+  if (response.status === 404 || response.status === 501) {
+    return { default: {}, providers: [] } satisfies OpencodeProviderCatalog;
+  }
+
+  const payload = await readJson(response);
+  return parseOrThrow(opencodeProviderCatalogSchema.safeParse(payload)) satisfies OpencodeProviderCatalog;
+}
+
 export async function submitOpencodePrompt(
   instance: InstanceRecord,
   sessionId: string,
-  input: { parts: OpencodePromptInput["parts"]; agent?: string | null },
+  input: {
+    parts: OpencodePromptInput["parts"];
+    agent?: string | null;
+    model?: OpencodePromptInput["model"];
+    variant?: string | null;
+  },
 ) {
   const nextPayload = {
     parts: input.parts,
     ...(input.agent ? { agent: input.agent } : {}),
+    ...(input.model ? { model: input.model } : {}),
+    ...(input.variant ? { variant: input.variant } : {}),
   };
 
   const parsedPayload = parseOrThrow(
@@ -145,13 +165,22 @@ export async function submitOpencodePrompt(
 export async function submitOpencodeCommand(
   instance: InstanceRecord,
   sessionId: string,
-  input: { command: string; arguments: string; parts?: OpencodeCommandInput["parts"]; agent?: string | null },
+  input: {
+    command: string;
+    arguments: string;
+    parts?: OpencodeCommandInput["parts"];
+    agent?: string | null;
+    model?: string;
+    variant?: string | null;
+  },
 ) {
   const nextPayload = {
     arguments: input.arguments,
     command: input.command,
     ...(input.parts ? { parts: input.parts } : {}),
     ...(input.agent ? { agent: input.agent } : {}),
+    ...(input.model ? { model: input.model } : {}),
+    ...(input.variant ? { variant: input.variant } : {}),
   };
 
   const parsedPayload = parseOrThrow(

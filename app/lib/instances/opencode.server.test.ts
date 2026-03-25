@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InstanceRecord } from "~/lib/instances/types";
 import {
   forkOpencodeSession,
+  getOpencodeProviderCatalog,
   revertOpencodeSession,
+  submitOpencodeCommand,
   submitOpencodePrompt,
   unrevertOpencodeSession,
 } from "~/lib/instances/opencode.server";
@@ -28,7 +30,7 @@ afterEach(() => {
 });
 
 describe("submitOpencodePrompt", () => {
-  it("sends prompt parts and agent only when selected", async () => {
+  it("sends prompt parts and overrides only when selected", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
 
     await submitOpencodePrompt(instance, "session-1", {
@@ -45,6 +47,11 @@ describe("submitOpencodePrompt", () => {
         },
       ],
       agent: "analysis",
+      model: {
+        modelID: "gpt-5",
+        providerID: "openai",
+      },
+      variant: "high",
     });
 
     const firstPayload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
@@ -73,10 +80,100 @@ describe("submitOpencodePrompt", () => {
         },
       ],
       agent: "analysis",
+      model: {
+        modelID: "gpt-5",
+        providerID: "openai",
+      },
+      variant: "high",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0][0]).toBe(`http://127.0.0.1:${instance.port}/session/session-1/prompt_async`);
+  });
+});
+
+describe("submitOpencodeCommand", () => {
+  it("sends command overrides only when selected", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ info: {}, parts: [] })));
+
+    await submitOpencodeCommand(instance, "session-1", {
+      arguments: "feature-branch",
+      command: "review",
+    });
+    await submitOpencodeCommand(instance, "session-1", {
+      agent: "analysis",
+      arguments: "feature-branch",
+      command: "review",
+      model: "openai/gpt-5",
+      variant: "high",
+    });
+
+    const firstPayload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    const secondPayload = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+
+    expect(firstPayload).toEqual({
+      arguments: "feature-branch",
+      command: "review",
+    });
+
+    expect(secondPayload).toEqual({
+      agent: "analysis",
+      arguments: "feature-branch",
+      command: "review",
+      model: "openai/gpt-5",
+      variant: "high",
+    });
+  });
+});
+
+describe("getOpencodeProviderCatalog", () => {
+  it("loads providers and defaults from the config endpoint", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      default: { openai: "gpt-5" },
+      providers: [
+        {
+          id: "openai",
+          models: {
+            "gpt-5": {
+              id: "gpt-5",
+              name: "GPT 5",
+              variants: {
+                high: {},
+              },
+            },
+          },
+          name: "OpenAI",
+        },
+      ],
+    })));
+
+    await expect(getOpencodeProviderCatalog(instance)).resolves.toEqual({
+      default: { openai: "gpt-5" },
+      providers: [
+        {
+          id: "openai",
+          models: {
+            "gpt-5": {
+              id: "gpt-5",
+              name: "GPT 5",
+              variants: {
+                high: {},
+              },
+            },
+          },
+          name: "OpenAI",
+        },
+      ],
+    });
+  });
+
+  it("falls back when the config endpoint is unavailable", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 404 }));
+
+    await expect(getOpencodeProviderCatalog(instance)).resolves.toEqual({
+      default: {},
+      providers: [],
+    });
   });
 });
 
