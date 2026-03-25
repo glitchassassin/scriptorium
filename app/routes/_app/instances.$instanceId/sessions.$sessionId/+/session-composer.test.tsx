@@ -1,7 +1,10 @@
 import "fake-indexeddb/auto";
 
+import type { ComponentProps } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { OpencodeProvider } from "~/lib/opencode/events";
 
 const useFetcherMock = vi.fn();
 
@@ -46,13 +49,82 @@ const DEFAULT_COMMANDS = [
   { description: "Review changes [commit|branch|pr], defaults to uncommitted", name: "review" },
 ];
 
-function ComposerDraftHarness({ defaultAgent = "draft", prefilledPrompt = "", sessionId }: { defaultAgent?: string | null; prefilledPrompt?: string; sessionId: string }) {
-  const draft = useSessionComposerDraft({ defaultAgent, prefilledPrompt, sessionId });
+const DEFAULT_MODEL = { modelID: "gpt-5", providerID: "openai" };
+const DEFAULT_PROVIDERS: OpencodeProvider[] = [
+  {
+    id: "openai",
+    models: {
+      "gpt-5": {
+        id: "gpt-5",
+        name: "GPT 5",
+        variants: {
+          high: {},
+          low: {},
+        },
+      },
+      "gpt-5-mini": {
+        id: "gpt-5-mini",
+        name: "GPT 5 Mini",
+      },
+    },
+    name: "OpenAI",
+  },
+  {
+    id: "anthropic",
+    models: {
+      "claude-sonnet": {
+        id: "claude-sonnet",
+        name: "Claude Sonnet",
+        variants: {
+          high: {},
+        },
+      },
+    },
+    name: "Anthropic",
+  },
+];
+
+function renderSessionComposer(props?: Partial<ComponentProps<typeof SessionComposer>>) {
+  return render(
+    <SessionComposer
+      agents={["draft", "review"]}
+      commands={DEFAULT_COMMANDS}
+      defaultAgent="draft"
+      defaultModel={DEFAULT_MODEL}
+      defaultVariant={null}
+      insertReferenceEvents={new EventTarget()}
+      isBusy={false}
+      onClearSessionError={() => {}}
+      prefilledPrompt=""
+      providers={DEFAULT_PROVIDERS}
+      sessionError={null}
+      sessionId="session-component"
+      {...props}
+    />,
+  );
+}
+
+function ComposerDraftHarness({
+  defaultAgent = "draft",
+  defaultModel = DEFAULT_MODEL,
+  defaultVariant = null,
+  prefilledPrompt = "",
+  sessionId,
+}: {
+  defaultAgent?: string | null;
+  defaultModel?: typeof DEFAULT_MODEL | null;
+  defaultVariant?: string | null;
+  prefilledPrompt?: string;
+  sessionId: string;
+}) {
+  const draft = useSessionComposerDraft({ defaultAgent, defaultModel, defaultVariant, prefilledPrompt, sessionId });
 
   return (
     <div>
       <div data-testid="restoring">{String(draft.isRestoringAttachments)}</div>
       <div data-testid="selected-agent">{draft.selectedAgent ?? ""}</div>
+      <div data-testid="selected-model">{draft.selectedModel ? `${draft.selectedModel.providerID}/${draft.selectedModel.modelID}` : ""}</div>
+      <div data-testid="selected-variant">{draft.selectedVariant ?? ""}</div>
       <textarea
         aria-label="Composer"
         onChange={(event) => {
@@ -64,6 +136,12 @@ function ComposerDraftHarness({ defaultAgent = "draft", prefilledPrompt = "", se
       />
       <button onClick={() => draft.setSelectedAgent("review")} type="button">
         Set review
+      </button>
+      <button onClick={() => draft.setSelectedModel({ modelID: "claude-sonnet", providerID: "anthropic" })} type="button">
+        Set Claude
+      </button>
+      <button onClick={() => draft.setSelectedVariant("high")} type="button">
+        Set high
       </button>
       <button onClick={() => void draft.addImages([new File(["image"], "diagram.png", { type: "image/png" })])} type="button">
         Add image
@@ -140,6 +218,25 @@ describe("useSessionComposerDraft", () => {
     await clearStoredSessionComposerDraft(sessionId);
   });
 
+  it("restores persisted model and variant after remount", async () => {
+    const sessionId = "session-model-persist";
+    const firstRender = render(<ComposerDraftHarness sessionId={sessionId} />);
+
+    await waitForRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Set Claude" }));
+    fireEvent.click(screen.getByRole("button", { name: "Set high" }));
+
+    firstRender.unmount();
+
+    render(<ComposerDraftHarness sessionId={sessionId} />);
+
+    await waitForRestore();
+    expect(screen.getByTestId("selected-model")).toHaveTextContent("anthropic/claude-sonnet");
+    expect(screen.getByTestId("selected-variant")).toHaveTextContent("high");
+
+    await clearStoredSessionComposerDraft(sessionId);
+  });
+
   it("keeps drafts isolated by session id", async () => {
     const view = render(<ComposerDraftHarness sessionId="session-a" />);
 
@@ -191,7 +288,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={clearSessionError}
         prefilledPrompt=""
@@ -210,7 +310,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={clearSessionError}
         prefilledPrompt=""
@@ -235,7 +338,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -259,7 +365,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -285,7 +394,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -312,7 +424,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -334,7 +449,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -353,6 +471,22 @@ describe("useSessionComposerDraft", () => {
     expect(getSubmittedFormData(commandFetcher).get("command")).toBe("review");
     expect(getSubmittedFormData(commandFetcher).get("arguments")).toBe("feature-branch");
     expect(getSubmittedFormData(commandFetcher).get("clearDraft")).toBe("1");
+    expect(getSubmittedFormData(commandFetcher).get("modelProviderID")).toBe("openai");
+    expect(getSubmittedFormData(commandFetcher).get("modelID")).toBe("gpt-5");
+  });
+
+  it("submits the selected model and variant with prompts", async () => {
+    renderSessionComposer({ defaultVariant: "high" });
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(promptFetcher.submit).toHaveBeenCalledTimes(1));
+    expect(getSubmittedFormData(promptFetcher).get("modelProviderID")).toBe("openai");
+    expect(getSubmittedFormData(promptFetcher).get("modelID")).toBe("gpt-5");
+    expect(getSubmittedFormData(promptFetcher).get("variant")).toBe("high");
   });
 
   it("clears the textarea immediately after a slash-command submit", async () => {
@@ -361,7 +495,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -384,7 +521,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -401,7 +541,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -419,7 +562,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={true}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -439,7 +585,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -468,7 +617,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -492,7 +644,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -516,7 +671,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -532,11 +690,44 @@ describe("useSessionComposerDraft", () => {
 
     fireEvent.click(modelButton);
     expect(modelButton).toHaveClass("bg-black", "text-white");
-    expect(screen.getByText("Model choices will land here in a follow-up change.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Use OpenAI GPT 5" })).toBeInTheDocument();
 
     fireEvent.click(modelButton);
     expect(modelButton).not.toHaveClass("bg-black");
-    expect(screen.queryByText("Model choices will land here in a follow-up change.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use OpenAI GPT 5" })).not.toBeInTheDocument();
+  });
+
+  it("cycles variants inline from the button", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    const variantButton = screen.getByRole("button", { name: "Cycle variant" });
+    expect(variantButton).toHaveTextContent("Auto");
+
+    fireEvent.click(variantButton);
+    expect(variantButton).toHaveTextContent("high");
+
+    fireEvent.click(variantButton);
+    expect(variantButton).toHaveTextContent("low");
+
+    fireEvent.click(variantButton);
+    expect(variantButton).toHaveTextContent("Auto");
+  });
+
+  it("lets provider sections collapse and expand in the model tray", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle model tray" }));
+    expect(screen.getByRole("button", { name: "Use OpenAI GPT 5" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle OpenAI models" }));
+    expect(screen.queryByRole("button", { name: "Use OpenAI GPT 5" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle OpenAI models" }));
+    expect(screen.getByRole("button", { name: "Use OpenAI GPT 5" })).toBeInTheDocument();
   });
 
   it("shows images in the default tray and closes it when all images are removed", async () => {
@@ -545,7 +736,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -576,7 +770,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -607,7 +804,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
@@ -626,7 +826,10 @@ describe("useSessionComposerDraft", () => {
         agents={["draft", "review"]}
         commands={DEFAULT_COMMANDS}
         defaultAgent="draft"
+        defaultModel={DEFAULT_MODEL}
+        defaultVariant={null}
         insertReferenceEvents={new EventTarget()}
+        providers={DEFAULT_PROVIDERS}
         isBusy={false}
         onClearSessionError={() => {}}
         prefilledPrompt=""
