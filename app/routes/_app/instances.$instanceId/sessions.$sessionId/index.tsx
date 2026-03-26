@@ -3,6 +3,7 @@ import { useOutletContext } from "react-router";
 
 import { MessageCard } from "~/components/session/message-card";
 import { PermissionCard } from "~/components/session/permission-card";
+import { QuestionCard } from "~/components/session/question-card";
 import { SessionRevertDock } from "~/components/session/session-revert-dock";
 import { TranscriptScrollableLayout } from "~/components/shell/transcript-scrollable-layout";
 import { cn } from "~/lib/cn";
@@ -14,6 +15,7 @@ import {
   useSessionInfo,
   useSessionMessages,
   useSessionPermissions,
+  useSessionQuestions,
   useSessionStatus,
 } from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-live";
 
@@ -38,6 +40,7 @@ export default function InstanceSessionTranscriptRoute() {
   const hasLoadedFullHistory = useHasLoadedFullHistory();
   const messages = useSessionMessages();
   const { pendingPermissions, replyPermission } = useSessionPermissions();
+  const { pendingQuestions, rejectQuestion, replyQuestion } = useSessionQuestions();
   const session = useSessionInfo();
   const status = useSessionStatus();
   const isLoadingFullHistory = hasRequestedFullHistory && !hasLoadedFullHistory;
@@ -47,7 +50,10 @@ export default function InstanceSessionTranscriptRoute() {
   );
   const isBusy = status.type !== "idle";
   const isEmpty = visibleMessages.length === 0;
-  const showCenteredEmptyState = isEmpty && !revertedMessages.length && pendingPermissions.length === 0;
+  const showCenteredEmptyState = isEmpty
+    && !revertedMessages.length
+    && pendingPermissions.length === 0
+    && pendingQuestions.length === 0;
   const emptyStateMessage = revertedMessages.length
     ? "All visible messages are currently reverted."
     : "No messages have been recorded for this session yet.";
@@ -147,6 +153,7 @@ export default function InstanceSessionTranscriptRoute() {
           {revertedMessages.length ? (
             <SessionRevertDock actionPath={actionPath} isSessionBusy={isBusy} messages={revertedMessages} />
           ) : null}
+          <QuestionCard onReject={rejectQuestion} onReply={replyQuestion} questions={pendingQuestions} />
           <PermissionCard messages={visibleMessages} onReply={replyPermission} permissions={pendingPermissions} />
         </section>
       </section>

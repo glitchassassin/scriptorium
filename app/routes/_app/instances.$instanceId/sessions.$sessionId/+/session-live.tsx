@@ -12,7 +12,11 @@ import {
 import { useRevalidator } from "react-router";
 
 import { useInstanceEvents } from "~/components/events/instance-events-provider";
-import { replyToOpencodePermissionRequest } from "~/lib/instances/opencode.client";
+import {
+  rejectOpencodeQuestionRequest,
+  replyToOpencodePermissionRequest,
+  replyToOpencodeQuestionRequest,
+} from "~/lib/instances/opencode.client";
 import {
   applyMessagePartDelta,
   mergeMessages,
@@ -24,6 +28,8 @@ import {
 import type {
   OpencodeMessageWithParts,
   OpencodePermissionRequest,
+  OpencodeQuestionAnswer,
+  OpencodeQuestionRequest,
   OpencodeSessionInfo,
   OpencodeSessionStatus,
 } from "~/lib/opencode/events";
@@ -36,6 +42,9 @@ const SESSION_EVENT_TYPES = [
   "message.part.removed",
   "permission.asked",
   "permission.replied",
+  "question.asked",
+  "question.replied",
+  "question.rejected",
   "session.updated",
   "session.status",
   "session.error",
@@ -44,6 +53,12 @@ const SESSION_EVENT_TYPES = [
 type SessionPermissionsContextValue = {
   pendingPermissions: OpencodePermissionRequest[];
   replyPermission: (requestId: string, reply: "once" | "always" | "reject") => Promise<void>;
+};
+
+type SessionQuestionsContextValue = {
+  pendingQuestions: OpencodeQuestionRequest[];
+  replyQuestion: (requestId: string, answers: OpencodeQuestionAnswer[]) => Promise<void>;
+  rejectQuestion: (requestId: string) => Promise<void>;
 };
 
 type SessionErrorContextValue = {
@@ -55,6 +70,7 @@ type SessionLiveProviderProps = {
   children: ReactNode;
   initialMessages: OpencodeMessageWithParts[];
   initialPermissions: OpencodePermissionRequest[];
+  initialQuestions: OpencodeQuestionRequest[];
   initialSession: OpencodeSessionInfo;
   initialStatus: OpencodeSessionStatus;
   instanceId: string;
@@ -63,6 +79,7 @@ type SessionLiveProviderProps = {
 
 const SessionMessagesContext = createContext<OpencodeMessageWithParts[] | null>(null);
 const SessionPermissionsContext = createContext<SessionPermissionsContextValue | null>(null);
+const SessionQuestionsContext = createContext<SessionQuestionsContextValue | null>(null);
 const SessionInfoContext = createContext<OpencodeSessionInfo | null>(null);
 const SessionStatusContext = createContext<OpencodeSessionStatus | null>(null);
 const SessionErrorContext = createContext<SessionErrorContextValue | null>(null);
@@ -82,6 +99,7 @@ export function SessionLiveProvider({
   children,
   initialMessages,
   initialPermissions,
+  initialQuestions,
   initialSession,
   initialStatus,
   instanceId,
@@ -89,6 +107,7 @@ export function SessionLiveProvider({
 }: SessionLiveProviderProps) {
   const [messages, setMessages] = useState<OpencodeMessageWithParts[]>(initialMessages);
   const [pendingPermissions, setPendingPermissions] = useState<OpencodePermissionRequest[]>(initialPermissions);
+  const [pendingQuestions, setPendingQuestions] = useState<OpencodeQuestionRequest[]>(initialQuestions);
   const [session, setSession] = useState<OpencodeSessionInfo>(initialSession);
   const [status, setStatus] = useState<OpencodeSessionStatus>(initialStatus);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -100,6 +119,7 @@ export function SessionLiveProvider({
     if (sessionIdRef.current === initialSession.id) {
       setMessages((current) => mergeMessages(current, initialMessages));
       setPendingPermissions(initialPermissions);
+      setPendingQuestions(initialQuestions);
       setSession(initialSession);
       setStatus(initialStatus);
       setHasLoadedFullHistory((current) => current || loadedFullHistory);
@@ -109,11 +129,12 @@ export function SessionLiveProvider({
     sessionIdRef.current = initialSession.id;
     setMessages(initialMessages);
     setPendingPermissions(initialPermissions);
+    setPendingQuestions(initialQuestions);
     setSession(initialSession);
     setStatus(initialStatus);
     setSessionError(null);
     setHasLoadedFullHistory(loadedFullHistory);
-  }, [initialMessages, initialPermissions, initialSession, initialStatus, loadedFullHistory]);
+  }, [initialMessages, initialPermissions, initialQuestions, initialSession, initialStatus, loadedFullHistory]);
 
   const clearSessionError = useCallback(() => {
     setSessionError(null);
@@ -125,6 +146,32 @@ export function SessionLiveProvider({
 
       try {
         await replyToOpencodePermissionRequest(instanceId, requestId, reply);
+      } catch {
+        revalidator.revalidate();
+      }
+    },
+    [instanceId, revalidator],
+  );
+
+  const replyQuestion = useCallback<SessionQuestionsContextValue["replyQuestion"]>(
+    async (requestId, answers) => {
+      setPendingQuestions((current) => current.filter((question) => question.id !== requestId));
+
+      try {
+        await replyToOpencodeQuestionRequest(instanceId, requestId, answers);
+      } catch {
+        revalidator.revalidate();
+      }
+    },
+    [instanceId, revalidator],
+  );
+
+  const rejectQuestion = useCallback<SessionQuestionsContextValue["rejectQuestion"]>(
+    async (requestId) => {
+      setPendingQuestions((current) => current.filter((question) => question.id !== requestId));
+
+      try {
+        await rejectOpencodeQuestionRequest(instanceId, requestId);
       } catch {
         revalidator.revalidate();
       }
@@ -201,6 +248,25 @@ export function SessionLiveProvider({
           return;
         }
 
+        case "question.asked": {
+          setPendingQuestions((current) =>
+            current.some((question) => question.id === event.properties.id)
+              ? current.map((question) =>
+                  question.id === event.properties.id ? event.properties : question,
+                )
+              : [...current, event.properties],
+          );
+          return;
+        }
+
+        case "question.replied":
+        case "question.rejected": {
+          setPendingQuestions((current) =>
+            current.filter((question) => question.id !== event.properties.requestID),
+          );
+          return;
+        }
+
         default:
           return;
       }
@@ -212,6 +278,10 @@ export function SessionLiveProvider({
     () => ({ pendingPermissions, replyPermission }),
     [pendingPermissions, replyPermission],
   );
+  const questionsValue = useMemo<SessionQuestionsContextValue>(
+    () => ({ pendingQuestions, rejectQuestion, replyQuestion }),
+    [pendingQuestions, rejectQuestion, replyQuestion],
+  );
   const errorValue = useMemo<SessionErrorContextValue>(
     () => ({ clearSessionError, sessionError }),
     [clearSessionError, sessionError],
@@ -222,9 +292,11 @@ export function SessionLiveProvider({
       <SessionStatusContext.Provider value={status}>
         <SessionHistoryContext.Provider value={hasLoadedFullHistory}>
           <SessionErrorContext.Provider value={errorValue}>
-            <SessionPermissionsContext.Provider value={permissionsValue}>
-              <SessionMessagesContext.Provider value={messages}>{children}</SessionMessagesContext.Provider>
-            </SessionPermissionsContext.Provider>
+            <SessionQuestionsContext.Provider value={questionsValue}>
+              <SessionPermissionsContext.Provider value={permissionsValue}>
+                <SessionMessagesContext.Provider value={messages}>{children}</SessionMessagesContext.Provider>
+              </SessionPermissionsContext.Provider>
+            </SessionQuestionsContext.Provider>
           </SessionErrorContext.Provider>
         </SessionHistoryContext.Provider>
       </SessionStatusContext.Provider>
@@ -242,6 +314,10 @@ export function useSessionPermissions() {
 
 export function useSessionInfo() {
   return useRequiredContext(SessionInfoContext, "useSessionInfo");
+}
+
+export function useSessionQuestions() {
+  return useRequiredContext(SessionQuestionsContext, "useSessionQuestions");
 }
 
 export function useSessionStatus() {

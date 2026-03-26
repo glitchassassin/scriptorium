@@ -192,6 +192,58 @@ describe("useInstanceEvents", () => {
     });
   });
 
+  it("routes question events by session", () => {
+    const onEvent = vi.fn<
+      (event: FilteredInstanceEvent<readonly ["question.asked", "question.rejected"]>) => void
+    >();
+
+    render(
+      <InstanceEventsProvider instanceIds={["alpha"]}>
+        <TestSubscriber
+          filter={{
+            instanceId: "alpha",
+            sessionId: "session-1",
+            types: ["question.asked", "question.rejected"] as const,
+          }}
+          onEvent={onEvent}
+        />
+      </InstanceEventsProvider>,
+    );
+
+    emitInstanceEvent("alpha", {
+      type: "question.asked",
+      properties: {
+        id: "question-1",
+        sessionID: "session-2",
+        questions: [
+          {
+            question: "What next?",
+            header: "Next",
+            options: [{ label: "Test", description: "Run tests" }],
+          },
+        ],
+      },
+    });
+
+    emitInstanceEvent("alpha", {
+      type: "question.rejected",
+      properties: {
+        sessionID: "session-1",
+        requestID: "question-1",
+      },
+    });
+
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(onEvent).toHaveBeenCalledWith({
+      instanceId: "alpha",
+      type: "question.rejected",
+      properties: {
+        sessionID: "session-1",
+        requestID: "question-1",
+      },
+    });
+  });
+
   it("warns for unknown event types and errors for invalid known events", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

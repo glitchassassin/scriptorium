@@ -6,6 +6,9 @@ import type { InstanceRecord } from "~/lib/instances/types";
 import {
   forkOpencodeSession,
   getOpencodeProviderCatalog,
+  listOpencodeQuestionRequests,
+  rejectOpencodeQuestionRequest,
+  replyToOpencodeQuestionRequest,
   revertOpencodeSession,
   submitOpencodeCommand,
   submitOpencodePrompt,
@@ -174,6 +177,70 @@ describe("getOpencodeProviderCatalog", () => {
       default: {},
       providers: [],
     });
+  });
+});
+
+describe("question requests", () => {
+  it("loads and filters pending questions by session", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify([
+      {
+        id: "question-1",
+        sessionID: "session-1",
+        questions: [
+          {
+            question: "What next?",
+            header: "Next",
+            options: [{ label: "Tests", description: "Run tests" }],
+          },
+        ],
+      },
+      {
+        id: "question-2",
+        sessionID: "session-2",
+        questions: [
+          {
+            question: "Ship it?",
+            header: "Ship",
+            options: [{ label: "Yes", description: "Deploy" }],
+          },
+        ],
+      },
+    ])));
+
+    await expect(listOpencodeQuestionRequests(instance, "session-1")).resolves.toEqual([
+      {
+        id: "question-1",
+        sessionID: "session-1",
+        questions: [
+          {
+            question: "What next?",
+            header: "Next",
+            options: [{ label: "Tests", description: "Run tests" }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("posts answers and rejections to the question endpoints", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(true)));
+
+    await replyToOpencodeQuestionRequest(instance, "question-1", [["Tests"], ["High"]]);
+    await rejectOpencodeQuestionRequest(instance, "question-1");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `http://127.0.0.1:${instance.port}/question/question-1/reply`,
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ answers: [["Tests"], ["High"]] }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `http://127.0.0.1:${instance.port}/question/question-1/reject`,
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 });
 

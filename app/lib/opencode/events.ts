@@ -69,6 +69,33 @@ export const opencodePermissionRequestSchema = z.object({
     .optional(),
 });
 
+export const opencodeQuestionOptionSchema = z.object({
+  label: z.string(),
+  description: z.string(),
+});
+
+export const opencodeQuestionInfoSchema = z.object({
+  question: z.string(),
+  header: z.string(),
+  options: z.array(opencodeQuestionOptionSchema),
+  multiple: z.boolean().optional(),
+  custom: z.boolean().optional(),
+});
+
+export const opencodeQuestionAnswerSchema = z.array(z.string());
+
+export const opencodeQuestionRequestSchema = z.object({
+  id: z.string(),
+  sessionID: z.string(),
+  questions: z.array(opencodeQuestionInfoSchema),
+  tool: z
+    .object({
+      messageID: z.string(),
+      callID: z.string(),
+    })
+    .optional(),
+});
+
 const opencodeModelRefSchema = z.object({
   providerID: z.string(),
   modelID: z.string(),
@@ -520,6 +547,28 @@ export const opencodePermissionRepliedEventSchema = z.object({
   }),
 });
 
+export const opencodeQuestionAskedEventSchema = z.object({
+  type: z.literal("question.asked"),
+  properties: opencodeQuestionRequestSchema,
+});
+
+export const opencodeQuestionRepliedEventSchema = z.object({
+  type: z.literal("question.replied"),
+  properties: z.object({
+    sessionID: z.string(),
+    requestID: z.string(),
+    answers: z.array(opencodeQuestionAnswerSchema),
+  }),
+});
+
+export const opencodeQuestionRejectedEventSchema = z.object({
+  type: z.literal("question.rejected"),
+  properties: z.object({
+    sessionID: z.string(),
+    requestID: z.string(),
+  }),
+});
+
 export const opencodeSessionMutationEventSchema = z.union([
   opencodeSessionCreatedEventSchema,
   opencodeSessionUpdatedEventSchema,
@@ -540,6 +589,9 @@ export const opencodeKnownEventSchema = z.union([
   opencodeMessagePartRemovedEventSchema,
   opencodePermissionAskedEventSchema,
   opencodePermissionRepliedEventSchema,
+  opencodeQuestionAskedEventSchema,
+  opencodeQuestionRepliedEventSchema,
+  opencodeQuestionRejectedEventSchema,
 ]);
 
 export const opencodeEventEnvelopeSchema = z.object({
@@ -563,6 +615,9 @@ const opencodeEventSchemas = {
   "message.part.removed": opencodeMessagePartRemovedEventSchema,
   "permission.asked": opencodePermissionAskedEventSchema,
   "permission.replied": opencodePermissionRepliedEventSchema,
+  "question.asked": opencodeQuestionAskedEventSchema,
+  "question.replied": opencodeQuestionRepliedEventSchema,
+  "question.rejected": opencodeQuestionRejectedEventSchema,
 } satisfies Record<string, ZodType>;
 
 export type OpencodeKnownEventType = keyof typeof opencodeEventSchemas;
@@ -646,6 +701,10 @@ export type OpencodeMessagePart = z.infer<typeof opencodeMessagePartSchema>;
 export type OpencodeMessageWithParts = z.infer<typeof opencodeMessageWithPartsSchema>;
 export type OpencodePatchPart = z.infer<typeof opencodePatchPartSchema>;
 export type OpencodePermissionRequest = z.infer<typeof opencodePermissionRequestSchema>;
+export type OpencodeQuestionAnswer = z.infer<typeof opencodeQuestionAnswerSchema>;
+export type OpencodeQuestionInfo = z.infer<typeof opencodeQuestionInfoSchema>;
+export type OpencodeQuestionOption = z.infer<typeof opencodeQuestionOptionSchema>;
+export type OpencodeQuestionRequest = z.infer<typeof opencodeQuestionRequestSchema>;
 export type OpencodeReasoningPart = z.infer<typeof opencodeReasoningPartSchema>;
 export type OpencodeRetryPart = z.infer<typeof opencodeRetryPartSchema>;
 export type OpencodeSessionInfo = z.infer<typeof opencodeSessionInfoSchema>;

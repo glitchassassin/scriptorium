@@ -240,7 +240,8 @@ export function SessionsProvider({ children, initialSessions }: { children: Reac
       }
       case "message.part.delta":
       case "message.part.removed":
-      case "permission.asked": {
+      case "permission.asked":
+      case "question.asked": {
         const updatedAt = getEventActivityAt(event);
         dispatch({
           type: "update",
@@ -280,13 +281,14 @@ export function SessionsProvider({ children, initialSessions }: { children: Reac
       "session.updated",
       "session.deleted",
       "message.updated",
-      "message.part.updated",
-      "message.part.delta",
-      "message.part.removed",
-      "permission.asked",
-      "session.error",
-    ] as const,
-  });
+        "message.part.updated",
+        "message.part.delta",
+        "message.part.removed",
+        "permission.asked",
+        "question.asked",
+        "session.error",
+      ] as const,
+    });
 
   return (
     <SessionsActionsContext.Provider value={actionsValue}>

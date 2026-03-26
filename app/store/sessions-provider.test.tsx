@@ -206,6 +206,47 @@ describe("SessionsProvider", () => {
     });
   });
 
+  it("treats question requests as unread session activity", () => {
+    let onInstanceEvent: ((event: any) => void) | null = null;
+
+    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onInstanceEvent = handler;
+    });
+    useReadStatusEventsMock.mockImplementation(() => {});
+
+    render(
+      <SessionsProvider initialSessions={initialSessions}>
+        <TestConsumer />
+      </SessionsProvider>,
+    );
+
+    if (!onInstanceEvent) {
+      throw new Error("Missing instance event handler");
+    }
+
+    const instanceEventHandler: (event: any) => void = onInstanceEvent;
+
+    act(() => {
+      instanceEventHandler({
+        type: "question.asked",
+        instanceId: "instance-1",
+        properties: {
+          id: "question-1",
+          sessionID: "session-1",
+          questions: [
+            {
+              question: "What next?",
+              header: "Next",
+              options: [{ label: "Tests", description: "Run tests" }],
+            },
+          ],
+        },
+      });
+    });
+
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
+  });
+
   it("marks sessions read optimistically before SSE confirmation", () => {
     useInstanceEventsMock.mockImplementation(() => {});
     useReadStatusEventsMock.mockImplementation(() => {});

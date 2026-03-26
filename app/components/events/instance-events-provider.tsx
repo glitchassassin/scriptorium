@@ -98,6 +98,11 @@ function getEventSessionId(event: InstanceEvent) {
       return event.properties.sessionID;
     case "permission.replied":
       return event.properties.sessionID ?? null;
+    case "question.asked":
+      return event.properties.sessionID;
+    case "question.replied":
+    case "question.rejected":
+      return event.properties.sessionID;
     default:
       return null;
   }

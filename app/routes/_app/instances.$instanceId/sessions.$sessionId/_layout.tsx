@@ -12,9 +12,10 @@ import {
   getOpencodeProviderCatalog,
   listOpencodeAgents,
   listOpencodeCommands,
-  listOpencodeMessages,
-  listOpencodePermissionRequests,
-  revertOpencodeSession,
+    listOpencodeMessages,
+    listOpencodePermissionRequests,
+    listOpencodeQuestionRequests,
+    revertOpencodeSession,
   submitOpencodeCommand,
   submitOpencodePrompt,
   unrevertOpencodeSession,
@@ -85,7 +86,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     timings,
     type: "instance",
   });
-  const [messages, permissions, session, statuses, agents, commands, providerCatalog] = await Promise.all([
+  const [messages, permissions, questions, session, statuses, agents, commands, providerCatalog] = await Promise.all([
     time(() => listOpencodeMessages(instance, sessionId, shouldLoadFullHistory ? undefined : 50), {
       desc: shouldLoadFullHistory ? "list full session history" : "list recent session history",
       timings,
@@ -95,6 +96,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       desc: "list permission requests",
       timings,
       type: "permissions",
+    }),
+    time(() => listOpencodeQuestionRequests(instance, sessionId), {
+      desc: "list question requests",
+      timings,
+      type: "questions",
     }),
     time(() => getOpencodeSession(instance, sessionId), {
       desc: "get session",
@@ -127,6 +133,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     {
       initialMessages: messages,
       initialPermissions: permissions,
+      initialQuestions: questions,
       initialStatus: statuses[sessionId] ?? { type: "idle" },
       initialAgents: agents,
       initialCommands: commands,
@@ -346,6 +353,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
     initialCommands,
     initialMessages,
     initialPermissions,
+    initialQuestions,
     initialProviderDefaults,
     initialProviders,
     initialStatus,
@@ -399,6 +407,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
     <SessionLiveProvider
       initialMessages={initialMessages}
       initialPermissions={initialPermissions}
+      initialQuestions={initialQuestions}
       initialSession={session}
       initialStatus={initialStatus}
       instanceId={instance.id}

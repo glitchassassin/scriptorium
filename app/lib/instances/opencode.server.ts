@@ -3,6 +3,7 @@ import {
   opencodeCommandInputSchema,
   opencodeCommandInfoSchema,
   opencodePermissionRequestSchema,
+  opencodeQuestionRequestSchema,
   opencodeAgentSchema,
   opencodeProviderCatalogSchema,
   opencodePromptInputSchema,
@@ -25,6 +26,8 @@ import type {
   OpencodePromptInput,
   OpencodeProviderCatalog,
   OpencodePermissionRequest,
+  OpencodeQuestionAnswer,
+  OpencodeQuestionRequest,
   OpencodeSessionInfo,
 } from "~/lib/opencode/events";
 
@@ -105,6 +108,19 @@ export async function listOpencodePermissionRequests(instance: InstanceRecord, s
   }
 
   return permissions.filter((permission) => permission.sessionID === sessionId);
+}
+
+export async function listOpencodeQuestionRequests(instance: InstanceRecord, sessionId?: string) {
+  const payload = await readJson(await fetch(`${getInstanceBaseUrl(instance)}/question`));
+  const questions = parseOrThrow(
+    opencodeQuestionRequestSchema.array().safeParse(payload),
+  ) satisfies OpencodeQuestionRequest[];
+
+  if (!sessionId) {
+    return questions;
+  }
+
+  return questions.filter((question) => question.sessionID === sessionId);
 }
 
 export async function listOpencodeAgents(instance: InstanceRecord) {
@@ -249,4 +265,32 @@ export async function forkOpencodeSession(instance: InstanceRecord, sessionId: s
   });
 
   return parseOrThrow(opencodeSessionInfoSchema.safeParse(await readJson(response))) satisfies OpencodeSessionInfo;
+}
+
+export async function replyToOpencodeQuestionRequest(
+  instance: InstanceRecord,
+  requestId: string,
+  answers: OpencodeQuestionAnswer[],
+) {
+  const response = await fetch(`${getInstanceBaseUrl(instance)}/question/${requestId}/reply`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ answers }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Question reply failed with ${response.status}`);
+  }
+}
+
+export async function rejectOpencodeQuestionRequest(instance: InstanceRecord, requestId: string) {
+  const response = await fetch(`${getInstanceBaseUrl(instance)}/question/${requestId}/reject`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Question reject failed with ${response.status}`);
+  }
 }

@@ -56,6 +56,73 @@ describe("parseOpencodeEvent", () => {
     expect(result.data.properties.requestID).toBe("permission-1");
   });
 
+  it("parses question asked events", () => {
+    const result = parseOpencodeEvent({
+      type: "question.asked",
+      properties: {
+        id: "question-1",
+        sessionID: "session-1",
+        questions: [
+          {
+            question: "What should I run?",
+            header: "Action",
+            options: [
+              { label: "Tests", description: "Run tests" },
+              { label: "Build", description: "Run build" },
+            ],
+            multiple: true,
+          },
+        ],
+        tool: {
+          messageID: "message-1",
+          callID: "call-1",
+        },
+      },
+    });
+
+    expect(result.kind).toBe("known");
+    if (result.kind !== "known") {
+      return;
+    }
+
+    expect(result.data.type).toBe("question.asked");
+    if (result.data.type !== "question.asked") {
+      return;
+    }
+
+    expect(result.data.properties.questions[0]?.header).toBe("Action");
+    expect(result.data.properties.questions[0]?.multiple).toBe(true);
+    expect(result.data.properties.tool?.callID).toBe("call-1");
+  });
+
+  it("parses question replied and rejected events", () => {
+    const replied = parseOpencodeEvent({
+      type: "question.replied",
+      properties: {
+        sessionID: "session-1",
+        requestID: "question-1",
+        answers: [["Tests"]],
+      },
+    });
+    const rejected = parseOpencodeEvent({
+      type: "question.rejected",
+      properties: {
+        sessionID: "session-1",
+        requestID: "question-1",
+      },
+    });
+
+    expect(replied.kind).toBe("known");
+    if (replied.kind === "known" && replied.data.type === "question.replied") {
+      expect(replied.data.properties.answers).toEqual([["Tests"]]);
+    }
+
+    expect(rejected.kind).toBe("known");
+    if (rejected.kind === "known" && rejected.data.type === "question.rejected") {
+      expect(rejected.data.properties.requestID).toBe("question-1");
+    }
+  });
+
   it("parses session diff events", () => {
     const result = parseOpencodeEvent({
       type: "session.diff",
