@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { OpencodeMessagePart } from "~/lib/opencode/events";
 
 import { MessagePartAgent } from "./message-part-agent";
@@ -16,7 +17,7 @@ type MessagePartViewProps = {
   role: "user" | "assistant";
 };
 
-export function MessagePartView({ part, role }: MessagePartViewProps) {
+export const MessagePartView = memo(function MessagePartView({ part, role }: MessagePartViewProps) {
   if (part.type === "text") {
     return <MessagePartText part={part} role={role} />;
   }
@@ -66,4 +67,4 @@ export function MessagePartView({ part, role }: MessagePartViewProps) {
   }
 
   return null;
-}
+});

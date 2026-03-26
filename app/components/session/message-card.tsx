@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { Form } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
@@ -11,23 +12,26 @@ type MessageCardProps = {
   isSessionBusy?: boolean;
 };
 
-export function MessageCard({ actionPath, message, isSessionBusy = false }: MessageCardProps) {
+export const MessageCard = memo(function MessageCard({ actionPath, message, isSessionBusy = false }: MessageCardProps) {
   const isUser = message.info.role === "user";
-  const visibleParts = message.parts.filter((part) => {
-    if (part.type === "text") {
-      return !part.ignored && !(isUser && part.synthetic);
-    }
+  const visibleParts = useMemo(
+    () => message.parts.filter((part) => {
+      if (part.type === "text") {
+        return !part.ignored && !(isUser && part.synthetic);
+      }
 
-    if (part.type === "reasoning") {
-      return true;
-    }
+      if (part.type === "reasoning") {
+        return true;
+      }
 
-    if (part.type === "file") {
-      return true;
-    }
+      if (part.type === "file") {
+        return true;
+      }
 
-    return !isUser;
-  });
+      return !isUser;
+    }),
+    [isUser, message.parts],
+  );
 
   if (visibleParts.length === 0 && !(message.info.role === "assistant" && message.info.error)) {
     return null;
@@ -81,4 +85,4 @@ export function MessageCard({ actionPath, message, isSessionBusy = false }: Mess
       </div>
     </article>
   );
-}
+});

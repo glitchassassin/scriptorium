@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router";
 
 import { MessageCard } from "~/components/session/message-card";
@@ -6,12 +6,21 @@ import { PermissionCard } from "~/components/session/permission-card";
 import { SessionRevertDock } from "~/components/session/session-revert-dock";
 import { TranscriptScrollableLayout } from "~/components/shell/transcript-scrollable-layout";
 import { cn } from "~/lib/cn";
+import type { OpencodeSessionStatus } from "~/lib/opencode/events";
 import { partitionMessagesByRevert } from "~/lib/opencode/message-helpers";
 import { useMarkSessionReadOptimistic, useSession, useUnreadStatusEvents } from "~/store/sessions-provider";
+import {
+  useHasLoadedFullHistory,
+  useSessionInfo,
+  useSessionMessages,
+  useSessionPermissions,
+  useSessionStatus,
+} from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-live";
 
+import type { Route } from "./+types/index";
 import { type SessionRouteContext } from "./+/session-route";
 
-function statusDescription(status: SessionRouteContext["status"]) {
+function statusDescription(status: OpencodeSessionStatus) {
   if (status.type !== "retry") {
     return null;
   }
@@ -21,18 +30,21 @@ function statusDescription(status: SessionRouteContext["status"]) {
 
 export default function InstanceSessionTranscriptRoute() {
   const {
-    hasLoadedFullHistory,
+    actionPath,
     instance,
-    isLoadingFullHistory,
+    isLoadingFullHistory: hasRequestedFullHistory,
     loadFullHistory,
-    messages,
-    pendingPermissions,
-    replyPermission,
-    session,
-    status,
   } = useOutletContext<SessionRouteContext>();
-  const actionPath = `/instances/${instance.id}/sessions/${session.id}`;
-  const { revertedMessages, visibleMessages } = partitionMessagesByRevert(messages, session.revert);
+  const hasLoadedFullHistory = useHasLoadedFullHistory();
+  const messages = useSessionMessages();
+  const { pendingPermissions, replyPermission } = useSessionPermissions();
+  const session = useSessionInfo();
+  const status = useSessionStatus();
+  const isLoadingFullHistory = hasRequestedFullHistory && !hasLoadedFullHistory;
+  const { revertedMessages, visibleMessages } = useMemo(
+    () => partitionMessagesByRevert(messages, session.revert),
+    [messages, session.revert],
+  );
   const isBusy = status.type !== "idle";
   const isEmpty = visibleMessages.length === 0;
   const showCenteredEmptyState = isEmpty && !revertedMessages.length && pendingPermissions.length === 0;
@@ -51,6 +63,13 @@ export default function InstanceSessionTranscriptRoute() {
   const updatedAt = sessionState?.updatedAt ?? session.time.updated ?? session.time.created ?? 0;
   const lastReadAt = sessionState?.lastReadAt ?? null;
   const needsAck = updatedAt > 0 && (lastReadAt === null || updatedAt > lastReadAt);
+  const handleLoadFullHistory = useCallback(() => {
+    if (hasLoadedFullHistory || isLoadingFullHistory) {
+      return;
+    }
+
+    loadFullHistory();
+  }, [hasLoadedFullHistory, isLoadingFullHistory, loadFullHistory]);
 
   const submitAck = useCallback((activityAt: number) => {
     if ((lastAckedAtRef.current ?? 0) >= activityAt) {
@@ -114,7 +133,7 @@ export default function InstanceSessionTranscriptRoute() {
 
   return (
     <TranscriptScrollableLayout
-      onReachTop={loadFullHistory}
+      onReachTop={handleLoadFullHistory}
       scrollContextKey={`transcript:${session.id}`}
     >
       <section className="flex min-h-full flex-1 flex-col gap-6 pr-1">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Form, Link, redirect } from "react-router";
+import { data, Form, Link, redirect } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
@@ -15,6 +15,7 @@ import type { OpencodeSessionSummary } from "~/lib/instances/types";
 import { opencodeSessionMutationEventSchema } from "~/lib/opencode/events";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 
 import { getInstanceBreadcrumbs } from "./+/instance-route";
 
@@ -25,28 +26,64 @@ export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHa
 });
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  await requireAuthenticatedPasskey(request);
+  const timings = makeTimings("instance loader");
 
-  const instance = await getInstanceOrThrow(params.instanceId);
-  const git = getGitStatusSummary(instance.directory);
+  await time(() => requireAuthenticatedPasskey(request), {
+    desc: "require authenticated passkey",
+    timings,
+    type: "auth",
+  });
+
+  const instance = await time(() => getInstanceOrThrow(params.instanceId), {
+    desc: "get instance",
+    timings,
+    type: "instance",
+  });
+  const git = await time(() => getGitStatusSummary(instance.directory), {
+    desc: "get git summary",
+    timings,
+    type: "git",
+  });
 
   try {
-    const sessions = await listOpencodeSessions(instance);
+    const sessions = await time(() => listOpencodeSessions(instance), {
+      desc: "list recent sessions",
+      timings,
+      type: "sessions",
+    });
 
-    return {
-      git,
-      instance,
-      recentSessions: sessions,
-      sessionError: null,
-    };
+    return data(
+      {
+        git,
+        instance,
+        recentSessions: sessions,
+        sessionError: null,
+      },
+      {
+        headers: {
+          "Server-Timing": timings.toString(),
+        },
+      },
+    );
   } catch (error) {
-    return {
-      git,
-      instance,
-      recentSessions: [],
-      sessionError: error instanceof Error ? error.message : "Failed to load sessions.",
-    };
+    return data(
+      {
+        git,
+        instance,
+        recentSessions: [],
+        sessionError: error instanceof Error ? error.message : "Failed to load sessions.",
+      },
+      {
+        headers: {
+          "Server-Timing": timings.toString(),
+        },
+      },
+    );
   }
+}
+
+export function headers(args: Route.HeadersArgs) {
+  return getServerTimingHeaders(args);
 }
 
 export async function action({ params, request }: Route.ActionArgs) {

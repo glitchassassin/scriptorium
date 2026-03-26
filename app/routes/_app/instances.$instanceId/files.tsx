@@ -2,6 +2,7 @@ import { FilesBrowser } from "~/components/workspace/files-browser";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getServerTimingHeaders } from "~/lib/server-timing.server";
 
 import { getInstanceBreadcrumbs } from "./+/instance-route";
 import { loadInstanceFilesRouteData } from "./files.server";
@@ -19,6 +20,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const instanceId = params.instanceId;
 
   return loadInstanceFilesRouteData({ instanceId, request });
+}
+
+export function headers(args: Route.HeadersArgs) {
+  return getServerTimingHeaders(args);
 }
 
 export default function InstanceFilesRoute({ loaderData, matches }: Route.ComponentProps) {

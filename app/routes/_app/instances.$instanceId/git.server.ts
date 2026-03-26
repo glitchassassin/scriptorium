@@ -1,6 +1,9 @@
+import { data } from "react-router";
+
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { getGitChangedFiles, getGitFileDiff, getGitStatusSummary } from "~/lib/instances/git.server";
 import { getInstanceOrThrow } from "~/lib/instances/runtime.server";
+import { makeTimings, time } from "~/lib/server-timing.server";
 
 export async function loadInstanceGitRouteData({
   instanceId,
@@ -9,11 +12,29 @@ export async function loadInstanceGitRouteData({
   instanceId: string;
   request: Request;
 }) {
-  await requireAuthenticatedPasskey(request);
+  const timings = makeTimings("git loader");
 
-  const instance = await getInstanceOrThrow(instanceId);
-  const git = getGitStatusSummary(instance.directory);
-  const changed = getGitChangedFiles(instance.directory);
+  await time(() => requireAuthenticatedPasskey(request), {
+    desc: "require authenticated passkey",
+    timings,
+    type: "auth",
+  });
+
+  const instance = await time(() => getInstanceOrThrow(instanceId), {
+    desc: "get instance",
+    timings,
+    type: "instance",
+  });
+  const git = await time(() => getGitStatusSummary(instance.directory), {
+    desc: "get git summary",
+    timings,
+    type: "git summary",
+  });
+  const changed = await time(() => getGitChangedFiles(instance.directory), {
+    desc: "get changed files",
+    timings,
+    type: "changed files",
+  });
   const url = new URL(request.url);
   const path = url.searchParams.get("path");
 
@@ -22,19 +43,30 @@ export async function loadInstanceGitRouteData({
 
   if (path && changed.isRepository) {
     try {
-      const result = getGitFileDiff(instance.directory, path);
+      const result = await time(() => getGitFileDiff(instance.directory, path), {
+        desc: "get selected diff",
+        timings,
+        type: "selected diff",
+      });
       selected = result.isRepository ? result : null;
     } catch (error) {
       selectedError = error instanceof Response ? await error.text() : "Failed to load file diff.";
     }
   }
 
-  return {
-    changed,
-    git,
-    instance,
-    selected,
-    selectedError,
-    selectedPath: path,
-  };
+  return data(
+    {
+      changed,
+      git,
+      instance,
+      selected,
+      selectedError,
+      selectedPath: path,
+    },
+    {
+      headers: {
+        "Server-Timing": timings.toString(),
+      },
+    },
+  );
 }

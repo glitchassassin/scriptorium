@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { OpencodeTextPart } from "~/lib/opencode/events";
 
 import { MessageMarkdown } from "~/components/session/message-markdown";
@@ -7,7 +8,7 @@ type MessagePartTextProps = {
   role?: "user" | "assistant";
 };
 
-export function MessagePartText({ part, role }: MessagePartTextProps) {
+export const MessagePartText = memo(function MessagePartText({ part, role }: MessagePartTextProps) {
   if (part.ignored || (role === "user" && part.synthetic)) {
     return null;
   }
@@ -17,4 +18,4 @@ export function MessagePartText({ part, role }: MessagePartTextProps) {
   }
 
   return <p className="whitespace-pre-wrap break-words text-base leading-7">{part.text}</p>;
-}
+});

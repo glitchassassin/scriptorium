@@ -4,6 +4,8 @@ import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { FilesBrowser } from "~/components/workspace/files-browser";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getServerTimingHeaders } from "~/lib/server-timing.server";
+import { useSessionInfo } from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-live";
 import { loadInstanceFilesRouteData } from "~/routes/_app/instances.$instanceId/files.server";
 
 import { getSessionBreadcrumbs, getSessionName, type SessionRouteContext } from "./+/session-route";
@@ -32,9 +34,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return loadInstanceFilesRouteData({ instanceId, request });
 }
 
+export function headers(args: Route.HeadersArgs) {
+  return getServerTimingHeaders(args);
+}
+
 export default function SessionFilesRoute({ loaderData, matches }: Route.ComponentProps) {
-  const { insertComposerReference, session } = useOutletContext<SessionRouteContext>();
+  const { insertComposerReference } = useOutletContext<SessionRouteContext>();
   const { instance, listing, selected, selectedError, selectedPath } = loaderData;
+  const session = useSessionInfo();
 
   return (
     <>

@@ -4,6 +4,8 @@ import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { GitBrowser } from "~/components/workspace/git-browser";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getServerTimingHeaders } from "~/lib/server-timing.server";
+import { useSessionInfo } from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-live";
 import { loadInstanceGitRouteData } from "~/routes/_app/instances.$instanceId/git.server";
 
 import { getSessionBreadcrumbs, getSessionName, type SessionRouteContext } from "./+/session-route";
@@ -32,9 +34,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return loadInstanceGitRouteData({ instanceId, request });
 }
 
+export function headers(args: Route.HeadersArgs) {
+  return getServerTimingHeaders(args);
+}
+
 export default function SessionGitRoute({ loaderData, matches }: Route.ComponentProps) {
-  const { insertComposerReference, session } = useOutletContext<SessionRouteContext>();
+  const { insertComposerReference } = useOutletContext<SessionRouteContext>();
   const { changed, git, instance, selected, selectedError, selectedPath } = loaderData;
+  const session = useSessionInfo();
 
   return (
     <>

@@ -1,24 +1,13 @@
-import type {
-  OpencodeMessageWithParts,
-  OpencodePermissionRequest,
-  OpencodeSessionInfo,
-  OpencodeSessionStatus,
-} from "~/lib/opencode/events";
 import type { InstanceRecord } from "~/lib/instances/types";
 import type { RouteBreadcrumb, RouteHandleIconAction } from "~/lib/route-handle";
 
 export type SessionRouteContext = {
-  hasLoadedFullHistory: boolean;
+  actionPath: string;
   instance: InstanceRecord;
   isLoadingFullHistory: boolean;
   insertComposerReference: (reference: string) => void;
   loadFullHistory: () => void;
-  messages: OpencodeMessageWithParts[];
-  pendingPermissions: OpencodePermissionRequest[];
-  replyPermission: (requestId: string, reply: "once" | "always" | "reject") => Promise<void>;
-  session: OpencodeSessionInfo;
-  sessionError: string | null;
-  status: OpencodeSessionStatus;
+  sessionId: string;
 };
 
 export function getSessionName(session?: { title?: string | null; id?: string | null }) {

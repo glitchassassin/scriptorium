@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { data, Outlet, redirect, useLocation, useNavigate, useRevalidator, useSearchParams } from "react-router";
+import { useCallback, useMemo } from "react";
+import { data, Outlet, redirect, useLocation, useNavigate, useSearchParams } from "react-router";
 
-import { useInstanceEvents } from "~/components/events/instance-events-provider";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
@@ -20,34 +19,28 @@ import {
   submitOpencodePrompt,
   unrevertOpencodeSession,
 } from "~/lib/instances/opencode.server";
-import { replyToOpencodePermissionRequest } from "~/lib/instances/opencode.client";
 import { parseSlashCommand } from "~/lib/opencode/commands";
 import { getInstanceOrThrow } from "~/lib/instances/runtime.server";
 import { getUserMessageText } from "~/lib/opencode/message-helpers";
-import {
-  applyMessagePartDelta,
-  mergeMessages,
-  removeMessage,
-  removeMessagePart,
-  upsertMessage,
-  upsertMessagePart,
-} from "~/lib/opencode/message-state";
 import type {
-  OpencodeMessageWithParts,
   OpencodeAgent,
   OpencodeCommandInfo,
   OpencodeModelRef,
-  OpencodePermissionRequest,
   OpencodeProvider,
-  OpencodeSessionInfo,
-  OpencodeSessionStatus,
 } from "~/lib/opencode/events";
 import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
 import { getInitialSessionModel, getInitialSessionVariant } from "~/lib/opencode/models";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 import { getNewSessionIconNavAction } from "~/routes/_app/instances.$instanceId/+/instance-route";
 import { SessionComposer } from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-composer";
+import {
+  SessionLiveProvider,
+  useSessionErrorState,
+  useSessionInfo,
+  useSessionStatus,
+} from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-live";
 
 import { getSessionBreadcrumbs, getSessionIconNavActions, getSessionName, type SessionRouteContext } from "./+/session-route";
 
@@ -75,35 +68,84 @@ export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHa
 });
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  await requireAuthenticatedPasskey(request);
+  const timings = makeTimings("session loader");
+
+  await time(() => requireAuthenticatedPasskey(request), {
+    desc: "require authenticated passkey",
+    timings,
+    type: "auth",
+  });
 
   const instanceId = params.instanceId;
   const sessionId = params.sessionId;
   const url = new URL(request.url);
   const shouldLoadFullHistory = url.searchParams.get("fullHistory") === "1";
-  const instance = await getInstanceOrThrow(instanceId);
+  const instance = await time(() => getInstanceOrThrow(instanceId), {
+    desc: "get instance",
+    timings,
+    type: "instance",
+  });
   const [messages, permissions, session, statuses, agents, commands, providerCatalog] = await Promise.all([
-    listOpencodeMessages(instance, sessionId, shouldLoadFullHistory ? undefined : 50),
-    listOpencodePermissionRequests(instance, sessionId),
-    getOpencodeSession(instance, sessionId),
-    getOpencodeSessionStatuses(instance),
-    listOpencodeAgents(instance),
-    listOpencodeCommands(instance),
-    getOpencodeProviderCatalog(instance),
+    time(() => listOpencodeMessages(instance, sessionId, shouldLoadFullHistory ? undefined : 50), {
+      desc: shouldLoadFullHistory ? "list full session history" : "list recent session history",
+      timings,
+      type: "messages",
+    }),
+    time(() => listOpencodePermissionRequests(instance, sessionId), {
+      desc: "list permission requests",
+      timings,
+      type: "permissions",
+    }),
+    time(() => getOpencodeSession(instance, sessionId), {
+      desc: "get session",
+      timings,
+      type: "session",
+    }),
+    time(() => getOpencodeSessionStatuses(instance), {
+      desc: "get session statuses",
+      timings,
+      type: "statuses",
+    }),
+    time(() => listOpencodeAgents(instance), {
+      desc: "list agents",
+      timings,
+      type: "agents",
+    }),
+    time(() => listOpencodeCommands(instance), {
+      desc: "list commands",
+      timings,
+      type: "commands",
+    }),
+    time(() => getOpencodeProviderCatalog(instance), {
+      desc: "get provider catalog",
+      timings,
+      type: "providers",
+    }),
   ]);
 
-  return {
-    initialMessages: messages,
-    initialPermissions: permissions,
-    initialStatus: statuses[sessionId] ?? { type: "idle" },
-    initialAgents: agents,
-    initialCommands: commands,
-    initialProviderDefaults: providerCatalog.default,
-    initialProviders: providerCatalog.providers,
-    loadedFullHistory: shouldLoadFullHistory || messages.length < 50,
-    instance,
-    session,
-  };
+  return data(
+    {
+      initialMessages: messages,
+      initialPermissions: permissions,
+      initialStatus: statuses[sessionId] ?? { type: "idle" },
+      initialAgents: agents,
+      initialCommands: commands,
+      initialProviderDefaults: providerCatalog.default,
+      initialProviders: providerCatalog.providers,
+      loadedFullHistory: shouldLoadFullHistory || messages.length < 50,
+      instance,
+      session,
+    },
+    {
+      headers: {
+        "Server-Timing": timings.toString(),
+      },
+    },
+  );
+}
+
+export function headers(args: Route.HeadersArgs) {
+  return getServerTimingHeaders(args);
 }
 
 export async function action({ params, request }: Route.ActionArgs) {
@@ -231,6 +273,73 @@ export async function action({ params, request }: Route.ActionArgs) {
   return data({ error: "That action is not supported.", intent, ok: false }, { status: 400 });
 }
 
+type SessionComposerFooterProps = {
+  agents: string[];
+  commands: OpencodeCommandInfo[];
+  defaultAgent: string | null;
+  defaultModel: OpencodeModelRef | null;
+  defaultVariant: string | null;
+  insertReferenceEvents: EventTarget;
+  prefilledPrompt: string;
+  providers: OpencodeProvider[];
+  sessionId: string;
+};
+
+function SessionLayoutBreadcrumbs({
+  instanceId,
+  instanceName,
+  matches,
+  sessionId,
+}: {
+  instanceId: string;
+  instanceName: string;
+  matches: Route.ComponentProps["matches"];
+  sessionId: string;
+}) {
+  const session = useSessionInfo();
+
+  return (
+    <Breadcrumbs depth={matches.length}>
+      <Breadcrumbs.Item to={`/instances/${instanceId}`}>{instanceName}</Breadcrumbs.Item>
+      <Breadcrumbs.Item to={`/instances/${instanceId}/sessions/${sessionId}`}>
+        {getSessionName(session)}
+      </Breadcrumbs.Item>
+    </Breadcrumbs>
+  );
+}
+
+function SessionComposerFooter({
+  agents,
+  commands,
+  defaultAgent,
+  defaultModel,
+  defaultVariant,
+  insertReferenceEvents,
+  prefilledPrompt,
+  providers,
+  sessionId,
+}: SessionComposerFooterProps) {
+  const status = useSessionStatus();
+  const { clearSessionError, sessionError } = useSessionErrorState();
+
+  return (
+    <SessionComposer
+      agents={agents}
+      commands={commands}
+      defaultAgent={defaultAgent}
+      defaultModel={defaultModel}
+      defaultVariant={defaultVariant}
+      insertReferenceEvents={insertReferenceEvents}
+      isBusy={status.type !== "idle"}
+      onClearSessionError={clearSessionError}
+      prefilledPrompt={prefilledPrompt}
+      providers={providers}
+      sessionError={sessionError}
+      sessionId={sessionId}
+    />
+  );
+}
+
 export default function InstanceSessionLayoutRoute({ loaderData, matches }: Route.ComponentProps) {
   const {
     initialAgents,
@@ -248,14 +357,6 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
   const location = useLocation();
   const navigate = useNavigate();
   const prefilledPrompt = searchParams.get("prompt") ?? "";
-  const [messages, setMessages] = useState<OpencodeMessageWithParts[]>(initialMessages);
-  const [hasLoadedFullHistory, setHasLoadedFullHistory] = useState(loadedFullHistory);
-  const [pendingPermissions, setPendingPermissions] = useState<OpencodePermissionRequest[]>(initialPermissions);
-  const [sessionState, setSessionState] = useState<OpencodeSessionInfo>(session);
-  const [status, setStatus] = useState<OpencodeSessionStatus>(initialStatus);
-  const [sessionError, setSessionError] = useState<string | null>(null);
-  const revalidator = useRevalidator();
-  const sessionIdRef = useRef(session.id);
   const agents = useMemo<OpencodeAgent[]>(() => getSelectableAgents(initialAgents), [initialAgents]);
   const commands = useMemo<OpencodeCommandInfo[]>(() => initialCommands, [initialCommands]);
   const providers = useMemo<OpencodeProvider[]>(() => initialProviders, [initialProviders]);
@@ -272,141 +373,8 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
   const insertComposerReference = useCallback((reference: string) => {
     insertComposerReferenceEvents.dispatchEvent(new CustomEvent("insert-reference", { detail: reference }));
   }, [insertComposerReferenceEvents]);
-  const isLoadingFullHistory = searchParams.get("fullHistory") === "1" && !hasLoadedFullHistory;
-  const eventTypes = useMemo(
-    () => [
-      "message.updated",
-      "message.removed",
-      "message.part.updated",
-      "message.part.delta",
-      "message.part.removed",
-      "permission.asked",
-      "permission.replied",
-      "session.updated",
-      "session.status",
-      "session.error",
-    ] as const,
-    [],
-  );
-
-  useEffect(() => {
-    if (sessionIdRef.current === session.id) {
-      setMessages((current) => mergeMessages(current, initialMessages));
-      setHasLoadedFullHistory((current) => current || loadedFullHistory);
-      setStatus(initialStatus);
-      setSessionState(session);
-      setPendingPermissions(initialPermissions);
-      return;
-    }
-
-    sessionIdRef.current = session.id;
-    setMessages(initialMessages);
-    setHasLoadedFullHistory(loadedFullHistory);
-    setStatus(initialStatus);
-    setSessionState(session);
-    setPendingPermissions(initialPermissions);
-  }, [initialMessages, initialPermissions, initialStatus, loadedFullHistory, session]);
-
-  const replyPermission = useCallback(
-    async (requestId: string, reply: "once" | "always" | "reject") => {
-      const nextPermissions = pendingPermissions.filter((permission) => permission.id !== requestId);
-      setPendingPermissions(nextPermissions);
-
-      try {
-        await replyToOpencodePermissionRequest(instance.id, requestId, reply);
-      } catch {
-        revalidator.revalidate();
-      }
-    },
-    [instance.id, pendingPermissions, revalidator],
-  );
-
-  useInstanceEvents(
-    (event) => {
-      switch (event.type) {
-        case "session.status": {
-          setStatus(event.properties.status);
-          return;
-        }
-
-        case "session.updated": {
-          setSessionState(event.properties.info);
-          return;
-        }
-
-        case "session.error": {
-          setSessionError(event.properties.error.message ?? event.properties.error.name);
-          return;
-        }
-
-        case "message.updated": {
-          setMessages((current) => upsertMessage(current, event.properties.info));
-          return;
-        }
-
-        case "message.removed": {
-          setMessages((current) => removeMessage(current, event.properties.messageID));
-          return;
-        }
-
-        case "message.part.updated": {
-          setMessages((current) => upsertMessagePart(current, event.properties.part));
-          return;
-        }
-
-        case "message.part.delta": {
-          setMessages((current) =>
-            applyMessagePartDelta(
-              current,
-              event.properties.messageID,
-              event.properties.partID,
-              event.properties.field,
-              event.properties.delta,
-            ),
-          );
-          return;
-        }
-
-        case "message.part.removed": {
-          setMessages((current) =>
-            removeMessagePart(current, event.properties.messageID, event.properties.partID),
-          );
-          return;
-        }
-
-        case "permission.asked": {
-          setPendingPermissions((current) =>
-            current.some((permission) => permission.id === event.properties.id)
-              ? current
-              : [...current, event.properties],
-          );
-          return;
-        }
-
-        case "permission.replied": {
-          setPendingPermissions((current) =>
-            current.filter((permission) => permission.id !== event.properties.requestID),
-          );
-          return;
-        }
-
-        default:
-          return;
-      }
-    },
-    { instanceId: instance.id, sessionId: session.id, types: eventTypes },
-  );
-
-  const isBusy = status.type !== "idle";
-  const clearSessionError = useCallback(() => {
-    setSessionError(null);
-  }, []);
 
   const loadFullHistory = useCallback(() => {
-    if (hasLoadedFullHistory || isLoadingFullHistory) {
-      return;
-    }
-
     const nextSearchParams = new URLSearchParams(location.search);
     nextSearchParams.set("fullHistory", "1");
 
@@ -417,50 +385,48 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
       },
       { preventScrollReset: true, replace: true },
     );
-  }, [hasLoadedFullHistory, isLoadingFullHistory, location.pathname, location.search, navigate]);
+  }, [location.pathname, location.search, navigate]);
+  const outletContext = useMemo<SessionRouteContext>(() => ({
+    actionPath: `/instances/${instance.id}/sessions/${session.id}`,
+    instance,
+    insertComposerReference,
+    isLoadingFullHistory: searchParams.get("fullHistory") === "1",
+    loadFullHistory,
+    sessionId: session.id,
+  }), [insertComposerReference, instance, loadFullHistory, searchParams, session.id]);
 
   return (
-    <>
-      <Breadcrumbs depth={matches.length}>
-        <Breadcrumbs.Item to={`/instances/${instance.id}`}>{instance.name}</Breadcrumbs.Item>
-        <Breadcrumbs.Item to={`/instances/${instance.id}/sessions/${session.id}`}>
-          {getSessionName(sessionState)}
-        </Breadcrumbs.Item>
-      </Breadcrumbs>
+    <SessionLiveProvider
+      initialMessages={initialMessages}
+      initialPermissions={initialPermissions}
+      initialSession={session}
+      initialStatus={initialStatus}
+      instanceId={instance.id}
+      loadedFullHistory={loadedFullHistory}
+    >
+      <SessionLayoutBreadcrumbs
+        instanceId={instance.id}
+        instanceName={instance.name}
+        matches={matches}
+        sessionId={session.id}
+      />
       <ScrollableLayout
         footer={
-          <SessionComposer
+          <SessionComposerFooter
             agents={agents.map((agent) => agent.name)}
             commands={commands}
             defaultAgent={defaultAgent}
             defaultModel={defaultModel}
             defaultVariant={defaultVariant}
             insertReferenceEvents={insertComposerReferenceEvents}
-            isBusy={isBusy}
-            onClearSessionError={clearSessionError}
-            providers={providers}
             prefilledPrompt={prefilledPrompt}
-            sessionError={sessionError}
+            providers={providers}
             sessionId={session.id}
           />
         }
       >
-        <Outlet
-          context={{
-            hasLoadedFullHistory,
-            instance,
-            isLoadingFullHistory,
-            insertComposerReference,
-            loadFullHistory,
-            messages,
-            pendingPermissions,
-            replyPermission,
-            session: sessionState,
-            sessionError,
-            status,
-          } satisfies SessionRouteContext}
-        />
+        <Outlet context={outletContext} />
       </ScrollableLayout>
-    </>
+    </SessionLiveProvider>
   );
 }

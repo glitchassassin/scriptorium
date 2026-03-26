@@ -2,6 +2,7 @@ import { GitBrowser } from "~/components/workspace/git-browser";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getServerTimingHeaders } from "~/lib/server-timing.server";
 
 import { getInstanceBreadcrumbs } from "./+/instance-route";
 import { loadInstanceGitRouteData } from "./git.server";
@@ -19,6 +20,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const instanceId = params.instanceId;
 
   return loadInstanceGitRouteData({ instanceId, request });
+}
+
+export function headers(args: Route.HeadersArgs) {
+  return getServerTimingHeaders(args);
 }
 
 export default function InstanceGitRoute({ loaderData, matches }: Route.ComponentProps) {

@@ -10,6 +10,7 @@ import { listInstances, removeInstance } from "~/lib/instances/runtime.server";
 import type { InstanceRecord } from "~/lib/instances/types";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 
 import type { Route } from "./+types/instances";
 
@@ -26,11 +27,32 @@ export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHa
 });
 
 export async function loader({ request }: Route.LoaderArgs) {
-  await requireAuthenticatedPasskey(request);
+  const timings = makeTimings("instances loader");
 
-  return {
-    instances: await listInstances(),
-  };
+  await time(() => requireAuthenticatedPasskey(request), {
+    desc: "require authenticated passkey",
+    timings,
+    type: "auth",
+  });
+
+  return data(
+    {
+      instances: await time(() => listInstances(), {
+        desc: "list instances",
+        timings,
+        type: "instances",
+      }),
+    },
+    {
+      headers: {
+        "Server-Timing": timings.toString(),
+      },
+    },
+  );
+}
+
+export function headers(args: Route.HeadersArgs) {
+  return getServerTimingHeaders(args);
 }
 
 export async function action({ request }: Route.ActionArgs) {

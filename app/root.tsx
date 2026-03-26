@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  data,
   Form,
   isRouteErrorResponse,
   Links,
@@ -15,6 +16,7 @@ import safeArea from "~/styles/safe-area.module.css";
 import { ServiceWorkerRegistration } from "~/components/pwa/service-worker-registration";
 import { ensureStarted } from "~/lib/instances/runtime.server";
 import { APP_NAME, getDocumentTitle, normalizeRouteHandleMatches, resolveRouteHandleValue } from "~/lib/route-handle";
+import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 
 export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/manifest.webmanifest" },
@@ -26,8 +28,23 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export async function loader() {
-  await ensureStarted();
-  return null;
+  const timings = makeTimings("root loader");
+
+  await time(() => ensureStarted(), {
+    desc: "ensure instance runtime started",
+    timings,
+    type: "runtime",
+  });
+
+  return data(null, {
+    headers: {
+      "Server-Timing": timings.toString(),
+    },
+  });
+}
+
+export function headers(args: Route.HeadersArgs) {
+  return getServerTimingHeaders(args);
 }
 
 export function getTitleFromMatches(matches: Route.ComponentProps["matches"]) {
