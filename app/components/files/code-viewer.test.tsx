@@ -350,4 +350,23 @@ describe("CodeViewer", () => {
     const longRow = screen.getByText("line 1").closest("div");
     expect(longRow).toHaveStyle({ gridTemplateColumns: "calc(4ch + 1rem) minmax(0, 1fr)" });
   });
+
+  it("virtualizes large files and updates visible rows on scroll", () => {
+    render(<CodeViewer content={Array.from({ length: 1000 }, (_, index) => `line ${index + 1}`).join("\n")} />);
+
+    const scrollPane = screen.getByTestId("code-viewer-scroll-pane");
+
+    expect(screen.getByText("line 1")).toBeInTheDocument();
+    expect(screen.queryByText("line 400")).not.toBeInTheDocument();
+
+    mockElementMetrics(scrollPane, {
+      clientHeight: 240,
+      scrollTop: 24 * 390,
+    });
+
+    fireEvent.scroll(scrollPane);
+
+    expect(screen.getByText("line 400")).toBeInTheDocument();
+    expect(screen.queryByText("line 1")).not.toBeInTheDocument();
+  });
 });
