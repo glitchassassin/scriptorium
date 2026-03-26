@@ -11,6 +11,7 @@ import {
   opencodeSessionStatusMapSchema,
   opencodeSessionSummarySchema,
 } from "~/lib/opencode/events";
+import { type OpencodeMessagePage } from "~/lib/opencode/message-page";
 import type {
   InstanceRecord,
   OpencodeSessionStatus,
@@ -80,16 +81,36 @@ export async function createOpencodeSession(instance: InstanceRecord, input?: { 
   return parseOrThrow(opencodeSessionInfoSchema.safeParse(await readJson(response))) satisfies OpencodeSessionInfo;
 }
 
-export async function listOpencodeMessages(instance: InstanceRecord, sessionId: string, limit?: number) {
+export async function listOpencodeMessagePage(
+  instance: InstanceRecord,
+  sessionId: string,
+  input?: { before?: string; limit?: number },
+) {
   const searchParams = new URLSearchParams();
 
-  if (limit !== undefined) {
-    searchParams.set("limit", String(limit));
+  if (input?.limit !== undefined) {
+    searchParams.set("limit", String(input.limit));
+  }
+
+  if (input?.before) {
+    searchParams.set("before", input.before);
   }
 
   const suffix = searchParams.size ? `?${searchParams.toString()}` : "";
-  const payload = await readJson(await fetch(`${getInstanceBaseUrl(instance)}/session/${sessionId}/message${suffix}`));
-  return parseOrThrow(opencodeMessageWithPartsSchema.array().safeParse(payload)) satisfies OpencodeMessageWithParts[];
+  const response = await fetch(`${getInstanceBaseUrl(instance)}/session/${sessionId}/message${suffix}`);
+  const payload = await readJson(response);
+  const items = parseOrThrow(opencodeMessageWithPartsSchema.array().safeParse(payload)) satisfies OpencodeMessageWithParts[];
+  const nextCursor = response.headers.get("x-next-cursor");
+
+  return {
+    hasMore: nextCursor !== null,
+    items,
+    nextCursor,
+  } satisfies OpencodeMessagePage;
+}
+
+export async function listOpencodeMessages(instance: InstanceRecord, sessionId: string, limit?: number) {
+  return (await listOpencodeMessagePage(instance, sessionId, { limit })).items;
 }
 
 export async function getOpencodeSessionStatuses(instance: InstanceRecord) {

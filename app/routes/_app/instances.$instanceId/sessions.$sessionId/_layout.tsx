@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { data, Outlet, redirect, useLocation, useNavigate, useSearchParams } from "react-router";
+import { data, Outlet, redirect, useSearchParams } from "react-router";
 
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
@@ -12,10 +12,11 @@ import {
   getOpencodeProviderCatalog,
   listOpencodeAgents,
   listOpencodeCommands,
-    listOpencodeMessages,
-    listOpencodePermissionRequests,
-    listOpencodeQuestionRequests,
-    revertOpencodeSession,
+  listOpencodeMessagePage,
+  listOpencodeMessages,
+  listOpencodePermissionRequests,
+  listOpencodeQuestionRequests,
+  revertOpencodeSession,
   submitOpencodeCommand,
   submitOpencodePrompt,
   unrevertOpencodeSession,
@@ -46,6 +47,8 @@ import {
 import { getSessionBreadcrumbs, getSessionIconNavActions, getSessionName, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/_layout";
+
+import { SESSION_MESSAGE_PAGE_SIZE } from "~/lib/opencode/message-page";
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   title: ({ data, params }) =>
@@ -79,16 +82,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const instanceId = params.instanceId;
   const sessionId = params.sessionId;
-  const url = new URL(request.url);
-  const shouldLoadFullHistory = url.searchParams.get("fullHistory") === "1";
   const instance = await time(() => getInstanceOrThrow(instanceId), {
     desc: "get instance",
     timings,
     type: "instance",
   });
-  const [messages, permissions, questions, session, statuses, agents, commands, providerCatalog] = await Promise.all([
-    time(() => listOpencodeMessages(instance, sessionId, shouldLoadFullHistory ? undefined : 50), {
-      desc: shouldLoadFullHistory ? "list full session history" : "list recent session history",
+  const [messagePage, permissions, questions, session, statuses, agents, commands, providerCatalog] = await Promise.all([
+    time(() => listOpencodeMessagePage(instance, sessionId, { limit: SESSION_MESSAGE_PAGE_SIZE }), {
+      desc: "list recent session history",
       timings,
       type: "messages",
     }),
@@ -130,19 +131,19 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   ]);
 
   return data(
-    {
-      initialMessages: messages,
-      initialPermissions: permissions,
-      initialQuestions: questions,
-      initialStatus: statuses[sessionId] ?? { type: "idle" },
-      initialAgents: agents,
-      initialCommands: commands,
-      initialProviderDefaults: providerCatalog.default,
-      initialProviders: providerCatalog.providers,
-      loadedFullHistory: shouldLoadFullHistory || messages.length < 50,
-      instance,
-      session,
-    },
+      {
+        initialHistoryCursor: messagePage.nextCursor,
+        initialMessages: messagePage.items,
+        initialPermissions: permissions,
+        initialQuestions: questions,
+        initialStatus: statuses[sessionId] ?? { type: "idle" },
+        initialAgents: agents,
+        initialCommands: commands,
+        initialProviderDefaults: providerCatalog.default,
+        initialProviders: providerCatalog.providers,
+        instance,
+        session,
+      },
     {
       headers: {
         "Server-Timing": timings.toString(),
@@ -351,6 +352,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
   const {
     initialAgents,
     initialCommands,
+    initialHistoryCursor,
     initialMessages,
     initialPermissions,
     initialQuestions,
@@ -358,12 +360,9 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
     initialProviders,
     initialStatus,
     instance,
-    loadedFullHistory,
     session,
   } = loaderData;
   const [searchParams] = useSearchParams();
-  const location = useLocation();
-  const navigate = useNavigate();
   const prefilledPrompt = searchParams.get("prompt") ?? "";
   const agents = useMemo<OpencodeAgent[]>(() => getSelectableAgents(initialAgents), [initialAgents]);
   const commands = useMemo<OpencodeCommandInfo[]>(() => initialCommands, [initialCommands]);
@@ -382,36 +381,24 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
     insertComposerReferenceEvents.dispatchEvent(new CustomEvent("insert-reference", { detail: reference }));
   }, [insertComposerReferenceEvents]);
 
-  const loadFullHistory = useCallback(() => {
-    const nextSearchParams = new URLSearchParams(location.search);
-    nextSearchParams.set("fullHistory", "1");
-
-    navigate(
-      {
-        pathname: location.pathname,
-        search: `?${nextSearchParams.toString()}`,
-      },
-      { preventScrollReset: true, replace: true },
-    );
-  }, [location.pathname, location.search, navigate]);
   const outletContext = useMemo<SessionRouteContext>(() => ({
     actionPath: `/instances/${instance.id}/sessions/${session.id}`,
     instance,
     insertComposerReference,
-    isLoadingFullHistory: searchParams.get("fullHistory") === "1",
-    loadFullHistory,
     sessionId: session.id,
-  }), [insertComposerReference, instance, loadFullHistory, searchParams, session.id]);
+    transcriptInitialState: {
+      initialHistoryCursor,
+      initialMessages,
+      initialPermissions,
+      initialQuestions,
+    },
+  }), [initialHistoryCursor, initialMessages, initialPermissions, initialQuestions, insertComposerReference, instance, session.id]);
 
   return (
     <SessionLiveProvider
-      initialMessages={initialMessages}
-      initialPermissions={initialPermissions}
-      initialQuestions={initialQuestions}
       initialSession={session}
       initialStatus={initialStatus}
       instanceId={instance.id}
-      loadedFullHistory={loadedFullHistory}
     >
       <SessionLayoutBreadcrumbs
         instanceId={instance.id}

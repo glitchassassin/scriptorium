@@ -1,11 +1,55 @@
 import type {
+  OpencodeMessageWithParts,
   OpencodePermissionRequest,
   OpencodeQuestionAnswer,
   OpencodeQuestionRequest,
 } from "~/lib/opencode/events";
+import { opencodeMessageWithPartsSchema } from "~/lib/opencode/events";
+import type { OpencodeMessagePage } from "~/lib/opencode/message-page";
 
 function getInstanceProxyPath(instanceId: string, path: string) {
   return `/instances/${instanceId}/proxy${path}`;
+}
+
+function parseMessages(payload: unknown) {
+  const result = opencodeMessageWithPartsSchema.array().safeParse(payload);
+
+  if (!result.success) {
+    throw new Error(result.error.message);
+  }
+
+  return result.data satisfies OpencodeMessageWithParts[];
+}
+
+export async function listOpencodeMessagePageClient(
+  instanceId: string,
+  sessionId: string,
+  input?: { before?: string; limit?: number },
+) {
+  const searchParams = new URLSearchParams();
+
+  if (input?.limit !== undefined) {
+    searchParams.set("limit", String(input.limit));
+  }
+
+  if (input?.before) {
+    searchParams.set("before", input.before);
+  }
+
+  const suffix = searchParams.size ? `?${searchParams.toString()}` : "";
+  const response = await fetch(getInstanceProxyPath(instanceId, `/session/${sessionId}/message${suffix}`));
+
+  if (!response.ok) {
+    throw new Error(`Message request failed with ${response.status}`);
+  }
+
+  const nextCursor = response.headers.get("x-next-cursor");
+
+  return {
+    hasMore: nextCursor !== null,
+    items: parseMessages(await response.json()),
+    nextCursor,
+  } satisfies OpencodeMessagePage;
 }
 
 export async function listOpencodePermissionRequestsClient(instanceId: string, sessionId?: string) {

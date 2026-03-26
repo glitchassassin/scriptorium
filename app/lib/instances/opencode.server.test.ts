@@ -6,6 +6,7 @@ import type { InstanceRecord } from "~/lib/instances/types";
 import {
   forkOpencodeSession,
   getOpencodeProviderCatalog,
+  listOpencodeMessagePage,
   listOpencodeQuestionRequests,
   rejectOpencodeQuestionRequest,
   replyToOpencodeQuestionRequest,
@@ -92,6 +93,58 @@ describe("submitOpencodePrompt", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0][0]).toBe(`http://127.0.0.1:${instance.port}/session/session-1/prompt_async`);
+  });
+});
+
+describe("listOpencodeMessagePage", () => {
+  it("loads message pages and exposes the next cursor", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify([
+      {
+        info: {
+          id: "message-2",
+          sessionID: "session-1",
+          role: "assistant",
+          parentID: "message-1",
+          time: { created: 2 },
+        },
+        parts: [],
+      },
+    ]), {
+      headers: {
+        "X-Next-Cursor": "cursor-1",
+      },
+    }));
+
+    await expect(listOpencodeMessagePage(instance, "session-1", { before: "cursor-0", limit: 25 })).resolves.toEqual({
+      hasMore: true,
+      items: [
+        {
+          info: {
+            id: "message-2",
+            sessionID: "session-1",
+            role: "assistant",
+            parentID: "message-1",
+            time: { created: 2 },
+          },
+          parts: [],
+        },
+      ],
+      nextCursor: "cursor-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://127.0.0.1:${instance.port}/session/session-1/message?limit=25&before=cursor-0`,
+    );
+  });
+
+  it("marks history complete when the next cursor header is absent", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify([])));
+
+    await expect(listOpencodeMessagePage(instance, "session-1", { limit: 10 })).resolves.toEqual({
+      hasMore: false,
+      items: [],
+      nextCursor: null,
+    });
   });
 });
 

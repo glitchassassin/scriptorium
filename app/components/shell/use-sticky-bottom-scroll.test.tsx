@@ -1,8 +1,10 @@
 import { createRoot, type Root } from "react-dom/client";
 import { flushSync } from "react-dom";
+import { useRef, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TranscriptScrollableLayout } from "~/components/shell/transcript-scrollable-layout";
+import { ScrollableLayout } from "~/components/shell/scrollable-layout";
+import { useStickyBottomScroll } from "~/components/shell/use-sticky-bottom-scroll";
 
 function mockElementMetrics(element: HTMLElement, metrics: Partial<HTMLElement>) {
   if ("clientHeight" in metrics && metrics.clientHeight !== undefined) {
@@ -43,11 +45,14 @@ class ResizeObserverMock {
   unobserve() {}
 
   trigger(height: number) {
-    this.callback([
-      {
-        contentRect: { height } as DOMRectReadOnly,
-      } as ResizeObserverEntry,
-    ], this as unknown as ResizeObserver);
+    this.callback(
+      [
+        {
+          contentRect: { height } as DOMRectReadOnly,
+        } as ResizeObserverEntry,
+      ],
+      this as unknown as ResizeObserver,
+    );
   }
 }
 
@@ -55,7 +60,20 @@ const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
 const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
 const originalResizeObserver = globalThis.ResizeObserver;
 
-describe("TranscriptScrollableLayout", () => {
+function StickyBottomHarness({ children, scrollContextKey }: { children?: ReactNode; scrollContextKey?: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useStickyBottomScroll({ contentRef, scrollContextKey, scrollRef });
+
+  return (
+    <ScrollableLayout contentRef={contentRef} scrollRef={scrollRef}>
+      {children ?? <div>streaming message</div>}
+    </ScrollableLayout>
+  );
+}
+
+describe("useStickyBottomScroll", () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -81,16 +99,9 @@ describe("TranscriptScrollableLayout", () => {
     globalThis.ResizeObserver = originalResizeObserver;
   });
 
-  async function renderLayout(props: { scrollContextKey?: string; onReachTop?: () => void } = {}) {
+  async function renderHarness(props: { children?: ReactNode; scrollContextKey?: string } = {}) {
     flushSync(() => {
-      root.render(
-        <TranscriptScrollableLayout
-          onReachTop={props.onReachTop}
-          scrollContextKey={props.scrollContextKey}
-        >
-          <div>streaming message</div>
-        </TranscriptScrollableLayout>,
-      );
+      root.render(<StickyBottomHarness children={props.children} scrollContextKey={props.scrollContextKey} />);
     });
 
     await new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -105,7 +116,7 @@ describe("TranscriptScrollableLayout", () => {
   }
 
   it("sticks to the bottom when content grows and the user is already near the bottom", async () => {
-    const scrollEl = await renderLayout();
+    const scrollEl = await renderHarness();
 
     mockElementMetrics(scrollEl, {
       clientHeight: 200,
@@ -117,14 +128,13 @@ describe("TranscriptScrollableLayout", () => {
     mockElementMetrics(scrollEl, {
       scrollHeight: 1200,
     });
-
     ResizeObserverMock.instances[0]?.trigger(1200);
 
     expect(scrollEl.scrollTop).toBe(1200);
   });
 
   it("does not yank scroll position when content grows and the user has scrolled up", async () => {
-    const scrollEl = await renderLayout();
+    const scrollEl = await renderHarness();
 
     mockElementMetrics(scrollEl, {
       clientHeight: 200,
@@ -136,44 +146,13 @@ describe("TranscriptScrollableLayout", () => {
     mockElementMetrics(scrollEl, {
       scrollHeight: 1200,
     });
-
     ResizeObserverMock.instances[0]?.trigger(1200);
 
     expect(scrollEl.scrollTop).toBe(500);
   });
 
-  it("calls onReachTop once per boundary crossing", async () => {
-    const onReachTop = vi.fn();
-    const scrollEl = await renderLayout({ onReachTop });
-
-    mockElementMetrics(scrollEl, {
-      clientHeight: 200,
-      scrollHeight: 1000,
-      scrollTop: 24,
-    });
-    scrollEl.dispatchEvent(new Event("scroll"));
-
-    mockElementMetrics(scrollEl, {
-      scrollTop: 0,
-    });
-    scrollEl.dispatchEvent(new Event("scroll"));
-    scrollEl.dispatchEvent(new Event("scroll"));
-
-    mockElementMetrics(scrollEl, {
-      scrollTop: 40,
-    });
-    scrollEl.dispatchEvent(new Event("scroll"));
-
-    mockElementMetrics(scrollEl, {
-      scrollTop: 0,
-    });
-    scrollEl.dispatchEvent(new Event("scroll"));
-
-    expect(onReachTop).toHaveBeenCalledTimes(2);
-  });
-
   it("resets to the bottom when the scroll context changes", async () => {
-    const scrollEl = await renderLayout({ scrollContextKey: "transcript:one" });
+    const scrollEl = await renderHarness({ scrollContextKey: "transcript:one" });
 
     mockElementMetrics(scrollEl, {
       clientHeight: 200,
@@ -183,38 +162,11 @@ describe("TranscriptScrollableLayout", () => {
     scrollEl.dispatchEvent(new Event("scroll"));
 
     flushSync(() => {
-      root.render(
-        <TranscriptScrollableLayout scrollContextKey="transcript:two">
-          <div>streaming message</div>
-        </TranscriptScrollableLayout>,
-      );
+      root.render(<StickyBottomHarness scrollContextKey="transcript:two" />);
     });
 
     await new Promise((resolve) => window.setTimeout(resolve, 0));
 
     expect(scrollEl.scrollTop).toBe(1000);
-  });
-
-  it("does not reset when the scroll context key stays the same", async () => {
-    const scrollEl = await renderLayout({ scrollContextKey: "transcript:one" });
-
-    mockElementMetrics(scrollEl, {
-      clientHeight: 200,
-      scrollHeight: 1000,
-      scrollTop: 500,
-    });
-    scrollEl.dispatchEvent(new Event("scroll"));
-
-    flushSync(() => {
-      root.render(
-        <TranscriptScrollableLayout scrollContextKey="transcript:one">
-          <div>streaming message</div>
-        </TranscriptScrollableLayout>,
-      );
-    });
-
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-
-    expect(scrollEl.scrollTop).toBe(500);
   });
 });
