@@ -141,6 +141,8 @@ describe("SessionTranscript", () => {
     expect(revalidate).toHaveBeenCalledTimes(1);
     expect(screen.getAllByTestId("message-card").map((node) => node.textContent)).toEqual(["message-2"]);
 
+    revalidate.mockClear();
+
     view.rerender(
       <SessionTranscript
         actionPath="/instances/instance-1/sessions/session-1"
@@ -158,6 +160,7 @@ describe("SessionTranscript", () => {
       />,
     );
 
+    expect(revalidate).not.toHaveBeenCalled();
     expect(screen.getAllByTestId("message-card").map((node) => node.textContent)).toEqual(["message-4"]);
   });
 

@@ -109,6 +109,7 @@ function sessionsReducer(current: SessionsContextValue, action: SessionsAction) 
 
       const next = {
         id: action.sessionId,
+        parentID: previous?.parentID ?? null,
         title: previous?.title ?? null,
         directory: previous?.directory ?? null,
         createdAt: previous?.createdAt ?? null,
@@ -118,6 +119,8 @@ function sessionsReducer(current: SessionsContextValue, action: SessionsAction) 
       } satisfies SidebarSessionRecord;
 
       if (
+        previous?.parentID === next.parentID
+        &&
         previous?.title === next.title
         && previous?.directory === next.directory
         && previous?.createdAt === next.createdAt

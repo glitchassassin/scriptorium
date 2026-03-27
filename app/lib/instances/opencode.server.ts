@@ -17,7 +17,7 @@ import type {
   OpencodeSessionStatus,
   OpencodeSessionSummary,
 } from "~/lib/instances/types";
-import { filterRecentSessions } from "~/lib/instances/sidebar";
+import { filterRecentSessions, isRootSession } from "~/lib/instances/sidebar";
 
 import type {
   OpencodeMessageWithParts,
@@ -61,7 +61,7 @@ export async function listOpencodeSessions(instance: InstanceRecord) {
 }
 
 export async function listRecentSidebarSessions(instance: InstanceRecord, now = Date.now()) {
-  return filterRecentSessions(await listOpencodeSessions(instance), now);
+  return filterRecentSessions(await listOpencodeSessions(instance), now).filter(isRootSession);
 }
 
 export async function getOpencodeSession(instance: InstanceRecord, sessionId: string) {

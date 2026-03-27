@@ -1,5 +1,10 @@
 import { useCallback, useMemo } from "react";
-import { data, Outlet, redirect, useSearchParams } from "react-router";
+import {
+  data,
+  Outlet,
+  redirect,
+  useSearchParams,
+} from "react-router";
 
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
@@ -129,6 +134,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       type: "providers",
     }),
   ]);
+  const parentId = session.parentID ?? null;
+  const parentSession = parentId
+    ? await time(() => getOpencodeSession(instance, parentId), {
+      desc: "get parent session",
+      timings,
+      type: "session",
+    })
+    : null;
 
   return data(
       {
@@ -142,6 +155,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         initialProviderDefaults: providerCatalog.default,
         initialProviders: providerCatalog.providers,
         instance,
+        parentSession,
         session,
       },
     {
@@ -360,6 +374,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
     initialProviders,
     initialStatus,
     instance,
+    parentSession,
     session,
   } = loaderData;
   const [searchParams] = useSearchParams();
@@ -385,6 +400,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
     actionPath: `/instances/${instance.id}/sessions/${session.id}`,
     instance,
     insertComposerReference,
+    parentSession,
     sessionId: session.id,
     transcriptInitialState: {
       initialHistoryCursor,
@@ -392,7 +408,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
       initialPermissions,
       initialQuestions,
     },
-  }), [initialHistoryCursor, initialMessages, initialPermissions, initialQuestions, insertComposerReference, instance, session.id]);
+  }), [initialHistoryCursor, initialMessages, initialPermissions, initialQuestions, insertComposerReference, instance, parentSession, session.id]);
 
   return (
     <SessionLiveProvider

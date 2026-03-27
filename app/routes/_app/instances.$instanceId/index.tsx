@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { data, Form, Link, redirect } from "react-router";
+import { data, Form, redirect } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
@@ -18,6 +18,7 @@ import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 
 import { getInstanceBreadcrumbs } from "./+/instance-route";
+import { InstanceSessionList } from "./+/instance-session-list";
 
 import type { Route } from "./+types/index";
 
@@ -214,24 +215,7 @@ export default function InstanceDetailRoute({ loaderData, matches }: Route.Compo
               </Form>
             </div>
             {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
-            {sessions.length ? (
-              <ul className="border-t-2 border-black">
-                {sessions.map((session: OpencodeSessionSummary) => (
-                  <li className="space-y-1 border-b-2 border-black px-3 py-2" key={session.id}>
-                    <Link className="block space-y-1" to={`/instances/${instance.id}/sessions/${session.id}`}>
-                      <p className="text-base font-bold">{session.title || session.id.slice(0, 12)}</p>
-                      {session.updatedAt ? (
-                        <p className="text-sm leading-6 opacity-60">
-                          Updated {new Date(session.updatedAt).toLocaleString()}
-                        </p>
-                      ) : null}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-base leading-6">No Opencode sessions were found for this instance.</p>
-            )}
+            <InstanceSessionList instanceId={instance.id} sessions={sessions} />
           </section>
         </section>
       </ScrollableLayout>

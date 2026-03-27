@@ -6,6 +6,7 @@ import type { InstanceRecord } from "~/lib/instances/types";
 import {
   forkOpencodeSession,
   getOpencodeProviderCatalog,
+  listRecentSidebarSessions,
   listOpencodeMessagePage,
   listOpencodeQuestionRequests,
   rejectOpencodeQuestionRequest,
@@ -145,6 +146,42 @@ describe("listOpencodeMessagePage", () => {
       items: [],
       nextCursor: null,
     });
+  });
+});
+
+describe("listRecentSidebarSessions", () => {
+  it("keeps the sidebar rooted in recent top-level sessions only", async () => {
+    const now = 10_000_000_000;
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify([
+      {
+        id: "session-root-old",
+        directory: "/tmp",
+        time: { created: 1, updated: 1 },
+      },
+      {
+        id: "session-child-new",
+        parentID: "session-root-old",
+        directory: "/tmp",
+        time: { created: 1, updated: now - 60_000 },
+      },
+      {
+        id: "session-root-new",
+        directory: "/tmp",
+        time: { created: 1, updated: now - 60_000 },
+      },
+    ])));
+
+    await expect(listRecentSidebarSessions(instance, now)).resolves.toEqual([
+      {
+        id: "session-root-new",
+        parentID: null,
+        title: null,
+        directory: "/tmp",
+        createdAt: 1,
+        updatedAt: now - 60_000,
+      },
+    ]);
   });
 });
 

@@ -1,10 +1,13 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useRevalidator } from "react-router";
 
 let scheduled = false;
 
 export function useCoalescedRevalidation() {
   const revalidator = useRevalidator();
+  const revalidatorRef = useRef(revalidator);
+
+  revalidatorRef.current = revalidator;
 
   return useCallback(() => {
     if (scheduled) {
@@ -14,9 +17,9 @@ export function useCoalescedRevalidation() {
     scheduled = true;
     queueMicrotask(() => {
       scheduled = false;
-      revalidator.revalidate();
+      revalidatorRef.current.revalidate();
     });
-  }, [revalidator]);
+  }, []);
 }
 
 export function resetCoalescedRevalidationForTests() {

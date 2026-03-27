@@ -7,7 +7,7 @@ import {
 } from "react";
 
 import { useInstanceEvents } from "~/components/events/instance-events-provider";
-import { type SidebarInstanceRecord } from "~/lib/instances/sidebar";
+import { isRootSession, type SidebarInstanceRecord } from "~/lib/instances/sidebar";
 
 type InstanceState = Pick<SidebarInstanceRecord, "id" | "name" | "status"> & {
   sessionIds: string[];
@@ -88,6 +88,10 @@ export function InstancesProvider({ children, initialInstances }: { children: Re
     switch (event.type) {
       case "session.created":
       case "session.updated":
+        if (!isRootSession(event.properties.info)) {
+          return;
+        }
+
         dispatch({
           type: "add-session",
           instanceId: event.instanceId,

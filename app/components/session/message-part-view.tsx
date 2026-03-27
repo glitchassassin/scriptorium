@@ -13,11 +13,12 @@ import { MessagePartText } from "./message-part-text";
 import { MessagePartTool } from "./message-part-tool";
 
 type MessagePartViewProps = {
+  instanceId?: string;
   part: OpencodeMessagePart;
   role: "user" | "assistant";
 };
 
-export const MessagePartView = memo(function MessagePartView({ part, role }: MessagePartViewProps) {
+export const MessagePartView = memo(function MessagePartView({ instanceId, part, role }: MessagePartViewProps) {
   if (part.type === "text") {
     return <MessagePartText part={part} role={role} />;
   }
@@ -35,7 +36,7 @@ export const MessagePartView = memo(function MessagePartView({ part, role }: Mes
   }
 
   if (part.type === "tool") {
-    return <MessagePartTool part={part} />;
+    return <MessagePartTool instanceId={instanceId} part={part} />;
   }
 
   if (part.type === "step-start" || part.type === "step-finish") {

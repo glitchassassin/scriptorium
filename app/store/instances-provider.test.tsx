@@ -55,16 +55,17 @@ describe("InstancesProvider", () => {
     });
     useReadStatusEventsMock.mockImplementation(() => {});
 
-    const initialSessions: Record<string, SessionState> = {
-      "session-1": {
-        id: "session-1",
-        title: "Session 1",
-        directory: null,
-        createdAt: Date.now() - 2_000,
-        updatedAt: Date.now() - 1_000,
-        lastReadAt: null,
-      },
-    };
+      const initialSessions: Record<string, SessionState> = {
+        "session-1": {
+          id: "session-1",
+          parentID: null,
+          title: "Session 1",
+          directory: null,
+          createdAt: Date.now() - 2_000,
+          updatedAt: Date.now() - 1_000,
+          lastReadAt: null,
+        },
+      };
 
     render(
       <SessionsProvider initialSessions={initialSessions}>
@@ -99,11 +100,32 @@ describe("InstancesProvider", () => {
         properties: {
           info: {
             id: "session-2",
+            parentID: null,
             title: "Session 2",
             directory: null,
             time: { created: Date.now(), updated: Date.now() },
           },
         },
+        });
+      }
+    });
+
+    expect(screen.getByTestId("session-ids")).toHaveTextContent("session-2,session-1");
+
+    act(() => {
+      for (const instanceEventHandler of instanceEventHandlers) {
+        instanceEventHandler({
+          type: "session.created",
+          instanceId: "instance-1",
+          properties: {
+            info: {
+              id: "session-2-child",
+              parentID: "session-2",
+              title: "Session 2 child",
+              directory: null,
+              time: { created: Date.now(), updated: Date.now() },
+            },
+          },
         });
       }
     });

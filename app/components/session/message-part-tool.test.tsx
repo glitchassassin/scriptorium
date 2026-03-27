@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import { MessagePartTool } from "~/components/session/message-part-tool";
@@ -112,12 +113,12 @@ describe("MessagePartTool", () => {
       messageID: "message-1",
       type: "tool",
       callID: "call-5",
-      tool: "task",
+      tool: "read",
       state: {
         status: "completed",
-        input: { prompt: "hello" },
+        input: { filePath: "src/app.ts" },
         output: "done",
-        title: "task",
+        title: "read",
         metadata: {},
         time: { start: 1, end: 2 },
         attachments: [
@@ -143,5 +144,43 @@ describe("MessagePartTool", () => {
     rerender(<MessagePartTool part={completedPart} />);
     expect(screen.getByText("Attachments")).toBeInTheDocument();
     expect(screen.getByText("result.txt")).toBeInTheDocument();
+  });
+
+  it("renders dedicated task links with status and arrow", () => {
+    const part: OpencodeToolPart = {
+      id: "part-6",
+      sessionID: "session-1",
+      messageID: "message-1",
+      type: "tool",
+      callID: "call-6",
+      tool: "task",
+      state: {
+        status: "completed",
+        input: {
+          description: "Investigate transcript links",
+          prompt: "Check the transcript rendering flow",
+          subagent_type: "explore",
+        },
+        output: "done",
+        title: "task",
+        metadata: {
+          sessionId: "session-child",
+        },
+        time: { start: 1, end: 2 },
+      },
+    };
+
+    render(
+      <MemoryRouter>
+        <MessagePartTool instanceId="instance-1" part={part} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Task (completed)")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /investigate transcript links/i })).toHaveAttribute(
+      "href",
+      "/instances/instance-1/sessions/session-child",
+    );
+    expect(screen.getByRole("link", { name: /investigate transcript links/i })).toHaveClass("underline");
   });
 });

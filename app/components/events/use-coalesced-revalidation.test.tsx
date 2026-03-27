@@ -19,6 +19,11 @@ function TestComponent() {
   return null;
 }
 
+function TestRerenderComponent({ tick }: { tick: number }) {
+  triggerRevalidation = useCoalescedRevalidation();
+  return <span>{tick}</span>;
+}
+
 async function flushMicrotasks() {
   await Promise.resolve();
 }
@@ -49,5 +54,14 @@ describe("useCoalescedRevalidation", () => {
     await flushMicrotasks();
 
     expect(revalidate).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a stable callback across rerenders", () => {
+    const view = render(<TestRerenderComponent tick={1} />);
+    const firstTrigger = triggerRevalidation;
+
+    view.rerender(<TestRerenderComponent tick={2} />);
+
+    expect(triggerRevalidation).toBe(firstTrigger);
   });
 });

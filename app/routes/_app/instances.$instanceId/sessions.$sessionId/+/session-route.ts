@@ -17,6 +17,7 @@ export type SessionRouteContext = {
   actionPath: string;
   instance: InstanceRecord;
   insertComposerReference: (reference: string) => void;
+  parentSession: { id: string; title?: string | null } | null;
   sessionId: string;
   transcriptInitialState: SessionTranscriptInitialState;
 };

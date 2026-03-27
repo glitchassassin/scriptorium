@@ -5,6 +5,7 @@ import { SESSION_UNREAD_GRACE_MS, isSessionUnread } from "~/lib/instances/sideba
 describe("isSessionUnread", () => {
   const session = {
     id: "session-1",
+    parentID: null,
     title: null,
     directory: null,
     createdAt: 1_000,

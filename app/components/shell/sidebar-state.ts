@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   filterRecentSessions,
   isSessionUnread,
+  isRootSession,
   SIDEBAR_SESSION_LIMIT,
 } from "~/lib/instances/sidebar";
 import { useInstances, type InstanceState } from "~/store/instances-provider";
@@ -36,7 +37,11 @@ export function useVisibleSidebarInstances() {
       const visibleSessionIds = filterRecentSessions(
         instance.sessionIds
           .map((sessionId) => sessions[sessionId])
-          .filter((session): session is NonNullable<typeof session> => session !== undefined),
+          .filter((session): session is NonNullable<typeof session> => session !== undefined)
+          // The sidebar reflects the root session only. Subagent sessions do not become
+          // actionable until they report back into the main session, so child activity
+          // should not change sidebar visibility or unread state on its own.
+          .filter(isRootSession),
         now,
       ).map((session) => session.id);
 

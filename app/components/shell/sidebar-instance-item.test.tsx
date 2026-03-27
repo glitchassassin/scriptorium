@@ -31,7 +31,7 @@ vi.mock("~/store/sessions-provider", () => ({
 
 describe("SidebarInstanceItem", () => {
   it("renders an unread indicator for unread sessions", () => {
-    useSessionMock.mockReturnValue({ id: "session-1", title: "Unread session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: null });
+    useSessionMock.mockReturnValue({ id: "session-1", parentID: null, title: "Unread session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: null });
     useSessionUnreadStatusMock.mockReturnValue(true);
 
     render(
@@ -50,7 +50,7 @@ describe("SidebarInstanceItem", () => {
   });
 
   it("keeps the active session label underlined", () => {
-    useSessionMock.mockReturnValue({ id: "session-1", title: "Active session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: 3 });
+    useSessionMock.mockReturnValue({ id: "session-1", parentID: null, title: "Active session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: 3 });
     useSessionUnreadStatusMock.mockReturnValue(false);
 
     render(
@@ -68,7 +68,7 @@ describe("SidebarInstanceItem", () => {
   });
 
   it("omits the unread indicator for read sessions", () => {
-    useSessionMock.mockReturnValue({ id: "session-1", title: "Read session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: 3 });
+    useSessionMock.mockReturnValue({ id: "session-1", parentID: null, title: "Read session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: 3 });
     useSessionUnreadStatusMock.mockReturnValue(false);
 
     render(

@@ -135,6 +135,7 @@ export type GitStatusSummary =
 
 export type OpencodeSessionSummary = {
   id: string;
+  parentID: string | null;
   title: string | null;
   directory: string | null;
   createdAt: number | null;

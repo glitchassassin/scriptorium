@@ -29,6 +29,7 @@ function TestConsumer() {
   return (
     <div>
       <span data-testid="activity">{String(session?.updatedAt ?? null)}</span>
+      <span data-testid="parent">{String(session?.parentID ?? null)}</span>
       <span data-testid="read">{String(session?.lastReadAt ?? null)}</span>
       <span data-testid="unread">{String(unread)}</span>
       <span data-testid="title">{String(session?.title ?? null)}</span>
@@ -58,6 +59,7 @@ function TestMarkReadConsumer() {
 const initialSessions: Record<string, SessionState> = {
   "session-1": {
     id: "session-1",
+    parentID: null,
     title: "Session",
     directory: null,
     createdAt: 1,
@@ -85,6 +87,7 @@ describe("SessionsProvider", () => {
     );
 
     expect(screen.getByTestId("activity")).toHaveTextContent("2");
+    expect(screen.getByTestId("parent")).toHaveTextContent("null");
     expect(screen.getByTestId("read")).toHaveTextContent("2");
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
@@ -110,6 +113,7 @@ describe("SessionsProvider", () => {
     });
 
     expect(screen.getByTestId("activity")).toHaveTextContent("503");
+    expect(screen.getByTestId("parent")).toHaveTextContent("null");
     expect(screen.getByTestId("read")).toHaveTextContent("2");
     expect(screen.getByTestId("unread")).toHaveTextContent("true");
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
@@ -123,6 +127,7 @@ describe("SessionsProvider", () => {
     });
 
     expect(screen.getByTestId("activity")).toHaveTextContent("503");
+    expect(screen.getByTestId("parent")).toHaveTextContent("null");
     expect(screen.getByTestId("read")).toHaveTextContent("6");
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
@@ -161,6 +166,7 @@ describe("SessionsProvider", () => {
     });
 
     expect(screen.getByTestId("activity")).toHaveTextContent("null");
+    expect(screen.getByTestId("parent")).toHaveTextContent("null");
     expect(screen.getByTestId("read")).toHaveTextContent("null");
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
   });
@@ -204,6 +210,45 @@ describe("SessionsProvider", () => {
       sessionId: "session-1",
       updatedAt: 5,
     });
+  });
+
+  it("preserves parent session ids from session updates", () => {
+    let onInstanceEvent: ((event: any) => void) | null = null;
+
+    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onInstanceEvent = handler;
+    });
+    useReadStatusEventsMock.mockImplementation(() => {});
+
+    render(
+      <SessionsProvider initialSessions={initialSessions}>
+        <TestConsumer />
+      </SessionsProvider>,
+    );
+
+    if (!onInstanceEvent) {
+      throw new Error("Missing instance event handler");
+    }
+
+    const instanceEventHandler: (event: any) => void = onInstanceEvent;
+
+    act(() => {
+      instanceEventHandler({
+        type: "session.updated",
+        instanceId: "instance-1",
+        properties: {
+          info: {
+            id: "session-1",
+            parentID: "session-root",
+            title: "Session",
+            directory: null,
+            time: { created: 1, updated: 5 },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByTestId("parent")).toHaveTextContent("session-root");
   });
 
   it("treats question requests as unread session activity", () => {

@@ -16,11 +16,16 @@ export type SidebarInstanceRecord = Pick<InstanceRecord, "id" | "name" | "status
 export function toSessionSummary(info: OpencodeSessionInfo): OpencodeSessionSummary {
   return {
     id: info.id,
+    parentID: info.parentID ?? null,
     title: info.title ?? null,
     directory: info.directory ?? null,
     createdAt: info.time?.created ?? null,
     updatedAt: info.time?.updated ?? null,
   };
+}
+
+export function isRootSession(session: { parentID?: string | null }) {
+  return !session.parentID;
 }
 
 export function getSessionSortTime(session: OpencodeSessionSummary) {

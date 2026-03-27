@@ -375,6 +375,7 @@ export const opencodeMessageWithPartsSchema = z.object({
 
 export const opencodeSessionSummarySchema = opencodeSessionInfoSchema.transform((session) => ({
   id: session.id,
+  parentID: session.parentID ?? null,
   title: session.title ?? null,
   directory: session.directory ?? null,
   createdAt: session.time.created ?? null,

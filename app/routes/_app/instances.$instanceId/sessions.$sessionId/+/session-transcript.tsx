@@ -87,12 +87,19 @@ export function SessionTranscript({
   const shouldReplaceFromLoaderRef = useRef(true);
   const sessionIdRef = useRef(session.id);
   const revalidator = useRevalidator();
+  const revalidatorRef = useRef(revalidator);
   const [messages, setMessages] = useState<OpencodeMessageWithParts[]>(initialMessages);
   const [pendingPermissions, setPendingPermissions] = useState<OpencodePermissionRequest[]>(initialPermissions);
   const [pendingQuestions, setPendingQuestions] = useState<OpencodeQuestionRequest[]>(initialQuestions);
   const [historyCursor, setHistoryCursor] = useState<string | null>(initialHistoryCursor);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [prependRevision, setPrependRevision] = useState(0);
+
+  revalidatorRef.current = revalidator;
+
+  const requestRevalidation = useCallback(() => {
+    void revalidatorRef.current.revalidate();
+  }, []);
 
   useStickyBottomScroll({
     contentRef,
@@ -138,7 +145,7 @@ export function SessionTranscript({
       }
     } catch {
       if (historyRequestRef.current === requestId && sessionIdRef.current === requestSessionId) {
-        revalidator.revalidate();
+        requestRevalidation();
       }
     } finally {
       if (historyRequestRef.current === requestId && sessionIdRef.current === requestSessionId) {
@@ -146,7 +153,7 @@ export function SessionTranscript({
         setIsLoadingHistory(false);
       }
     }
-  }, [historyCursor, instanceId, revalidator]);
+  }, [historyCursor, instanceId, requestRevalidation]);
 
   useEffect(() => {
     if (sessionIdRef.current === session.id) {
@@ -178,8 +185,8 @@ export function SessionTranscript({
 
   useEffect(() => {
     shouldReplaceFromLoaderRef.current = true;
-    void revalidator.revalidate();
-  }, [revalidator, session.id]);
+    requestRevalidation();
+  }, [requestRevalidation, session.id]);
 
   const replyPermission = useCallback(
     async (requestId: string, reply: "once" | "always" | "reject") => {
@@ -188,10 +195,10 @@ export function SessionTranscript({
       try {
         await replyToOpencodePermissionRequest(instanceId, requestId, reply);
       } catch {
-        revalidator.revalidate();
+        requestRevalidation();
       }
     },
-    [instanceId, revalidator],
+    [instanceId, requestRevalidation],
   );
 
   const replyQuestion = useCallback(
@@ -201,10 +208,10 @@ export function SessionTranscript({
       try {
         await replyToOpencodeQuestionRequest(instanceId, requestId, answers);
       } catch {
-        revalidator.revalidate();
+        requestRevalidation();
       }
     },
-    [instanceId, revalidator],
+    [instanceId, requestRevalidation],
   );
 
   const rejectQuestion = useCallback(
@@ -214,10 +221,10 @@ export function SessionTranscript({
       try {
         await rejectOpencodeQuestionRequest(instanceId, requestId);
       } catch {
-        revalidator.revalidate();
+        requestRevalidation();
       }
     },
-    [instanceId, revalidator],
+    [instanceId, requestRevalidation],
   );
 
   useInstanceEvents(
@@ -400,7 +407,7 @@ export function SessionTranscript({
           {isLoadingHistory ? <p className="pt-4 text-sm leading-6">Loading earlier messages...</p> : null}
           {isEmpty ? <p className={cn("text-base leading-6", !showCenteredEmptyState && "pt-4")}>{emptyStateMessage}</p> : null}
           {visibleMessages.map((message) => (
-            <MessageCard actionPath={actionPath} isSessionBusy={isBusy} key={message.info.id} message={message} />
+            <MessageCard actionPath={actionPath} instanceId={instanceId} isSessionBusy={isBusy} key={message.info.id} message={message} />
           ))}
           {revertedMessages.length ? (
             <SessionRevertDock actionPath={actionPath} isSessionBusy={isBusy} messages={revertedMessages} />

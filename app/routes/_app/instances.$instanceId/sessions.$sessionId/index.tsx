@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useOutletContext } from "react-router";
+import { Link, useOutletContext } from "react-router";
+import { Icon } from "@iconify/react";
 
 import { useMarkSessionReadOptimistic, useSession, useUnreadStatusEvents } from "~/store/sessions-provider";
 import { useSessionInfo, useSessionStatus } from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-live";
@@ -9,7 +10,7 @@ import type { Route } from "./+types/index";
 import { type SessionRouteContext } from "./+/session-route";
 
 export default function InstanceSessionTranscriptRoute() {
-  const { actionPath, instance, transcriptInitialState } = useOutletContext<SessionRouteContext>();
+  const { actionPath, instance, parentSession, transcriptInitialState } = useOutletContext<SessionRouteContext>();
   const session = useSessionInfo();
   const status = useSessionStatus();
   const sessionState = useSession(session.id);
@@ -86,15 +87,28 @@ export default function InstanceSessionTranscriptRoute() {
   }, [canAck, needsAck, submitAck, updatedAt]);
 
   return (
-    <SessionTranscript
-      actionPath={actionPath}
-      initialHistoryCursor={transcriptInitialState.initialHistoryCursor}
-      initialMessages={transcriptInitialState.initialMessages}
-      initialPermissions={transcriptInitialState.initialPermissions}
-      initialQuestions={transcriptInitialState.initialQuestions}
-      instanceId={instance.id}
-      session={session}
-      status={status}
-    />
+    <>
+      {parentSession ? (
+        <div className="border-b-2 border-black px-3">
+          <Link
+            className="inline-flex min-h-11 items-center gap-1 text-base font-bold underline underline-offset-4"
+            to={`/instances/${instance.id}/sessions/${parentSession.id}`}
+          >
+            <Icon className="size-5" icon="mdi:arrow-left" />
+            <span>{parentSession.title?.trim() || parentSession.id.slice(0, 12)}</span>
+          </Link>
+        </div>
+      ) : null}
+      <SessionTranscript
+        actionPath={actionPath}
+        initialHistoryCursor={transcriptInitialState.initialHistoryCursor}
+        initialMessages={transcriptInitialState.initialMessages}
+        initialPermissions={transcriptInitialState.initialPermissions}
+        initialQuestions={transcriptInitialState.initialQuestions}
+        instanceId={instance.id}
+        session={session}
+        status={status}
+      />
+    </>
   );
 }
