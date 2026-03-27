@@ -169,4 +169,64 @@ describe("useStickyBottomScroll", () => {
 
     expect(scrollEl.scrollTop).toBe(1000);
   });
+
+  it("stays pinned during rerenders even without a resize observer callback", async () => {
+    const scrollEl = await renderHarness({
+      children: <div>streaming message</div>,
+      scrollContextKey: "transcript:one",
+    });
+
+    mockElementMetrics(scrollEl, {
+      clientHeight: 200,
+      scrollHeight: 1000,
+      scrollTop: 760,
+    });
+    scrollEl.dispatchEvent(new Event("scroll"));
+
+    mockElementMetrics(scrollEl, {
+      scrollHeight: 1200,
+    });
+
+    flushSync(() => {
+      root.render(
+        <StickyBottomHarness scrollContextKey="transcript:one">
+          <div>streaming message updated</div>
+        </StickyBottomHarness>,
+      );
+    });
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(scrollEl.scrollTop).toBe(1200);
+  });
+
+  it("does not yank scroll position during rerenders when scrolled up", async () => {
+    const scrollEl = await renderHarness({
+      children: <div>streaming message</div>,
+      scrollContextKey: "transcript:one",
+    });
+
+    mockElementMetrics(scrollEl, {
+      clientHeight: 200,
+      scrollHeight: 1000,
+      scrollTop: 500,
+    });
+    scrollEl.dispatchEvent(new Event("scroll"));
+
+    mockElementMetrics(scrollEl, {
+      scrollHeight: 1200,
+    });
+
+    flushSync(() => {
+      root.render(
+        <StickyBottomHarness scrollContextKey="transcript:one">
+          <div>streaming message updated</div>
+        </StickyBottomHarness>,
+      );
+    });
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(scrollEl.scrollTop).toBe(500);
+  });
 });

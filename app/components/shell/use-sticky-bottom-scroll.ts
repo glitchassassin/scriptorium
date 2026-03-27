@@ -60,6 +60,16 @@ export function useStickyBottomScroll({ contentRef, scrollContextKey, scrollRef 
   }, [scrollContextKey, scrollRef, updateScrollState]);
 
   useEffect(() => {
+    if (hasLoadedRef.current && !isNearBottomRef.current) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(scrollToBottom);
+
+    return () => window.cancelAnimationFrame(frame);
+  });
+
+  useEffect(() => {
     const contentEl = contentRef.current;
 
     if (!contentEl || typeof ResizeObserver === "undefined") {
