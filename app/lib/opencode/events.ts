@@ -118,7 +118,7 @@ export const opencodeProviderCatalogSchema = z.object({
   providers: z.array(opencodeProviderSchema),
 });
 
-const opencodeFileDiffSchema = z.object({
+export const opencodeFileDiffSchema = z.object({
   file: z.string(),
   before: z.string(),
   after: z.string(),
@@ -126,6 +126,12 @@ const opencodeFileDiffSchema = z.object({
   deletions: z.number(),
   status: z.enum(["added", "deleted", "modified"]).optional(),
 });
+
+const opencodeUserMessageSummarySchema = z.object({
+  title: z.string().optional(),
+  body: z.string().optional(),
+  diffs: z.array(opencodeFileDiffSchema).optional(),
+}).passthrough();
 
 const opencodeMessageErrorSchema = z.object({
   name: z.string(),
@@ -142,7 +148,7 @@ export const opencodeUserMessageSchema = z.object({
   agent: z.string().optional(),
   model: opencodeModelRefSchema.optional(),
   format: z.unknown().optional(),
-  summary: z.unknown().optional(),
+  summary: opencodeUserMessageSummarySchema.optional(),
   system: z.string().optional(),
   tools: z.record(z.string(), z.boolean()).optional(),
   variant: z.string().optional(),

@@ -8,10 +8,10 @@ vi.mock("~/components/events/use-coalesced-revalidation", () => ({
 }));
 
 import {
-  ReadStatusEventsProvider,
-  useReadStatusEvents,
-  type SessionReadEvent,
-} from "~/components/events/read-status-events-provider";
+  SessionEventsProvider,
+  useSessionEvents,
+  type SessionEvent,
+} from "~/components/events/session-events-provider";
 import { RECONNECT_DELAYS_MS } from "~/lib/events/persistent-event-source";
 
 class MockEventSource {
@@ -58,17 +58,17 @@ function TestSubscriber({
   onEvent,
 }: {
   filter?: { sessionId?: string };
-  onEvent: (event: SessionReadEvent) => void;
+  onEvent: (event: SessionEvent) => void;
 }) {
-  useReadStatusEvents(onEvent, filter);
+  useSessionEvents(onEvent, filter);
   return null;
 }
 
-function emitReadStatusEvent(payload: unknown) {
-  const source = MockEventSource.latest("/session-read-status/events");
+function emitSessionEvent(payload: unknown) {
+  const source = MockEventSource.latest("/session-events/events");
 
   if (!source) {
-    throw new Error("Missing mock EventSource for read status events.");
+    throw new Error("Missing mock EventSource for session events.");
   }
 
   act(() => {
@@ -76,7 +76,7 @@ function emitReadStatusEvent(payload: unknown) {
   });
 }
 
-describe("useReadStatusEvents", () => {
+describe("useSessionEvents", () => {
   const originalEventSource = globalThis.EventSource;
 
   beforeEach(() => {
@@ -94,15 +94,15 @@ describe("useReadStatusEvents", () => {
   });
 
   it("delivers parsed events to subscribers", () => {
-    const onEvent = vi.fn<(event: SessionReadEvent) => void>();
+    const onEvent = vi.fn<(event: SessionEvent) => void>();
 
     render(
-      <ReadStatusEventsProvider>
+      <SessionEventsProvider>
         <TestSubscriber onEvent={onEvent} />
-      </ReadStatusEventsProvider>,
+      </SessionEventsProvider>,
     );
 
-    emitReadStatusEvent({
+    emitSessionEvent({
       type: "session.read",
       sessionId: "session-1",
       lastReadAt: 6,
@@ -116,42 +116,57 @@ describe("useReadStatusEvents", () => {
   });
 
   it("filters by session", () => {
-    const onEvent = vi.fn<(event: SessionReadEvent) => void>();
+    const onEvent = vi.fn<(event: SessionEvent) => void>();
 
     render(
-      <ReadStatusEventsProvider>
+      <SessionEventsProvider>
         <TestSubscriber filter={{ sessionId: "session-1" }} onEvent={onEvent} />
-      </ReadStatusEventsProvider>,
+      </SessionEventsProvider>,
     );
 
-    emitReadStatusEvent({
-      type: "session.read",
+    emitSessionEvent({
+      type: "session.activity",
+      instanceId: "instance-1",
       sessionId: "session-2",
-      lastReadAt: 6,
+      updatedAt: 5,
     });
 
-    emitReadStatusEvent({
-      type: "session.read",
-      sessionId: "session-1",
-      lastReadAt: 6,
+    emitSessionEvent({
+      type: "session.summary",
+      instanceId: "instance-1",
+      summary: {
+        id: "session-1",
+        parentID: null,
+        title: "Session 1",
+        directory: null,
+        createdAt: 4,
+        updatedAt: 6,
+      },
     });
 
     expect(onEvent).toHaveBeenCalledTimes(1);
     expect(onEvent).toHaveBeenCalledWith({
-      type: "session.read",
-      sessionId: "session-1",
-      lastReadAt: 6,
+      type: "session.summary",
+      instanceId: "instance-1",
+      summary: {
+        id: "session-1",
+        parentID: null,
+        title: "Session 1",
+        directory: null,
+        createdAt: 4,
+        updatedAt: 6,
+      },
     });
   });
 
   it("logs invalid payloads and closes the source on unmount", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const view = render(
-      <ReadStatusEventsProvider>
+      <SessionEventsProvider>
         <TestSubscriber onEvent={vi.fn()} />
-      </ReadStatusEventsProvider>,
+      </SessionEventsProvider>,
     );
-    const source = MockEventSource.latest("/session-read-status/events");
+    const source = MockEventSource.latest("/session-events/events");
 
     act(() => {
       source?.emit({ type: "session.read", sessionId: "session-1" });
@@ -167,12 +182,12 @@ describe("useReadStatusEvents", () => {
 
   it("revalidates after the stream recovers", () => {
     render(
-      <ReadStatusEventsProvider>
+      <SessionEventsProvider>
         <TestSubscriber onEvent={vi.fn()} />
-      </ReadStatusEventsProvider>,
+      </SessionEventsProvider>,
     );
 
-    const source = MockEventSource.latest("/session-read-status/events");
+    const source = MockEventSource.latest("/session-events/events");
 
     act(() => {
       source?.open();
@@ -184,7 +199,7 @@ describe("useReadStatusEvents", () => {
     });
 
     act(() => {
-      MockEventSource.latest("/session-read-status/events")?.open();
+      MockEventSource.latest("/session-events/events")?.open();
     });
 
     expect(revalidateOnReconnect).toHaveBeenCalledTimes(1);

@@ -1,7 +1,6 @@
 import type { Route } from "./+types/_layout";
 
-import { InstanceEventsProvider } from "~/components/events/instance-events-provider";
-import { ReadStatusEventsProvider } from "~/components/events/read-status-events-provider";
+import { SessionEventsProvider } from "~/components/events/session-events-provider";
 import { useBrowserResumeRevalidation } from "~/components/events/use-browser-resume-revalidation";
 import { BreadcrumbsProvider, useBreadcrumbs } from "~/components/shell/breadcrumbs";
 import { getInitialInstances, InstancesProvider } from "~/store/instances-provider";
@@ -75,9 +74,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   return data(
     {
-      liveInstanceIds: instances
-        .filter((instance) => instance.status === "starting" || instance.status === "running")
-        .map((instance) => instance.id),
       initialInstances,
       initialSessions,
     },
@@ -120,20 +116,18 @@ export default function AppLayout({ loaderData, matches }: Route.ComponentProps)
   const iconNavActions = resolveRouteHandleValue(routeMatches, "iconNavActions") ?? [];
 
   return (
-    <InstanceEventsProvider instanceIds={loaderData.liveInstanceIds}>
-      <ReadStatusEventsProvider>
-        <SessionsProvider initialSessions={loaderData.initialSessions}>
-          <InstancesProvider initialInstances={loaderData.initialInstances}>
-            <BreadcrumbsProvider>
-              <AppLayoutShell
-                breadcrumbsFallback={[{ content: "Scriptorium" }]}
-                leadingIconAction={leadingIconAction}
-                iconNavActions={iconNavActions}
-              />
-            </BreadcrumbsProvider>
-          </InstancesProvider>
-        </SessionsProvider>
-      </ReadStatusEventsProvider>
-    </InstanceEventsProvider>
+    <SessionEventsProvider>
+      <SessionsProvider initialSessions={loaderData.initialSessions}>
+        <InstancesProvider initialInstances={loaderData.initialInstances}>
+          <BreadcrumbsProvider>
+            <AppLayoutShell
+              breadcrumbsFallback={[{ content: "Scriptorium" }]}
+              leadingIconAction={leadingIconAction}
+              iconNavActions={iconNavActions}
+            />
+          </BreadcrumbsProvider>
+        </InstancesProvider>
+      </SessionsProvider>
+    </SessionEventsProvider>
   );
 }

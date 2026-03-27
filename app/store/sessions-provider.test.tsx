@@ -11,15 +11,10 @@ import {
   useSessionUnreadStatus,
 } from "~/store/sessions-provider";
 
-const useInstanceEventsMock = vi.fn();
-const useReadStatusEventsMock = vi.fn();
+const useSessionEventsMock = vi.fn();
 
-vi.mock("~/components/events/instance-events-provider", () => ({
-  useInstanceEvents: (...args: unknown[]) => useInstanceEventsMock(...args),
-}));
-
-vi.mock("~/components/events/read-status-events-provider", () => ({
-  useReadStatusEvents: (...args: unknown[]) => useReadStatusEventsMock(...args),
+vi.mock("~/components/events/session-events-provider", () => ({
+  useSessionEvents: (...args: unknown[]) => useSessionEventsMock(...args),
 }));
 
 function TestConsumer() {
@@ -69,15 +64,11 @@ const initialSessions: Record<string, SessionState> = {
 };
 
 describe("SessionsProvider", () => {
-  it("derives reactive session state from instance and read events", () => {
-    let onInstanceEvent: ((event: any) => void) | null = null;
-    let onReadStatusEvent: ((event: any) => void) | null = null;
+  it("derives reactive session state from session events", () => {
+    let onSessionEvent: ((event: any) => void) | null = null;
 
-    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
-      onInstanceEvent = handler;
-    });
-    useReadStatusEventsMock.mockImplementation((handler: (event: any) => void) => {
-      onReadStatusEvent = handler;
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
     });
 
     render(
@@ -92,23 +83,18 @@ describe("SessionsProvider", () => {
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
 
-    if (!onInstanceEvent || !onReadStatusEvent) {
-      throw new Error("Missing event handlers");
+    if (!onSessionEvent) {
+      throw new Error("Missing event handler");
     }
 
-    const instanceEventHandler: (event: any) => void = onInstanceEvent;
-    const readStatusEventHandler: (event: any) => void = onReadStatusEvent;
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
 
     act(() => {
-      instanceEventHandler({
-        type: "message.updated",
+      sessionEventHandler({
+        type: "session.activity",
         instanceId: "instance-1",
-        properties: {
-          info: {
-            sessionID: "session-1",
-            time: { created: 503 },
-          },
-        },
+        sessionId: "session-1",
+        updatedAt: 503,
       });
     });
 
@@ -119,7 +105,7 @@ describe("SessionsProvider", () => {
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
 
     act(() => {
-      readStatusEventHandler({
+      sessionEventHandler({
         type: "session.read",
         sessionId: "session-1",
         lastReadAt: 6,
@@ -134,12 +120,11 @@ describe("SessionsProvider", () => {
   });
 
   it("removes deleted sessions from state", () => {
-    let onInstanceEvent: ((event: any) => void) | null = null;
+    let onSessionEvent: ((event: any) => void) | null = null;
 
-    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
-      onInstanceEvent = handler;
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
     });
-    useReadStatusEventsMock.mockImplementation(() => {});
 
     render(
       <SessionsProvider initialSessions={initialSessions}>
@@ -147,21 +132,17 @@ describe("SessionsProvider", () => {
       </SessionsProvider>,
     );
 
-    if (!onInstanceEvent) {
-      throw new Error("Missing instance event handler");
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
     }
 
-    const instanceEventHandler: (event: any) => void = onInstanceEvent;
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
 
     act(() => {
-      instanceEventHandler({
+      sessionEventHandler({
         type: "session.deleted",
         instanceId: "instance-1",
-        properties: {
-          info: {
-            id: "session-1",
-          },
-        },
+        sessionId: "session-1",
       });
     });
 
@@ -172,13 +153,12 @@ describe("SessionsProvider", () => {
   });
 
   it("publishes unread-status events from instance activity", () => {
-    let onInstanceEvent: ((event: any) => void) | null = null;
+    let onSessionEvent: ((event: any) => void) | null = null;
     const onUnreadStatusEvent = vi.fn();
 
-    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
-      onInstanceEvent = handler;
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
     });
-    useReadStatusEventsMock.mockImplementation(() => {});
 
     render(
       <SessionsProvider initialSessions={initialSessions}>
@@ -186,22 +166,18 @@ describe("SessionsProvider", () => {
       </SessionsProvider>,
     );
 
-    if (!onInstanceEvent) {
-      throw new Error("Missing instance event handler");
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
     }
 
-    const instanceEventHandler: (event: any) => void = onInstanceEvent;
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
 
     act(() => {
-      instanceEventHandler({
-        type: "message.updated",
+      sessionEventHandler({
+        type: "session.activity",
         instanceId: "instance-1",
-        properties: {
-          info: {
-            sessionID: "session-1",
-            time: { created: 5 },
-          },
-        },
+        sessionId: "session-1",
+        updatedAt: 5,
       });
     });
 
@@ -213,12 +189,11 @@ describe("SessionsProvider", () => {
   });
 
   it("preserves parent session ids from session updates", () => {
-    let onInstanceEvent: ((event: any) => void) | null = null;
+    let onSessionEvent: ((event: any) => void) | null = null;
 
-    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
-      onInstanceEvent = handler;
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
     });
-    useReadStatusEventsMock.mockImplementation(() => {});
 
     render(
       <SessionsProvider initialSessions={initialSessions}>
@@ -226,24 +201,23 @@ describe("SessionsProvider", () => {
       </SessionsProvider>,
     );
 
-    if (!onInstanceEvent) {
-      throw new Error("Missing instance event handler");
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
     }
 
-    const instanceEventHandler: (event: any) => void = onInstanceEvent;
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
 
     act(() => {
-      instanceEventHandler({
-        type: "session.updated",
+      sessionEventHandler({
+        type: "session.summary",
         instanceId: "instance-1",
-        properties: {
-          info: {
-            id: "session-1",
-            parentID: "session-root",
-            title: "Session",
-            directory: null,
-            time: { created: 1, updated: 5 },
-          },
+        summary: {
+          id: "session-1",
+          parentID: "session-root",
+          title: "Session",
+          directory: null,
+          createdAt: 1,
+          updatedAt: 5,
         },
       });
     });
@@ -252,12 +226,11 @@ describe("SessionsProvider", () => {
   });
 
   it("treats question requests as unread session activity", () => {
-    let onInstanceEvent: ((event: any) => void) | null = null;
+    let onSessionEvent: ((event: any) => void) | null = null;
 
-    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
-      onInstanceEvent = handler;
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
     });
-    useReadStatusEventsMock.mockImplementation(() => {});
 
     render(
       <SessionsProvider initialSessions={initialSessions}>
@@ -265,27 +238,18 @@ describe("SessionsProvider", () => {
       </SessionsProvider>,
     );
 
-    if (!onInstanceEvent) {
-      throw new Error("Missing instance event handler");
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
     }
 
-    const instanceEventHandler: (event: any) => void = onInstanceEvent;
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
 
     act(() => {
-      instanceEventHandler({
-        type: "question.asked",
+      sessionEventHandler({
+        type: "session.activity",
         instanceId: "instance-1",
-        properties: {
-          id: "question-1",
-          sessionID: "session-1",
-          questions: [
-            {
-              question: "What next?",
-              header: "Next",
-              options: [{ label: "Tests", description: "Run tests" }],
-            },
-          ],
-        },
+        sessionId: "session-1",
+        updatedAt: 10_000,
       });
     });
 
@@ -293,8 +257,7 @@ describe("SessionsProvider", () => {
   });
 
   it("marks sessions read optimistically before SSE confirmation", () => {
-    useInstanceEventsMock.mockImplementation(() => {});
-    useReadStatusEventsMock.mockImplementation(() => {});
+    useSessionEventsMock.mockImplementation(() => {});
 
     render(
       <SessionsProvider initialSessions={initialSessions}>
@@ -310,12 +273,11 @@ describe("SessionsProvider", () => {
   });
 
   it("keeps the session read for near-simultaneous optimistic read and activity", () => {
-    let onInstanceEvent: ((event: any) => void) | null = null;
+    let onSessionEvent: ((event: any) => void) | null = null;
 
-    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
-      onInstanceEvent = handler;
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
     });
-    useReadStatusEventsMock.mockImplementation(() => {});
 
     render(
       <SessionsProvider initialSessions={initialSessions}>
@@ -326,22 +288,18 @@ describe("SessionsProvider", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
 
-    if (!onInstanceEvent) {
-      throw new Error("Missing instance event handler");
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
     }
 
-    const instanceEventHandler: (event: any) => void = onInstanceEvent;
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
 
     act(() => {
-      instanceEventHandler({
-        type: "message.updated",
+      sessionEventHandler({
+        type: "session.activity",
         instanceId: "instance-1",
-        properties: {
-          info: {
-            sessionID: "session-1",
-            time: { created: 7 + 500 },
-          },
-        },
+        sessionId: "session-1",
+        updatedAt: 7 + 500,
       });
     });
 
@@ -350,15 +308,11 @@ describe("SessionsProvider", () => {
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
 
     act(() => {
-      instanceEventHandler({
-        type: "message.updated",
+      sessionEventHandler({
+        type: "session.activity",
         instanceId: "instance-1",
-        properties: {
-          info: {
-            sessionID: "session-1",
-            time: { created: 7 + 501 },
-          },
-        },
+        sessionId: "session-1",
+        updatedAt: 7 + 501,
       });
     });
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getUserMessageText, partitionMessagesByRevert } from "~/lib/opencode/message-helpers";
+import {
+  getLatestVisibleUserMessageDiffs,
+  getUserMessageText,
+  partitionMessagesByRevert,
+} from "~/lib/opencode/message-helpers";
 import type { OpencodeMessageWithParts } from "~/lib/opencode/events";
 
 const userMessage = (id: string, text: string): OpencodeMessageWithParts => ({
@@ -19,6 +23,26 @@ const userMessage = (id: string, text: string): OpencodeMessageWithParts => ({
       text,
     },
   ],
+});
+
+const userMessageWithDiffs = (id: string, files: string[]): OpencodeMessageWithParts => ({
+  info: {
+    id,
+    sessionID: "session-1",
+    role: "user",
+    summary: {
+      diffs: files.map((file, index) => ({
+        additions: 1,
+        after: `after ${file}`,
+        before: `before ${file}`,
+        deletions: 1,
+        file,
+        ...(index === 0 ? { status: "modified" as const } : {}),
+      })),
+    },
+    time: { created: Number(id.replace(/\D/g, "")) || 1 },
+  },
+  parts: [],
 });
 
 const assistantMessage = (id: string): OpencodeMessageWithParts => ({
@@ -52,5 +76,40 @@ describe("partitionMessagesByRevert", () => {
 
     expect(result.visibleMessages.map((message) => message.info.id)).toEqual(["message-1", "message-2"]);
     expect(result.revertedMessages.map((message) => message.info.id)).toEqual(["message-3", "message-4"]);
+  });
+});
+
+describe("getLatestVisibleUserMessageDiffs", () => {
+  it("returns the most recent visible user diffs", () => {
+    const messages = [
+      userMessageWithDiffs("message-1", ["src/first.ts"]),
+      assistantMessage("message-2"),
+      userMessageWithDiffs("message-3", ["src/second.ts"]),
+      assistantMessage("message-4"),
+    ];
+
+    expect(getLatestVisibleUserMessageDiffs(messages, null).map((diff) => diff.file)).toEqual(["src/second.ts"]);
+  });
+
+  it("ignores reverted user turns", () => {
+    const messages = [
+      userMessageWithDiffs("message-1", ["src/first.ts"]),
+      assistantMessage("message-2"),
+      userMessageWithDiffs("message-3", ["src/second.ts"]),
+      assistantMessage("message-4"),
+    ];
+
+    expect(getLatestVisibleUserMessageDiffs(messages, { messageID: "message-3" }).map((diff) => diff.file)).toEqual(["src/first.ts"]);
+  });
+
+  it("dedupes repeated file entries by latest occurrence", () => {
+    const messages = [
+      userMessageWithDiffs("message-1", ["src/alpha.ts", "src/alpha.ts", "src/beta.ts"]),
+    ];
+
+    expect(getLatestVisibleUserMessageDiffs(messages, null).map((diff) => diff.file)).toEqual([
+      "src/alpha.ts",
+      "src/beta.ts",
+    ]);
   });
 });

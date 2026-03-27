@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { useInstanceEvents } from "~/components/events/instance-events-provider";
+import { useSessionEvents } from "~/components/events/session-events-provider";
 import { isRootSession, type SidebarInstanceRecord } from "~/lib/instances/sidebar";
 
 type InstanceState = Pick<SidebarInstanceRecord, "id" | "name" | "status"> & {
@@ -84,29 +84,28 @@ export function InstancesProvider({ children, initialInstances }: { children: Re
     dispatch({ type: "reset", instances: initialInstances });
   }, [initialInstances]);
 
-  useInstanceEvents((event) => {
+  useSessionEvents((event) => {
     switch (event.type) {
-      case "session.created":
-      case "session.updated":
-        if (!isRootSession(event.properties.info)) {
+      case "session.summary":
+        if (!isRootSession(event.summary)) {
           return;
         }
 
         dispatch({
           type: "add-session",
           instanceId: event.instanceId,
-          sessionId: event.properties.info.id,
+          sessionId: event.summary.id,
         });
         return;
       case "session.deleted":
         dispatch({
           type: "remove-session",
           instanceId: event.instanceId,
-          sessionId: event.properties.info.id,
+          sessionId: event.sessionId,
         });
     }
   }, {
-    types: ["session.created", "session.updated", "session.deleted"] as const,
+    types: ["session.summary", "session.deleted"] as const,
   });
 
   return <InstancesContext.Provider value={instances}>{children}</InstancesContext.Provider>;

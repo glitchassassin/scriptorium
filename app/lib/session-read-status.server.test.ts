@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { withTestDatabase } from "~/lib/db.server";
 import {
@@ -8,6 +8,11 @@ import {
   markSessionRead,
   subscribeToSessionReadEvents,
 } from "~/lib/session-read-status.server";
+import { resetSessionEventsForTests } from "~/lib/session-events.server";
+
+afterEach(() => {
+  resetSessionEventsForTests();
+});
 
 describe("session read status", () => {
   it("stores and updates last-read timestamps", async () => {

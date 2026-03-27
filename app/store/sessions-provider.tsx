@@ -9,11 +9,9 @@ import {
   type ReactNode,
 } from "react";
 
-import { useInstanceEvents, type InstanceEvent } from "~/components/events/instance-events-provider";
-import { useReadStatusEvents } from "~/components/events/read-status-events-provider";
+import { useSessionEvents } from "~/components/events/session-events-provider";
 import {
   isSessionUnread,
-  toSessionSummary,
   type SidebarSessionRecord,
 } from "~/lib/instances/sidebar";
 
@@ -49,30 +47,6 @@ const SessionsEventsContext = createContext<SessionsEventsContextValue | null>(n
 
 export function getSessionStateId(sessionId: string) {
   return sessionId;
-}
-
-function getEventActivityAt(event: InstanceEvent) {
-  switch (event.type) {
-    case "session.created":
-    case "session.updated":
-      return event.properties.info.time.updated ?? event.properties.info.time.created;
-    case "message.updated":
-      return event.properties.info.time.created;
-    case "message.part.updated": {
-      const partTime = "time" in event.properties.part ? event.properties.part.time : undefined;
-
-      if (partTime && typeof partTime === "object") {
-        const start = "start" in partTime ? partTime.start : null;
-        const end = "end" in partTime ? partTime.end : null;
-
-        return typeof end === "number" ? end : typeof start === "number" ? start : Date.now();
-      }
-
-      return Date.now();
-    }
-    default:
-      return Date.now();
-  }
 }
 
 function sessionsReducer(current: SessionsContextValue, action: SessionsAction) {
@@ -182,116 +156,54 @@ export function SessionsProvider({ children, initialSessions }: { children: Reac
   const eventsValue = useMemo<SessionsEventsContextValue>(() => ({ subscribe }), [subscribe]);
   const actionsValue = useMemo<SessionsActionsContextValue>(() => ({ markReadOptimistic }), [markReadOptimistic]);
 
-  useReadStatusEvents((event) => {
-    dispatch({
-      type: "update",
-      sessionId: event.sessionId,
-      state: { lastReadAt: event.lastReadAt },
-    });
-  });
-
-  useInstanceEvents((event) => {
+  useSessionEvents((event) => {
     switch (event.type) {
-      case "session.deleted":
-        dispatch({ type: "update", sessionId: event.properties.info.id, state: null });
-        return;
-      case "session.created":
-      case "session.updated": {
-        const updatedAt = getEventActivityAt(event);
+      case "session.read":
         dispatch({
           type: "update",
-          sessionId: event.properties.info.id,
+          sessionId: event.sessionId,
+          state: { lastReadAt: event.lastReadAt },
+        });
+        return;
+      case "session.summary": {
+        const updatedAt = event.summary.updatedAt ?? event.summary.createdAt ?? Date.now();
+
+        dispatch({
+          type: "update",
+          sessionId: event.summary.id,
           state: {
-            ...toSessionSummary(event.properties.info),
+            ...event.summary,
             updatedAt,
           },
         });
         notifyUnreadStatusEvent({
           instanceId: event.instanceId,
-          sessionId: event.properties.info.id,
+          sessionId: event.summary.id,
           updatedAt,
         });
         return;
       }
-      case "message.updated": {
-        const updatedAt = getEventActivityAt(event);
+      case "session.deleted":
+        dispatch({ type: "update", sessionId: event.sessionId, state: null });
+        return;
+      case "session.activity": {
+        const updatedAt = event.updatedAt;
         dispatch({
           type: "update",
-          sessionId: event.properties.info.sessionID,
+          sessionId: event.sessionId,
           state: { updatedAt },
         });
         notifyUnreadStatusEvent({
           instanceId: event.instanceId,
-          sessionId: event.properties.info.sessionID,
+          sessionId: event.sessionId,
           updatedAt,
         });
         return;
-      }
-      case "message.part.updated": {
-        const updatedAt = getEventActivityAt(event);
-        dispatch({
-          type: "update",
-          sessionId: event.properties.part.sessionID,
-          state: { updatedAt },
-        });
-        notifyUnreadStatusEvent({
-          instanceId: event.instanceId,
-          sessionId: event.properties.part.sessionID,
-          updatedAt,
-        });
-        return;
-      }
-      case "message.part.delta":
-      case "message.part.removed":
-      case "permission.asked":
-      case "question.asked": {
-        const updatedAt = getEventActivityAt(event);
-        dispatch({
-          type: "update",
-          sessionId: event.properties.sessionID,
-          state: { updatedAt },
-        });
-        notifyUnreadStatusEvent({
-          instanceId: event.instanceId,
-          sessionId: event.properties.sessionID,
-          updatedAt,
-        });
-        return;
-      }
-      case "session.error": {
-        const sessionId = event.properties.sessionID;
-
-        if (!sessionId) {
-          return;
-        }
-
-        const updatedAt = getEventActivityAt(event);
-        dispatch({
-          type: "update",
-          sessionId,
-          state: { updatedAt },
-        });
-        notifyUnreadStatusEvent({
-          instanceId: event.instanceId,
-          sessionId,
-          updatedAt,
-        });
       }
     }
   }, {
-    types: [
-      "session.created",
-      "session.updated",
-      "session.deleted",
-      "message.updated",
-        "message.part.updated",
-        "message.part.delta",
-        "message.part.removed",
-        "permission.asked",
-        "question.asked",
-        "session.error",
-      ] as const,
-    });
+    types: ["session.read", "session.summary", "session.deleted", "session.activity"] as const,
+  });
 
   return (
     <SessionsActionsContext.Provider value={actionsValue}>

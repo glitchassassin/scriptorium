@@ -1,44 +1,43 @@
-import { GitBrowser } from "~/components/workspace/git-browser";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
+import { ReviewBrowser } from "~/components/workspace/review-browser";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
-import { getServerTimingHeaders } from "~/lib/server-timing.server";
+import { getServerTimingHeaders, loadInstanceUncommittedReviewRouteData } from "~/routes/_app/instances.$instanceId/review.server";
 
 import { getInstanceBreadcrumbs } from "./+/instance-route";
-import { loadInstanceGitRouteData } from "./git.server";
 
-import type { Route } from "./+types/git";
+import type { Route } from "./+types/review.uncommitted";
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   title: ({ data, params }) => [
     ...getInstanceBreadcrumbs(data?.instance?.name, params.instanceId),
-    { label: "git" },
+    { label: "review" },
   ],
 });
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const instanceId = params.instanceId;
-
-  return loadInstanceGitRouteData({ instanceId, request });
+  return loadInstanceUncommittedReviewRouteData({
+    instanceId: params.instanceId,
+    request,
+  });
 }
 
 export function headers(args: Route.HeadersArgs) {
   return getServerTimingHeaders(args);
 }
 
-export default function InstanceGitRoute({ loaderData, matches }: Route.ComponentProps) {
-  const { changed, git, instance, selected, selectedError, selectedPath } = loaderData;
+export default function InstanceReviewRoute({ loaderData, matches }: Route.ComponentProps) {
+  const { instance, mode, review, selected, selectedError, selectedPath } = loaderData;
 
   return (
     <>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item to={`/instances/${instance.id}`}>{instance.name}</Breadcrumbs.Item>
-        <Breadcrumbs.Item>git</Breadcrumbs.Item>
+        <Breadcrumbs.Item>review</Breadcrumbs.Item>
       </Breadcrumbs>
-      <GitBrowser
-        changed={changed}
-        git={git}
-        rootPath={instance.directory}
+      <ReviewBrowser
+        mode={mode}
+        review={review}
         selected={selected}
         selectedError={selectedError}
         selectedPath={selectedPath}

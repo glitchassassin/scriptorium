@@ -6,6 +6,11 @@ import type {
   GitChangedFile,
 } from "~/lib/instances/types";
 
+type StatusFile = {
+  path: string;
+  status?: FileTreeStatus | null;
+};
+
 function compareNodes(left: FileTreeNode, right: FileTreeNode) {
   if (left.type !== right.type) {
     return left.type === "directory" ? -1 : 1;
@@ -129,7 +134,7 @@ export function collectFilePaths(nodes: FileTreeNode[]): string[] {
   return paths;
 }
 
-export function buildChangedFilesTree(files: GitChangedFile[]): FileTreeNode[] {
+export function buildStatusFilesTree(files: StatusFile[]): FileTreeNode[] {
   const root: FileTreeDirectoryNode = {
     children: [],
     name: ".",
@@ -155,7 +160,7 @@ export function buildChangedFilesTree(files: GitChangedFile[]): FileTreeNode[] {
         current.children.push({
           name: segment,
           path: nextPath,
-          status: toStatus(file),
+          status: file.status ?? null,
           type: "file",
         });
         continue;
@@ -198,4 +203,8 @@ export function buildChangedFilesTree(files: GitChangedFile[]): FileTreeNode[] {
   }
 
   return sortNodes(root.children ?? []);
+}
+
+export function buildChangedFilesTree(files: GitChangedFile[]): FileTreeNode[] {
+  return buildStatusFilesTree(files.map((file) => ({ path: file.path, status: toStatus(file) })));
 }

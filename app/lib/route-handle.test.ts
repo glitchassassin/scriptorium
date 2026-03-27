@@ -41,19 +41,19 @@ type SessionLayoutRoute = {
   ];
 };
 
-type SessionGitRoute = {
+type SessionReviewRoute = {
   loaderData: {
     instance: { name: string };
   };
-  params: { instanceId: string; sessionId: string };
+  params: { instanceId: string; mode: string; sessionId: string };
   matches: readonly [
     ...SessionLayoutRoute["matches"],
     {
-      id: "routes/_app/instances.$instanceId/sessions.$sessionId/git";
+      id: "routes/_app/instances.$instanceId/sessions.$sessionId/review.$mode";
       data: {
         instance: { name: string };
       };
-      params: { instanceId: string; sessionId: string };
+      params: { instanceId: string; mode: string; sessionId: string };
       handle?: unknown;
     },
   ];
@@ -77,7 +77,7 @@ describe("route handles", () => {
         { icon: "mdi:message-outline", label: "Chat transcript", to: `/instances/${ctx.params.instanceId}/sessions/${ctx.params.sessionId}` },
       ],
     });
-    const gitHandle: RouteHandleDefinition<SessionGitRoute> = defineRouteHandle<SessionGitRoute>({
+    const reviewHandle: RouteHandleDefinition<SessionReviewRoute> = defineRouteHandle<SessionReviewRoute>({
       title: (ctx) => {
         const sessionMatch = ctx.requireMatch("routes/_app/instances.$instanceId/sessions.$sessionId/_layout");
 
@@ -87,7 +87,7 @@ describe("route handles", () => {
             label: sessionMatch.data.session.title ?? sessionMatch.data.session.id,
             to: `/instances/${sessionMatch.params.instanceId}/sessions/${sessionMatch.params.sessionId}`,
           },
-          { label: "git" },
+          { label: "review" },
         ];
       },
     });
@@ -107,17 +107,17 @@ describe("route handles", () => {
         params: { instanceId: "instance-1", sessionId: "session-1" },
       },
       {
-        id: "routes/_app/instances.$instanceId/sessions.$sessionId/git",
+        id: "routes/_app/instances.$instanceId/sessions.$sessionId/review.$mode",
         data: { instance: { name: "Workspace" } },
-        handle: gitHandle,
-        params: { instanceId: "instance-1", sessionId: "session-1" },
+        handle: reviewHandle,
+        params: { instanceId: "instance-1", mode: "uncommitted", sessionId: "session-1" },
       },
     ] as const);
 
     expect(resolveRouteHandleValue(matches, "title")).toEqual([
       { label: "Workspace", to: "/instances/instance-1" },
       { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
-      { label: "git" },
+      { label: "review" },
     ]);
     expect(resolveRouteHandleValue(matches, "leadingIconAction")).toEqual({
       icon: "mdi:message-plus-outline",
@@ -135,13 +135,13 @@ describe("route handles", () => {
     expect(getRouteTitleLabels([
       { label: "Workspace" },
       { label: "Planning" },
-      { label: "git" },
-    ])).toEqual(["git", "Planning"]);
+      { label: "review" },
+    ])).toEqual(["review", "Planning"]);
     expect(getDocumentTitle([
       { label: "Workspace" },
       { label: "Planning" },
-      { label: "git" },
-    ])).toBe("git | Planning | scriptorium");
+      { label: "review" },
+    ])).toBe("review | Planning | scriptorium");
   });
 
   it("falls back to the app name when no breadcrumbs are available", () => {

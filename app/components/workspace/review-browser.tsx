@@ -1,49 +1,80 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { CodeViewerFrame } from "~/components/files/code-viewer/frame";
 import { LineBuilder } from "~/components/files/code-viewer/line-builder";
 import { LineSelectionLayer } from "~/components/files/code-viewer/line-selection-layer";
 import { CodeViewerRows } from "~/components/files/code-viewer/rows";
 import { ScrollIndicator } from "~/components/files/code-viewer/scroll-indicator";
-import { buildChangedFilesTree, collectDirectoryPaths, collectFilePaths } from "~/components/files/file-tree";
+import { buildStatusFilesTree, collectDirectoryPaths, collectFilePaths } from "~/components/files/file-tree";
 import { FileTreeList } from "~/components/files/file-list";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
+import { PopupPicker } from "~/components/ui/popup-picker";
 import { formatLineReference } from "~/components/workspace/files-browser";
-import type {
-  GitChangedFile,
-  GitChangedFiles,
-  GitFileDiffResult,
-  GitStatusSummary,
-} from "~/lib/instances/types";
+import type { ReviewData, ReviewFileSelection, ReviewMode, ReviewModeOption } from "~/lib/review";
+import { getReviewModeLabel } from "~/lib/review";
 
-type GitBrowserProps = {
-  changed: GitChangedFiles;
-  git: GitStatusSummary;
+type ReviewBrowserProps = {
+  mode: ReviewMode;
+  modes?: ReviewModeOption[];
   onInsertReference?: (reference: string) => void;
-  rootPath: string;
-  selected: GitFileDiffResult | null;
+  review: ReviewData;
+  selected: ReviewFileSelection | null;
   selectedError: string | null;
   selectedPath: string | null;
+  switchBasePath?: string;
 };
 
-function GitSelectionHeader({
+function ReviewModeControl({
+  mode,
+  modes,
+  switchBasePath,
+}: {
+  mode: ReviewMode;
+  modes: ReviewModeOption[];
+  switchBasePath?: string;
+}) {
+  const navigate = useNavigate();
+
+  if (!switchBasePath || modes.length < 2) {
+    return <p className="text-base font-bold">{getReviewModeLabel(mode)}</p>;
+  }
+
+  return (
+    <PopupPicker
+      ariaLabel="Review mode"
+      emptyLabel="Choose review mode"
+      onSelect={(nextMode) => navigate(`${switchBasePath}/${nextMode}`)}
+      options={modes.map((option) => ({ label: option.label, value: option.mode }))}
+      placement="bottom-start"
+      selectedValue={mode}
+    />
+  );
+}
+
+function ReviewSelectionHeader({
   label,
-  onBack,
+  mode,
+  modes,
   nextUrl,
+  onBack,
   previousUrl,
+  switchBasePath,
 }: {
   label: string;
-  onBack: () => void;
+  mode: ReviewMode;
+  modes: ReviewModeOption[];
   nextUrl: string | null;
+  onBack: () => void;
   previousUrl: string | null;
+  switchBasePath?: string;
 }) {
   return (
     <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
       <button
-        aria-label="Back to changed files"
+        aria-label={`Back to ${getReviewModeLabel(mode).toLowerCase()}`}
         className="inline-flex min-h-11 min-w-11 items-center justify-center"
         onClick={onBack}
         type="button"
@@ -54,7 +85,7 @@ function GitSelectionHeader({
       <div className="flex items-center gap-0">
         {previousUrl ? (
           <Link
-            aria-label="Previous changed file"
+            aria-label="Previous file"
             className="inline-flex min-h-11 min-w-11 items-center justify-center"
             to={previousUrl}
           >
@@ -63,7 +94,7 @@ function GitSelectionHeader({
         ) : (
           <span
             aria-disabled="true"
-            aria-label="Previous changed file"
+            aria-label="Previous file"
             className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-25"
           >
             <Icon className="size-5" icon="mdi:arrow-up-bold" />
@@ -71,7 +102,7 @@ function GitSelectionHeader({
         )}
         {nextUrl ? (
           <Link
-            aria-label="Next changed file"
+            aria-label="Next file"
             className="inline-flex min-h-11 min-w-11 items-center justify-center"
             to={nextUrl}
           >
@@ -80,66 +111,90 @@ function GitSelectionHeader({
         ) : (
           <span
             aria-disabled="true"
-            aria-label="Next changed file"
+            aria-label="Next file"
             className="inline-flex min-h-11 min-w-11 items-center justify-center opacity-25"
           >
             <Icon className="size-5" icon="mdi:arrow-down-bold" />
           </span>
         )}
       </div>
-    </div>
-  );
-}
-
-function GitListHeader({ git }: { git: GitStatusSummary }) {
-  return (
-    <div className="grid min-h-11 w-full grid-cols-[1fr_auto] items-center gap-3">
-      <p className="text-base font-bold">Changed Files</p>
-      <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-sm leading-6 opacity-60">
-        {git.isRepository ? (
-          <>
-            <span className="inline-flex items-center gap-0">
-              <Icon className="size-4" icon="mdi:source-branch" />
-              {git.branch ?? "HEAD"}
-            </span>
-            <span className="inline-flex items-center gap-0">
-              <Icon className="size-4" icon="mdi:arrow-up" />
-              {git.ahead}
-              <Icon className="size-4" icon="mdi:arrow-down" />
-              {git.behind}
-            </span>
-            <span className="inline-flex items-center gap-0">
-              <Icon className="size-4" icon="mdi:file-upload-outline" />
-              {git.staged}
-            </span>
-            <span className="inline-flex items-center gap-0">
-              <Icon className="size-4" icon="mdi:file-document-edit-outline" />
-              {git.modified}
-            </span>
-            <span className="inline-flex items-center gap-0">
-              <Icon className="size-4" icon="mdi:file-question-outline" />
-              {git.untracked}
-            </span>
-          </>
-        ) : (
-          <span>Not a git repository</span>
-        )}
+      <div className="col-span-3 flex justify-start">
+        <ReviewModeControl mode={mode} modes={modes} switchBasePath={switchBasePath} />
       </div>
     </div>
   );
 }
 
-export function GitBrowser({
-  changed,
-  git,
+function ReviewGitMeta({ review }: { review: ReviewData }) {
+  if (!review.git) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-sm leading-6 opacity-60">
+      {review.git.isRepository ? (
+        <>
+          <span className="inline-flex items-center gap-0">
+            <Icon className="size-4" icon="mdi:source-branch" />
+            {review.git.branch ?? "HEAD"}
+          </span>
+          <span className="inline-flex items-center gap-0">
+            <Icon className="size-4" icon="mdi:arrow-up" />
+            {review.git.ahead}
+            <Icon className="size-4" icon="mdi:arrow-down" />
+            {review.git.behind}
+          </span>
+          <span className="inline-flex items-center gap-0">
+            <Icon className="size-4" icon="mdi:file-upload-outline" />
+            {review.git.staged}
+          </span>
+          <span className="inline-flex items-center gap-0">
+            <Icon className="size-4" icon="mdi:file-document-edit-outline" />
+            {review.git.modified}
+          </span>
+          <span className="inline-flex items-center gap-0">
+            <Icon className="size-4" icon="mdi:file-question-outline" />
+            {review.git.untracked}
+          </span>
+        </>
+      ) : (
+        <span>Not a git repository</span>
+      )}
+    </div>
+  );
+}
+
+function ReviewListHeader({
+  mode,
+  modes,
+  review,
+  switchBasePath,
+}: {
+  mode: ReviewMode;
+  modes: ReviewModeOption[];
+  review: ReviewData;
+  switchBasePath?: string;
+}) {
+  return (
+    <div className="grid min-h-11 w-full grid-cols-[1fr_auto] items-center gap-3">
+      <ReviewModeControl mode={mode} modes={modes} switchBasePath={switchBasePath} />
+      <ReviewGitMeta review={review} />
+    </div>
+  );
+}
+
+export function ReviewBrowser({
+  mode,
+  modes = [],
   onInsertReference,
-  rootPath,
+  review,
   selected,
   selectedError,
   selectedPath,
-}: GitBrowserProps) {
+  switchBasePath,
+}: ReviewBrowserProps) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tree = useMemo(() => (changed.isRepository ? buildChangedFilesTree(changed.files) : []), [changed]);
+  const tree = useMemo(() => buildStatusFilesTree(review.files), [review.files]);
   const changedPaths = useMemo(() => collectFilePaths(tree), [tree]);
   const directoryPaths = useMemo(() => collectDirectoryPaths(tree), [tree]);
   const previousDirectoryPathsRef = useRef<string[]>(directoryPaths);
@@ -200,19 +255,22 @@ export function GitBrowser({
     return (
       <ScrollableLayout
         header={
-          <GitSelectionHeader
-            label={selected?.isRepository && selected.oldPath ? `${selected.oldPath} -> ${selectedPath}` : selectedPath}
+          <ReviewSelectionHeader
+            label={selected?.oldPath ? `${selected.oldPath} -> ${selectedPath}` : selectedPath}
+            mode={mode}
+            modes={modes}
             nextUrl={nextPath ? buildSelectionUrl(nextPath) : null}
             onBack={clearSelection}
             previousUrl={previousPath ? buildSelectionUrl(previousPath) : null}
+            switchBasePath={switchBasePath}
           />
         }
       >
         {selectedError ? (
           <p className="text-base leading-6">{selectedError}</p>
-        ) : selected?.isRepository && selected.binary ? (
+        ) : selected?.binary ? (
           <p className="text-base leading-6">This file cannot be previewed as text.</p>
-        ) : selected?.isRepository ? (
+        ) : selected ? (
           <CodeViewerFrame>
             <LineBuilder
               content={selected.content}
@@ -264,20 +322,20 @@ export function GitBrowser({
   }
 
   return (
-      <ScrollableLayout header={<GitListHeader git={git} />}>
-        <section className="space-y-8 pr-1">
-          <FileTreeList
-            currentPath={rootPath}
-            emptyLabel="No uncommitted changes."
-            expandedPaths={expandedPaths}
-            onSelectionChange={(selection) => handleSelection(selection?.path ?? null)}
-            onToggleDirectory={toggleDirectory}
-            renderPrefix={(node) => node.status ?? null}
-            selectedPath={selectedPath}
-            selectionMode="file"
-            tree={tree}
-          />
-        </section>
-      </ScrollableLayout>
+    <ScrollableLayout header={<ReviewListHeader mode={mode} modes={modes} review={review} switchBasePath={switchBasePath} />}>
+      <section className="space-y-8 pr-1">
+        <FileTreeList
+          currentPath=""
+          emptyLabel={review.emptyLabel}
+          expandedPaths={expandedPaths}
+          onSelectionChange={(selection) => handleSelection(selection?.path ?? null)}
+          onToggleDirectory={toggleDirectory}
+          renderPrefix={(node) => node.status ?? null}
+          selectedPath={selectedPath}
+          selectionMode="file"
+          tree={tree}
+        />
+      </section>
+    </ScrollableLayout>
   );
 }

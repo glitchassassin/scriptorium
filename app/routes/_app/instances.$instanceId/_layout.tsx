@@ -1,5 +1,6 @@
 import { Outlet } from "react-router";
 
+import { InstanceEventsProvider } from "~/components/events/instance-events-provider";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleContext, RouteHandleDefinition } from "~/lib/route-handle";
 
@@ -24,8 +25,8 @@ export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHa
       },
       {
         icon: "mdi:source-branch",
-        label: "Git view",
-        to: `/instances/${instanceId}/git`,
+        label: "Review",
+        to: `/instances/${instanceId}/review/uncommitted`,
         end: true,
       },
       {
@@ -38,6 +39,10 @@ export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHa
   },
 });
 
-export default function InstanceLayoutRoute(_: Route.ComponentProps) {
-  return <Outlet />;
+export default function InstanceLayoutRoute({ params }: Route.ComponentProps) {
+  return (
+    <InstanceEventsProvider instanceIds={[params.instanceId]}>
+      <Outlet />
+    </InstanceEventsProvider>
+  );
 }

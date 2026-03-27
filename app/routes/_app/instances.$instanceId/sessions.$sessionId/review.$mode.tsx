@@ -1,16 +1,24 @@
 import { useOutletContext } from "react-router";
 
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
-import { GitBrowser } from "~/components/workspace/git-browser";
+import { ReviewBrowser } from "~/components/workspace/review-browser";
+import type { SessionReviewMode } from "~/lib/review";
+import { getSessionReviewModeOptions } from "~/lib/review";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
-import { getServerTimingHeaders } from "~/lib/server-timing.server";
 import { useSessionInfo } from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-live";
-import { loadInstanceGitRouteData } from "~/routes/_app/instances.$instanceId/git.server";
+import {
+  getServerTimingHeaders,
+  loadSessionReviewRouteData,
+} from "~/routes/_app/instances.$instanceId/review.server";
 
-import { getSessionBreadcrumbs, getSessionName, type SessionRouteContext } from "./+/session-route";
+import { getSessionBreadcrumbs, getSessionIconNavActions, getSessionName, type SessionRouteContext } from "./+/session-route";
 
-import type { Route } from "./+types/git";
+import type { Route } from "./+types/review.$mode";
+
+function getMode(mode: string | undefined): SessionReviewMode {
+  return mode === "session" || mode === "recent" || mode === "uncommitted" ? mode : "uncommitted";
+}
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   title: (ctx) => {
@@ -23,24 +31,28 @@ export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHa
         session: sessionMatch.data.session,
         sessionId: sessionMatch.params.sessionId,
       }),
-      { label: "git" },
+      { label: "review" },
     ];
   },
+  iconNavActions: ({ params }) => getSessionIconNavActions(params.instanceId ?? "", params.sessionId ?? "", getMode(params.mode)),
 });
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const instanceId = params.instanceId;
-
-  return loadInstanceGitRouteData({ instanceId, request });
+  return loadSessionReviewRouteData({
+    instanceId: params.instanceId,
+    mode: params.mode,
+    request,
+    sessionId: params.sessionId,
+  });
 }
 
 export function headers(args: Route.HeadersArgs) {
   return getServerTimingHeaders(args);
 }
 
-export default function SessionGitRoute({ loaderData, matches }: Route.ComponentProps) {
+export default function SessionReviewRoute({ loaderData, matches }: Route.ComponentProps) {
   const { insertComposerReference } = useOutletContext<SessionRouteContext>();
-  const { changed, git, instance, selected, selectedError, selectedPath } = loaderData;
+  const { instance, mode, review, selected, selectedError, selectedPath } = loaderData;
   const session = useSessionInfo();
 
   return (
@@ -50,16 +62,17 @@ export default function SessionGitRoute({ loaderData, matches }: Route.Component
         <Breadcrumbs.Item to={`/instances/${instance.id}/sessions/${session.id}`}>
           {getSessionName(session)}
         </Breadcrumbs.Item>
-        <Breadcrumbs.Item>git</Breadcrumbs.Item>
+        <Breadcrumbs.Item>review</Breadcrumbs.Item>
       </Breadcrumbs>
-      <GitBrowser
-        changed={changed}
-        git={git}
+      <ReviewBrowser
+        mode={mode}
+        modes={getSessionReviewModeOptions()}
         onInsertReference={insertComposerReference}
-        rootPath={instance.directory}
+        review={review}
         selected={selected}
         selectedError={selectedError}
         selectedPath={selectedPath}
+        switchBasePath={`/instances/${instance.id}/sessions/${session.id}/review`}
       />
     </>
   );

@@ -14,10 +14,23 @@ import type { InstanceRecord } from "~/lib/instances/types";
 
 type ManagedProcess = ReturnType<typeof spawnInstanceProcess>;
 
+type InstanceRuntimeEvent =
+  | { type: "instance.changed"; instance: InstanceRecord }
+  | { type: "instance.removed"; instanceId: string };
+
+type InstanceRuntimeSubscriber = (event: InstanceRuntimeEvent) => void;
+
 class InstanceRuntime {
   private readonly processes = new Map<string, ManagedProcess>();
+  private readonly subscribers = new Set<InstanceRuntimeSubscriber>();
   private isShuttingDown = false;
   private shutdownBound = false;
+
+  private publish(event: InstanceRuntimeEvent) {
+    for (const subscriber of this.subscribers) {
+      subscriber(event);
+    }
+  }
 
   async ensureStarted() {
     this.bindShutdown();
@@ -33,6 +46,14 @@ class InstanceRuntime {
 
   getInstance(id: string) {
     return getStoredInstance(id);
+  }
+
+  subscribe(subscriber: InstanceRuntimeSubscriber) {
+    this.subscribers.add(subscriber);
+
+    return () => {
+      this.subscribers.delete(subscriber);
+    };
   }
 
   async createInstance(input: { directory: string; name?: string | null }) {
@@ -51,6 +72,8 @@ class InstanceRuntime {
       throw new Error("Failed to create the instance record.");
     }
 
+    this.publish({ type: "instance.changed", instance: stored });
+
     await this.startInstance(stored);
 
     return this.getInstanceOrThrow(instanceId);
@@ -67,6 +90,7 @@ class InstanceRuntime {
     }
 
     deleteStoredInstance(id);
+    this.publish({ type: "instance.removed", instanceId: id });
   }
 
   getInstanceOrThrow(id: string) {
@@ -112,30 +136,42 @@ class InstanceRuntime {
       return this.getInstanceOrThrow(instance.id);
     }
 
-    updateStoredInstance(instance.id, {
+    const startingInstance = updateStoredInstance(instance.id, {
       status: "starting",
       lastError: null,
     });
+
+    if (startingInstance) {
+      this.publish({ type: "instance.changed", instance: startingInstance });
+    }
 
     try {
       const managed = spawnInstanceProcess(instance);
       this.processes.set(instance.id, managed);
       const port = await managed.ready;
 
-      updateStoredInstance(instance.id, {
+      const runningInstance = updateStoredInstance(instance.id, {
         port,
         status: "running",
         lastStartedAt: new Date().toISOString(),
         lastError: null,
       });
 
+      if (runningInstance) {
+        this.publish({ type: "instance.changed", instance: runningInstance });
+      }
+
       managed.child.once("error", (error) => {
         this.processes.delete(instance.id);
-        updateStoredInstance(instance.id, {
+        const erroredInstance = updateStoredInstance(instance.id, {
           status: "error",
           lastExitAt: new Date().toISOString(),
           lastError: error.message,
         });
+
+        if (erroredInstance) {
+          this.publish({ type: "instance.changed", instance: erroredInstance });
+        }
       });
 
       managed.child.once("exit", (code, signal) => {
@@ -145,7 +181,7 @@ class InstanceRuntime {
           return;
         }
 
-        updateStoredInstance(instance.id, {
+        const exitedInstance = updateStoredInstance(instance.id, {
           status: code === 0 || signal === "SIGTERM" ? "stopped" : "error",
           lastExitAt: new Date().toISOString(),
           lastError:
@@ -153,6 +189,10 @@ class InstanceRuntime {
               ? null
               : `Process exited with code ${code ?? "unknown"}${signal ? ` (${signal})` : ""}`,
         });
+
+        if (exitedInstance) {
+          this.publish({ type: "instance.changed", instance: exitedInstance });
+        }
       });
     } catch (error) {
       console.error(
@@ -160,11 +200,15 @@ class InstanceRuntime {
         error instanceof Error ? error.message : error,
       );
 
-      updateStoredInstance(instance.id, {
+      const erroredInstance = updateStoredInstance(instance.id, {
         status: "error",
         lastExitAt: new Date().toISOString(),
         lastError: error instanceof Error ? error.message : "Failed to start Opencode.",
       });
+
+      if (erroredInstance) {
+        this.publish({ type: "instance.changed", instance: erroredInstance });
+      }
     }
 
     return this.getInstanceOrThrow(instance.id);
@@ -204,6 +248,10 @@ export async function listInstances() {
   return (await getRuntime()).listInstances();
 }
 
+export async function getInstance(id: string) {
+  return (await getRuntime()).getInstance(id);
+}
+
 export async function getInstanceOrThrow(id: string) {
   return (await getRuntime()).getInstanceOrThrow(id);
 }
@@ -215,3 +263,9 @@ export async function createInstance(input: { directory: string; name?: string |
 export async function removeInstance(id: string) {
   return (await getRuntime()).removeInstance(id);
 }
+
+export function subscribeToInstanceRuntimeEvents(subscriber: InstanceRuntimeSubscriber) {
+  return getRuntimeSingleton().subscribe(subscriber);
+}
+
+export type { InstanceRuntimeEvent };

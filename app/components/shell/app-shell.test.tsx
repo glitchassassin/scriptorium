@@ -43,7 +43,7 @@ vi.mock("~/components/shell/sidebar-state", () => ({
 
 describe("AppShell", () => {
   it("uses the deepest title and nearest nav actions independently", () => {
-    useLocationMock.mockReturnValue({ pathname: "/instances/instance-1/sessions/session-1/git" });
+    useLocationMock.mockReturnValue({ pathname: "/instances/instance-1/sessions/session-1/review/uncommitted" });
     useHasVisibleUnreadSessionsMock.mockReturnValue(false);
 
     render(
@@ -51,7 +51,7 @@ describe("AppShell", () => {
           breadcrumbs={[
             { content: "Workspace", to: "/instances/instance-1" },
             { content: "Planning", to: "/instances/instance-1/sessions/session-1" },
-            { content: "git" },
+            { content: "review" },
           ]}
           leadingIconAction={{
             icon: "mdi:message-plus-outline",
@@ -64,14 +64,14 @@ describe("AppShell", () => {
         />,
       );
 
-    expect(screen.getByRole("heading", { name: "Workspace / Planning / git" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Workspace / Planning / review" })).toBeInTheDocument();
     expect(screen.getByLabelText("Chat transcript")).toHaveAttribute(
       "href",
       "/instances/instance-1/sessions/session-1",
     );
-    expect(screen.getByLabelText("Git view")).toHaveAttribute(
+    expect(screen.getByLabelText("Review")).toHaveAttribute(
       "href",
-      "/instances/instance-1/sessions/session-1/git",
+      "/instances/instance-1/sessions/session-1/review/uncommitted",
     );
     expect(screen.getByRole("button", { name: "New session" }).closest("form")).toHaveAttribute(
       "action",

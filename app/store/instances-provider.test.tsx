@@ -11,15 +11,10 @@ import {
 } from "~/components/shell/sidebar-state";
 import { SessionsProvider, type SessionState } from "~/store/sessions-provider";
 
-const useInstanceEventsMock = vi.fn();
-const useReadStatusEventsMock = vi.fn();
+const useSessionEventsMock = vi.fn();
 
-vi.mock("~/components/events/instance-events-provider", () => ({
-  useInstanceEvents: (...args: unknown[]) => useInstanceEventsMock(...args),
-}));
-
-vi.mock("~/components/events/read-status-events-provider", () => ({
-  useReadStatusEvents: (...args: unknown[]) => useReadStatusEventsMock(...args),
+vi.mock("~/components/events/session-events-provider", () => ({
+  useSessionEvents: (...args: unknown[]) => useSessionEventsMock(...args),
 }));
 
 function TestConsumer() {
@@ -39,21 +34,19 @@ describe("InstancesProvider", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-18T00:00:00Z"));
-    useInstanceEventsMock.mockReset();
-    useReadStatusEventsMock.mockReset();
+    useSessionEventsMock.mockReset();
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("derives visible instances from sessions and instance events", () => {
-    const instanceEventHandlers: Array<(event: any) => void> = [];
+  it("derives visible instances from sessions and session events", () => {
+    const sessionEventHandlers: Array<(event: any) => void> = [];
 
-    useInstanceEventsMock.mockImplementation((handler: (event: any) => void) => {
-      instanceEventHandlers.push(handler);
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      sessionEventHandlers.push(handler);
     });
-    useReadStatusEventsMock.mockImplementation(() => {});
 
       const initialSessions: Record<string, SessionState> = {
         "session-1": {
@@ -88,24 +81,23 @@ describe("InstancesProvider", () => {
     expect(screen.getByTestId("session-ids")).toHaveTextContent("session-1");
     expect(screen.getByTestId("has-unread")).toHaveTextContent("true");
 
-    if (!instanceEventHandlers.length) {
-      throw new Error("Missing instance event handler");
+    if (!sessionEventHandlers.length) {
+      throw new Error("Missing session event handler");
     }
 
     act(() => {
-      for (const instanceEventHandler of instanceEventHandlers) {
-        instanceEventHandler({
-        type: "session.created",
-        instanceId: "instance-1",
-        properties: {
-          info: {
+      for (const sessionEventHandler of sessionEventHandlers) {
+        sessionEventHandler({
+          type: "session.summary",
+          instanceId: "instance-1",
+          summary: {
             id: "session-2",
             parentID: null,
             title: "Session 2",
             directory: null,
-            time: { created: Date.now(), updated: Date.now() },
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
           },
-        },
         });
       }
     });
@@ -113,18 +105,17 @@ describe("InstancesProvider", () => {
     expect(screen.getByTestId("session-ids")).toHaveTextContent("session-2,session-1");
 
     act(() => {
-      for (const instanceEventHandler of instanceEventHandlers) {
-        instanceEventHandler({
-          type: "session.created",
+      for (const sessionEventHandler of sessionEventHandlers) {
+        sessionEventHandler({
+          type: "session.summary",
           instanceId: "instance-1",
-          properties: {
-            info: {
-              id: "session-2-child",
-              parentID: "session-2",
-              title: "Session 2 child",
-              directory: null,
-              time: { created: Date.now(), updated: Date.now() },
-            },
+          summary: {
+            id: "session-2-child",
+            parentID: "session-2",
+            title: "Session 2 child",
+            directory: null,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
           },
         });
       }
@@ -133,15 +124,11 @@ describe("InstancesProvider", () => {
     expect(screen.getByTestId("session-ids")).toHaveTextContent("session-2,session-1");
 
     act(() => {
-      for (const instanceEventHandler of instanceEventHandlers) {
-        instanceEventHandler({
-        type: "session.deleted",
-        instanceId: "instance-1",
-        properties: {
-          info: {
-            id: "session-1",
-          },
-        },
+      for (const sessionEventHandler of sessionEventHandlers) {
+        sessionEventHandler({
+          type: "session.deleted",
+          instanceId: "instance-1",
+          sessionId: "session-1",
         });
       }
     });

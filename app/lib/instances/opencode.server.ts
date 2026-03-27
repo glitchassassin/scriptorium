@@ -2,6 +2,7 @@ import {
   opencodeMessageWithPartsSchema,
   opencodeCommandInputSchema,
   opencodeCommandInfoSchema,
+  opencodeFileDiffSchema,
   opencodePermissionRequestSchema,
   opencodeQuestionRequestSchema,
   opencodeAgentSchema,
@@ -111,6 +112,11 @@ export async function listOpencodeMessagePage(
 
 export async function listOpencodeMessages(instance: InstanceRecord, sessionId: string, limit?: number) {
   return (await listOpencodeMessagePage(instance, sessionId, { limit })).items;
+}
+
+export async function getOpencodeSessionDiff(instance: InstanceRecord, sessionId: string) {
+  const payload = await readJson(await fetch(`${getInstanceBaseUrl(instance)}/session/${sessionId}/diff`));
+  return parseOrThrow(opencodeFileDiffSchema.array().safeParse(payload));
 }
 
 export async function getOpencodeSessionStatuses(instance: InstanceRecord) {

@@ -44,7 +44,7 @@ export function getSessionBreadcrumbs(args: {
   ];
 }
 
-export function getSessionIconNavActions(instanceId: string, sessionId: string): RouteHandleIconAction[] {
+export function getSessionIconNavActions(instanceId: string, sessionId: string, reviewMode: "session" | "recent" | "uncommitted" = "uncommitted"): RouteHandleIconAction[] {
   const sessionPath = `/instances/${instanceId}/sessions/${sessionId}`;
 
   return [
@@ -56,8 +56,8 @@ export function getSessionIconNavActions(instanceId: string, sessionId: string):
     },
     {
       icon: "mdi:source-branch",
-      label: "Git view",
-      to: `${sessionPath}/git`,
+      label: "Review",
+      to: `${sessionPath}/review/${reviewMode}`,
       end: true,
     },
     {

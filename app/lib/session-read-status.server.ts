@@ -1,96 +1,25 @@
-import { eq } from "drizzle-orm";
-
-import { getOrm } from "~/lib/db.server";
-import { sessionReadStatuses } from "~/lib/db/schema";
-import { type SessionReadEvent } from "~/lib/session-read-status";
-
-type SessionReadStatusRow = typeof sessionReadStatuses.$inferSelect;
-
-type SessionReadKey = {
-  sessionId: string;
-};
-
-type SessionReadStatusRecord = SessionReadKey & {
-  lastReadAt: number;
-};
+import { type SessionReadEvent } from "~/lib/session-events";
+import {
+  listSessionReadStatuses,
+  markSessionRead,
+  subscribeToSessionEvents,
+  type SessionReadKey,
+  type SessionReadStatusRecord,
+} from "~/lib/session-events.server";
 
 type SessionReadSubscriber = (event: SessionReadEvent) => void;
 
-const subscribers = new Set<SessionReadSubscriber>();
+function subscribeToSessionReadEvents(subscriber: SessionReadSubscriber) {
+  return subscribeToSessionEvents((event) => {
+    if (event.type !== "session.read") {
+      return;
+    }
 
-function mapSessionReadStatus(row: SessionReadStatusRow): SessionReadStatusRecord | null {
-  const lastReadAt = Date.parse(row.lastReadAt);
-
-  if (!Number.isFinite(lastReadAt)) {
-    return null;
-  }
-
-  return {
-    sessionId: row.sessionId,
-    lastReadAt,
-  };
-}
-
-function publishSessionReadEvent(event: SessionReadEvent) {
-  for (const subscriber of subscribers) {
     subscriber(event);
-  }
+  }, {
+    types: ["session.read"],
+  });
 }
 
-export function listSessionReadStatuses() {
-  const db = getOrm();
-
-  return db.select().from(sessionReadStatuses).all()
-    .map(mapSessionReadStatus)
-    .filter((value): value is SessionReadStatusRecord => value !== null);
-}
-
-export function markSessionRead(input: SessionReadKey, now = new Date()) {
-  const db = getOrm();
-  const current = db.select().from(sessionReadStatuses).where(eq(sessionReadStatuses.sessionId, input.sessionId)).get();
-  const lastReadAt = now.toISOString();
-
-  if (current && Date.parse(current.lastReadAt) >= now.getTime()) {
-    return mapSessionReadStatus(current);
-  }
-
-  if (current) {
-    db.update(sessionReadStatuses)
-      .set({
-        lastReadAt,
-        updatedAt: lastReadAt,
-      })
-      .where(eq(sessionReadStatuses.sessionId, input.sessionId))
-      .run();
-  } else {
-    db.insert(sessionReadStatuses).values({
-      sessionId: input.sessionId,
-      lastReadAt,
-      createdAt: lastReadAt,
-      updatedAt: lastReadAt,
-    }).run();
-  }
-
-  const event: SessionReadEvent = {
-    type: "session.read",
-    sessionId: input.sessionId,
-    lastReadAt: now.getTime(),
-  };
-
-  publishSessionReadEvent(event);
-
-  return {
-    sessionId: input.sessionId,
-    lastReadAt: event.lastReadAt,
-  } satisfies SessionReadStatusRecord;
-}
-
-export function subscribeToSessionReadEvents(subscriber: SessionReadSubscriber) {
-  subscribers.add(subscriber);
-
-  return () => {
-    subscribers.delete(subscriber);
-  };
-}
-
+export { listSessionReadStatuses, markSessionRead, subscribeToSessionReadEvents };
 export type { SessionReadKey, SessionReadStatusRecord };

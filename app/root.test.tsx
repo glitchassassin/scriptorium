@@ -25,13 +25,13 @@ describe("root titles", () => {
           title: [
             { label: "Workspace", to: "/instances/instance-1" },
             { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
-            { label: "git" },
+            { label: "review" },
           ],
         },
-        id: "routes/_app/instances.$instanceId/sessions.$sessionId/git",
-        params: { instanceId: "instance-1", sessionId: "session-1" },
+        id: "routes/_app/instances.$instanceId/sessions.$sessionId/review.$mode",
+        params: { instanceId: "instance-1", mode: "uncommitted", sessionId: "session-1" },
       },
-    ] as never)).toBe("git | Planning | scriptorium");
+    ] as never)).toBe("review | Planning | scriptorium");
   });
 
   it("falls back to the app name when no route title exists", () => {

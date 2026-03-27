@@ -1,5 +1,8 @@
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
-import { subscribeToSessionReadEvents } from "~/lib/session-read-status.server";
+import {
+  ensureSessionEventsStarted,
+  subscribeToSessionEvents,
+} from "~/lib/session-events.server";
 
 import type { Route } from "./+types/events";
 
@@ -15,6 +18,7 @@ function encodeComment(comment: string) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAuthenticatedPasskey(request);
+  await ensureSessionEventsStarted();
 
   return new Response(new ReadableStream<Uint8Array>({
     start(controller) {
@@ -28,21 +32,24 @@ export async function loader({ request }: Route.LoaderArgs) {
         }
 
         closed = true;
+
         if (heartbeat) {
           clearInterval(heartbeat);
         }
+
         unsubscribe();
         request.signal.removeEventListener("abort", close);
         controller.close();
       };
 
-      unsubscribe = subscribeToSessionReadEvents((event) => {
+      unsubscribe = subscribeToSessionEvents((event) => {
         if (closed) {
           return;
         }
 
         controller.enqueue(encodeEvent(event));
       });
+
       heartbeat = setInterval(() => {
         if (closed) {
           return;
