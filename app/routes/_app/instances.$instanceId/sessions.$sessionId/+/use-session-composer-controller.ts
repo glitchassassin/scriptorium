@@ -208,6 +208,8 @@ export function useSessionComposerController({
   }, [modelSearch, providers, recentModels]);
 
   const submitPrompt = useCallback(() => {
+    setActiveTray((current) => current === "commands" ? null : current);
+
     const formData = new FormData();
     formData.set("agent", selectedAgent ?? "");
     formData.set("modelProviderID", selectedModel?.providerID ?? "");

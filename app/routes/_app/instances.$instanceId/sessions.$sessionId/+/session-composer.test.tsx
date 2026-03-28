@@ -568,6 +568,48 @@ describe("useSessionComposerDraft", () => {
     await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue(""));
   });
 
+  it("closes the commands tray after sending a slash command selected from it", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    const commandsButton = screen.getByRole("button", { name: "Toggle commands tray" });
+
+    fireEvent.click(commandsButton);
+    fireEvent.click(screen.getByRole("button", { name: "Insert /review" }));
+
+    expect(await screen.findByText("Review changes [commit|branch|pr], defaults to uncommitted")).toBeInTheDocument();
+    expect(commandsButton).toHaveClass("bg-black", "text-white");
+
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(commandFetcher.submit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Review changes [commit|branch|pr], defaults to uncommitted")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert /review" })).not.toBeInTheDocument();
+    expect(commandsButton).not.toHaveClass("bg-black");
+  });
+
+  it("closes the commands tray after sending a prompt while it is open", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Hello" } });
+
+    const commandsButton = screen.getByRole("button", { name: "Toggle commands tray" });
+
+    fireEvent.click(commandsButton);
+
+    expect(screen.getByRole("button", { name: "Insert /review" })).toBeInTheDocument();
+    expect(commandsButton).toHaveClass("bg-black", "text-white");
+
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(promptFetcher.submit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("button", { name: "Insert /review" })).not.toBeInTheDocument();
+    expect(commandsButton).not.toHaveClass("bg-black");
+  });
+
   it("shows slash-command errors returned through the command fetcher", async () => {
     const view = render(
       <SessionComposer
