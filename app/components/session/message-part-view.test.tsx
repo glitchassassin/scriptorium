@@ -1,8 +1,24 @@
+import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import { MessagePartView } from "~/components/session/message-part-view";
 import type { OpencodeMessagePart } from "~/lib/opencode/events";
+
+function renderWithRouter(element: ReactNode) {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "*",
+        element,
+      },
+    ],
+    { initialEntries: ["/"] },
+  );
+
+  return render(<RouterProvider router={router} />);
+}
 
 describe("MessagePartView", () => {
   it("hides user tool parts but keeps file attachments", () => {
@@ -61,7 +77,7 @@ describe("MessagePartView", () => {
       },
     };
 
-    render(<MessagePartView part={toolPart} role="assistant" />);
+    renderWithRouter(<MessagePartView part={toolPart} role="assistant" />);
 
     expect(screen.getByText(/bash: pwd/i)).toBeInTheDocument();
   });

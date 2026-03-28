@@ -1,7 +1,7 @@
 import { data } from "react-router";
 
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
-import { browseInstanceFiles, readInstanceFile } from "~/lib/instances/files.server";
+import { browseInstanceFiles, parseSelectedFileLineRange, readInstanceFile } from "~/lib/instances/files.server";
 import { getInstanceOrThrow } from "~/lib/instances/runtime.server";
 import { makeTimings, time } from "~/lib/server-timing.server";
 
@@ -28,6 +28,7 @@ export async function loadInstanceFilesRouteData({
   const url = new URL(request.url);
   const path = url.searchParams.get("path");
   const file = url.searchParams.get("file");
+  const selectedLineRange = file ? parseSelectedFileLineRange(url.searchParams) : null;
   const listing = await time(() => browseInstanceFiles(path, instance.directory, "either"), {
     desc: "browse files",
     timings,
@@ -55,6 +56,7 @@ export async function loadInstanceFilesRouteData({
       listing,
       selected,
       selectedError,
+      selectedLineRange,
       selectedPath: file,
     },
     {

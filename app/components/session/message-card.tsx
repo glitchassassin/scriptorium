@@ -8,12 +8,11 @@ import type { OpencodeMessageWithParts } from "~/lib/opencode/events";
 
 type MessageCardProps = {
   actionPath?: string;
-  instanceId?: string;
   message: OpencodeMessageWithParts;
   isSessionBusy?: boolean;
 };
 
-export const MessageCard = memo(function MessageCard({ actionPath, instanceId, message, isSessionBusy = false }: MessageCardProps) {
+export const MessageCard = memo(function MessageCard({ actionPath, message, isSessionBusy = false }: MessageCardProps) {
   const isUser = message.info.role === "user";
   const visibleParts = useMemo(
     () => message.parts.filter((part) => {
@@ -75,7 +74,13 @@ export const MessageCard = memo(function MessageCard({ actionPath, instanceId, m
         </div>
         <div className="space-y-3">
           {visibleParts.length ? (
-            visibleParts.map((part) => <MessagePartView instanceId={instanceId} key={part.id} part={part} role={message.info.role} />)
+            visibleParts.map((part) => (
+              <MessagePartView
+                key={part.id}
+                part={part}
+                role={message.info.role}
+              />
+            ))
           ) : (
             <p className="text-sm leading-6 opacity-60">Waiting for content...</p>
           )}

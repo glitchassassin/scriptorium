@@ -34,6 +34,8 @@ export type CodeViewerProps = {
   language?: string | null;
   mode?: ViewMode;
   onSelectLine?: (selection: CodeViewerLineSelection) => void;
+  scrollToRowIndex?: number | null;
+  scrollToRowKey?: string | null;
   selectedRowRange?: {
     start: number;
     end: number;

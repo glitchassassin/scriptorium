@@ -1,11 +1,27 @@
+import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import { MessagePartText } from "~/components/session/message-part-text";
 
+function renderWithRouter(element: ReactNode, initialEntry = "/") {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "*",
+        element,
+      },
+    ],
+    { initialEntries: [initialEntry] },
+  );
+
+  return render(<RouterProvider router={router} />);
+}
+
 describe("MessagePartText", () => {
   it("renders assistant markdown, safe links, and code blocks", () => {
-    const { container } = render(
+    const { container } = renderWithRouter(
       <MessagePartText
         part={{
           id: "part-1",
@@ -29,7 +45,7 @@ describe("MessagePartText", () => {
   });
 
   it("allows safe html and strips unsafe html", () => {
-    const { container } = render(
+    const { container } = renderWithRouter(
       <MessagePartText
         part={{
           id: "part-1",

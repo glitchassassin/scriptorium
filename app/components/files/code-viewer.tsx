@@ -13,6 +13,8 @@ export function CodeViewer({
   language,
   mode = "text",
   onSelectLine,
+  scrollToRowIndex,
+  scrollToRowKey,
   selectedRowRange,
   showLineNumbers = true,
   showDiffMarkers = true,
@@ -31,6 +33,8 @@ export function CodeViewer({
                   mode={mode}
                   onSelectLine={onSelectLine}
                   scrollPaneRef={scrollPaneRef}
+                  scrollToRowIndex={scrollToRowIndex ?? null}
+                  scrollToRowKey={scrollToRowKey ?? null}
                   selectedRowRange={selectedRowRange ?? null}
                   showDualGutters={mode === "diff"}
                   showLineNumbers={showLineNumbers}

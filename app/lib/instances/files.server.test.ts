@@ -9,8 +9,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   browseFiles,
   browseInstanceFiles,
+  parseSelectedFileLineRange,
   readBrowserFile,
   readInstanceFile,
+  resolveInstanceFileReferences,
   validateFileSelection,
   validateInstanceFileSelection,
 } from "~/lib/instances/files.server";
@@ -25,8 +27,14 @@ function createWorkspace() {
 
   mkdirSync(join(root, "alpha"));
   mkdirSync(join(root, "beta"));
+  mkdirSync(join(root, "app", "components", "session"), { recursive: true });
+  mkdirSync(join(root, "docs"), { recursive: true });
   writeFileSync(join(root, "notes.txt"), "hello");
   writeFileSync(join(root, "alpha", "project.txt"), "instance file");
+  writeFileSync(join(root, "alpha", "duplicate.tsx"), "alpha duplicate");
+  writeFileSync(join(root, "beta", "duplicate.tsx"), "beta duplicate");
+  writeFileSync(join(root, "app", "components", "session", "message-markdown.tsx"), "component");
+  writeFileSync(join(root, "docs", "e-ink style guide.md"), "guide");
 
   return root;
 }
@@ -55,7 +63,9 @@ describe("files browser helpers", () => {
     expect(listing.parentPath).toBeNull();
     expect(listing.entries.map((entry) => `${entry.type}:${entry.name}`)).toEqual([
       "directory:alpha",
+      "directory:app",
       "directory:beta",
+      "directory:docs",
       "file:notes.txt",
     ]);
   });
@@ -96,5 +106,42 @@ describe("files browser helpers", () => {
     const nestedFile = readInstanceFile(join(instanceRoot, "project.txt"), instanceRoot);
     expect(nestedFile.path).toBe(join(instanceRoot, "project.txt"));
     expect(nestedFile.content).toBe("instance file");
+  });
+
+  it("parses linked file line ranges from search params", () => {
+    expect(parseSelectedFileLineRange(new URLSearchParams("line=12"))).toEqual({ end: 12, start: 12 });
+    expect(parseSelectedFileLineRange(new URLSearchParams("line=8&endLine=11"))).toEqual({ end: 11, start: 8 });
+    expect(parseSelectedFileLineRange(new URLSearchParams("line=0&endLine=11"))).toBeNull();
+    expect(parseSelectedFileLineRange(new URLSearchParams("endLine=11"))).toBeNull();
+  });
+
+  it("resolves exact, unique suffix, basename, and spaced inline-code references", () => {
+    const root = createWorkspace();
+
+    expect(resolveInstanceFileReferences([
+      "app/components/session/message-markdown.tsx",
+      "components/session/message-markdown.tsx",
+      "message-markdown.tsx",
+      "docs/e-ink style guide.md",
+    ], root)).toEqual({
+      "app/components/session/message-markdown.tsx": { path: "app/components/session/message-markdown.tsx" },
+      "components/session/message-markdown.tsx": { path: "app/components/session/message-markdown.tsx" },
+      "message-markdown.tsx": { path: "app/components/session/message-markdown.tsx" },
+      "docs/e-ink style guide.md": { path: "docs/e-ink style guide.md" },
+    });
+  });
+
+  it("leaves ambiguous or invalid references unresolved", () => {
+    const root = createWorkspace();
+
+    expect(resolveInstanceFileReferences([
+      "duplicate.tsx",
+      "../notes.txt",
+      "/tmp/outside.txt",
+    ], root)).toEqual({
+      "duplicate.tsx": null,
+      "../notes.txt": null,
+      "/tmp/outside.txt": null,
+    });
   });
 });

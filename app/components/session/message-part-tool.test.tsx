@@ -1,11 +1,23 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MessagePartTool } from "~/components/session/message-part-tool";
 import type { OpencodeToolPart } from "~/lib/opencode/events";
+import { useOptionalInstanceIdParam } from "~/components/session/use-optional-instance-id-param";
+
+vi.mock("~/components/session/use-optional-instance-id-param", () => ({
+  useOptionalInstanceIdParam: vi.fn(),
+}));
+
+const mockUseOptionalInstanceIdParam = vi.mocked(useOptionalInstanceIdParam);
 
 describe("MessagePartTool", () => {
+  afterEach(() => {
+    mockUseOptionalInstanceIdParam.mockReset();
+    mockUseOptionalInstanceIdParam.mockReturnValue(undefined);
+  });
+
   it("renders bash tool output with command text", () => {
     const part: OpencodeToolPart = {
       id: "part-1",
@@ -170,9 +182,11 @@ describe("MessagePartTool", () => {
       },
     };
 
+    mockUseOptionalInstanceIdParam.mockReturnValue("instance-1");
+
     render(
       <MemoryRouter>
-        <MessagePartTool instanceId="instance-1" part={part} />
+        <MessagePartTool part={part} />
       </MemoryRouter>,
     );
 

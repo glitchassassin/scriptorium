@@ -40,7 +40,7 @@ export function headers(args: Route.HeadersArgs) {
 
 export default function SessionFilesRoute({ loaderData, matches }: Route.ComponentProps) {
   const { insertComposerReference } = useOutletContext<SessionRouteContext>();
-  const { instance, listing, selected, selectedError, selectedPath } = loaderData;
+  const { instance, listing, selected, selectedError, selectedLineRange, selectedPath } = loaderData;
   const session = useSessionInfo();
 
   return (
@@ -58,6 +58,7 @@ export default function SessionFilesRoute({ loaderData, matches }: Route.Compone
         rootPath={instance.directory}
         selected={selected}
         selectedError={selectedError}
+        selectedLineRange={selectedLineRange}
         selectedPath={selectedPath}
       />
     </>

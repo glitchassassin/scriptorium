@@ -407,7 +407,12 @@ export function SessionTranscript({
           {isLoadingHistory ? <p className="pt-4 text-sm leading-6">Loading earlier messages...</p> : null}
           {isEmpty ? <p className={cn("text-base leading-6", !showCenteredEmptyState && "pt-4")}>{emptyStateMessage}</p> : null}
           {visibleMessages.map((message) => (
-            <MessageCard actionPath={actionPath} instanceId={instanceId} isSessionBusy={isBusy} key={message.info.id} message={message} />
+            <MessageCard
+              actionPath={actionPath}
+              isSessionBusy={isBusy}
+              key={message.info.id}
+              message={message}
+            />
           ))}
           {revertedMessages.length ? (
             <SessionRevertDock actionPath={actionPath} isSessionBusy={isBusy} messages={revertedMessages} />

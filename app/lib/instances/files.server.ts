@@ -1,13 +1,27 @@
 import { basename, isAbsolute, relative, resolve } from "node:path";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 
+import { normalizeAssistantFileReferencePath } from "~/lib/assistant-file-references";
 import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
 import type {
   FileBrowserContent,
+  FileBrowserLineRange,
   FileBrowserListing,
   FileBrowserSelection,
   FileBrowserSelectionMode,
 } from "~/lib/instances/types";
+
+const FILE_REFERENCE_CACHE_TTL_MS = 5_000;
+
+type FileReferenceManifestCacheEntry = {
+  expiresAt: number;
+  paths: string[];
+};
+
+const fileReferenceManifestCache = new Map<string, FileReferenceManifestCacheEntry>();
+
+// Transcript link resolution may probe several candidate paths in one render pass, so
+// cache the workspace manifest briefly instead of rescanning the tree on each lookup.
 
 function getBrowserRoot() {
   return resolve(getRuntimeConfiguration().config.workspace.browserRoot);
@@ -35,6 +49,28 @@ function listDirectoryEntries(directory: string) {
 
       return left.name.localeCompare(right.name);
     });
+}
+
+function collectRelativeFilePaths(rootPath: string, directory: string = rootPath): string[] {
+  const entries = readdirSync(directory, { withFileTypes: true });
+  const paths: string[] = [];
+
+  for (const entry of entries) {
+    const entryPath = resolve(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      paths.push(...collectRelativeFilePaths(rootPath, entryPath));
+      continue;
+    }
+
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    paths.push(relative(rootPath, entryPath).replace(/\\/g, "/"));
+  }
+
+  return paths;
 }
 
 function buildBrowserListing(
@@ -119,6 +155,18 @@ export function browseInstanceFiles(
   return browseFiles(inputPath, selectionMode, instanceDirectory);
 }
 
+export function parseSelectedFileLineRange(searchParams: URLSearchParams): FileBrowserLineRange | null {
+  const line = parsePositiveLineNumber(searchParams.get("line"));
+
+  if (line === null) {
+    return null;
+  }
+
+  const endLine = parsePositiveLineNumber(searchParams.get("endLine")) ?? line;
+
+  return { end: endLine, start: line };
+}
+
 export function validateFileSelection(
   inputPath: string | null | undefined,
   selectionMode: FileBrowserSelectionMode,
@@ -140,6 +188,51 @@ export function validateInstanceFileSelection(
   selectionMode: FileBrowserSelectionMode = "either",
 ): FileBrowserSelection {
   return validateFileSelection(inputPath, selectionMode, instanceDirectory);
+}
+
+export function resolveInstanceFileReferences(
+  lookupPaths: string[],
+  instanceDirectory: string,
+): Record<string, { path: string } | null> {
+  const manifest = getCachedFileReferenceManifest(instanceDirectory);
+  const manifestSet = new Set(manifest);
+  const results: Record<string, { path: string } | null> = {};
+
+  for (const lookupPath of lookupPaths) {
+    const normalizedLookupPath = normalizeAssistantFileReferencePath(lookupPath, "inlineCode");
+
+    if (!normalizedLookupPath) {
+      results[lookupPath] = null;
+      continue;
+    }
+
+    const exactMatch = manifestSet.has(normalizedLookupPath) ? normalizedLookupPath : null;
+
+    if (exactMatch) {
+      results[lookupPath] = { path: exactMatch };
+      continue;
+    }
+
+    const suffixMatches = manifest.filter((path) => path.endsWith(`/${normalizedLookupPath}`));
+
+    if (suffixMatches.length === 1 && suffixMatches[0]) {
+      results[lookupPath] = { path: suffixMatches[0] };
+      continue;
+    }
+
+    if (!normalizedLookupPath.includes("/")) {
+      const basenameMatches = manifest.filter((path) => basename(path) === normalizedLookupPath);
+
+      if (basenameMatches.length === 1 && basenameMatches[0]) {
+        results[lookupPath] = { path: basenameMatches[0] };
+        continue;
+      }
+    }
+
+    results[lookupPath] = null;
+  }
+
+  return results;
 }
 
 export function readBrowserFile(
@@ -171,4 +264,32 @@ export function readInstanceFile(
   instanceDirectory: string,
 ): FileBrowserContent {
   return readBrowserFile(inputPath, instanceDirectory);
+}
+
+function getCachedFileReferenceManifest(rootPath: string) {
+  const normalizedRootPath = resolve(rootPath);
+  const now = Date.now();
+  const cachedEntry = fileReferenceManifestCache.get(normalizedRootPath);
+
+  if (cachedEntry && cachedEntry.expiresAt > now) {
+    return cachedEntry.paths;
+  }
+
+  const paths = collectRelativeFilePaths(normalizedRootPath);
+  fileReferenceManifestCache.set(normalizedRootPath, {
+    expiresAt: now + FILE_REFERENCE_CACHE_TTL_MS,
+    paths,
+  });
+
+  return paths;
+}
+
+function parsePositiveLineNumber(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const parsedValue = Number.parseInt(value, 10);
+
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : null;
 }

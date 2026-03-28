@@ -61,6 +61,11 @@ export type FileBrowserContent = {
   binary: boolean;
 };
 
+export type FileBrowserLineRange = {
+  start: number;
+  end: number;
+};
+
 export type GitFileStatusCode = " " | "M" | "A" | "D" | "R" | "C" | "T" | "U" | "?" | "!";
 
 export type GitChangeType =

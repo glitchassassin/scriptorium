@@ -1,7 +1,23 @@
+import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import { MessageCard } from "~/components/session/message-card";
+
+function renderWithRouter(element: ReactNode) {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "*",
+        element,
+      },
+    ],
+    { initialEntries: ["/"] },
+  );
+
+  return render(<RouterProvider router={router} />);
+}
 
 describe("MessageCard", () => {
   it("renders user image attachments even without visible text", () => {
@@ -76,7 +92,7 @@ describe("MessageCard", () => {
   });
 
   it("renders assistant tool content", () => {
-    render(
+    renderWithRouter(
       <MessageCard
         message={{
           info: {

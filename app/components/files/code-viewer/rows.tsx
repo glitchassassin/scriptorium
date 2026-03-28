@@ -12,6 +12,8 @@ type CodeViewerRowsProps = {
   mode?: CodeViewerProps["mode"];
   onSelectLine?: (selection: CodeViewerLineSelection) => void;
   scrollPaneRef: RefObject<HTMLDivElement | null>;
+  scrollToRowIndex?: number | null;
+  scrollToRowKey?: string | null;
   selectedRowRange: { start: number; end: number } | null;
   showDualGutters: boolean;
   showLineNumbers: boolean;
@@ -54,6 +56,8 @@ export function CodeViewerRows({
   mode = "text",
   onSelectLine,
   scrollPaneRef,
+  scrollToRowIndex,
+  scrollToRowKey,
   selectedRowRange,
   showDualGutters,
   showLineNumbers,
@@ -64,6 +68,7 @@ export function CodeViewerRows({
     scrollTop: 0,
     viewportHeight: DEFAULT_VIEWPORT_HEIGHT_PX,
   });
+  const [lastAppliedScrollKey, setLastAppliedScrollKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!shouldVirtualize) {
@@ -109,6 +114,34 @@ export function CodeViewerRows({
       resizeObserver?.disconnect();
     };
   }, [scrollPaneRef, shouldVirtualize]);
+
+  useEffect(() => {
+    if (scrollToRowKey) {
+      return;
+    }
+
+    setLastAppliedScrollKey(null);
+  }, [scrollToRowKey]);
+
+  useEffect(() => {
+    if (scrollToRowIndex === null || scrollToRowIndex === undefined || !scrollToRowKey || lastAppliedScrollKey === scrollToRowKey) {
+      return;
+    }
+
+    const scrollEl = scrollPaneRef.current;
+
+    if (!scrollEl) {
+      return;
+    }
+
+    const nextScrollTop = Math.max(scrollToRowIndex - 2, 0) * ROW_HEIGHT_PX;
+    scrollEl.scrollTop = nextScrollTop;
+    setLastAppliedScrollKey(scrollToRowKey);
+    setViewport((current) => ({
+      scrollTop: nextScrollTop,
+      viewportHeight: scrollEl.clientHeight || current.viewportHeight,
+    }));
+  }, [lastAppliedScrollKey, scrollPaneRef, scrollToRowIndex, scrollToRowKey]);
 
   const normalizedSelectedRange = selectedRowRange
     ? {

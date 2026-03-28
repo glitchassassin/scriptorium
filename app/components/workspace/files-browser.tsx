@@ -1,3 +1,4 @@
+import type { ReactNode, RefObject } from "react";
 import { useSearchParams } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
@@ -7,8 +8,9 @@ import { LineBuilder } from "~/components/files/code-viewer/line-builder";
 import { LineSelectionLayer } from "~/components/files/code-viewer/line-selection-layer";
 import { CodeViewerRows } from "~/components/files/code-viewer/rows";
 import { ScrollIndicator } from "~/components/files/code-viewer/scroll-indicator";
+import type { ViewLine } from "~/components/files/code-viewer/types";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
-import type { FileBrowserContent, FileBrowserListing } from "~/lib/instances/types";
+import type { FileBrowserContent, FileBrowserLineRange, FileBrowserListing } from "~/lib/instances/types";
 import { FileExplorer } from "~/routes/_rpc/files.browse";
 
 type FilesBrowserProps = {
@@ -17,6 +19,7 @@ type FilesBrowserProps = {
   rootPath: string;
   selected: FileBrowserContent | null;
   selectedError: string | null;
+  selectedLineRange?: FileBrowserLineRange | null;
   selectedPath: string | null;
 };
 
@@ -81,16 +84,19 @@ export function FilesBrowser({
   rootPath,
   selected,
   selectedError,
+  selectedLineRange,
   selectedPath,
 }: FilesBrowserProps) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   function selectFile(path: string | null) {
     const next = new URLSearchParams(searchParams);
-    next.set("path", listing.currentPath);
+    next.delete("line");
+    next.delete("endLine");
+    next.set("path", formatWorkspacePath(rootPath, listing.currentPath));
 
     if (path) {
-      next.set("file", path);
+      next.set("file", formatWorkspacePath(rootPath, path));
     } else {
       next.delete("file");
     }
@@ -135,33 +141,17 @@ export function FilesBrowser({
               {({ changeMarkers, highlightedLines, lines }) => (
                 <ScrollIndicator changeMarkers={changeMarkers} mode="text">
                   {({ indicator, scrollPaneRef }) => (
-                    <>
-                      <LineSelectionLayer
-                        key={selectedPath}
-                        onInsert={(range) => {
-                          if (!onInsertReference) {
-                            return;
-                          }
-
-                          onInsertReference(formatLineReference(formatWorkspacePath(rootPath, selected.path), range));
-                        }}
-                      >
-                        {({ onSelectLine, selectedRowRange }) => (
-                          <CodeViewerRows
-                            highlightedLines={highlightedLines}
-                            lines={lines}
-                            mode="text"
-                            onSelectLine={onSelectLine}
-                            scrollPaneRef={scrollPaneRef}
-                            selectedRowRange={selectedRowRange ?? null}
-                            showDualGutters={false}
-                            showLineNumbers={true}
-                            showDiffMarkers={true}
-                          />
-                        )}
-                      </LineSelectionLayer>
-                      {indicator}
-                    </>
+                    <SelectedFileCodeViewer
+                      indicator={indicator}
+                      lines={lines}
+                      onInsertReference={onInsertReference}
+                      rootPath={rootPath}
+                      scrollPaneRef={scrollPaneRef}
+                      selected={selected}
+                      selectedLineRange={selectedLineRange ?? null}
+                      selectedPath={selectedPath}
+                      highlightedLines={highlightedLines}
+                    />
                   )}
                 </ScrollIndicator>
               )}
@@ -173,4 +163,81 @@ export function FilesBrowser({
       ) : null}
     </ScrollableLayout>
   );
+}
+
+function SelectedFileCodeViewer({
+  highlightedLines,
+  indicator,
+  lines,
+  onInsertReference,
+  rootPath,
+  scrollPaneRef,
+  selected,
+  selectedLineRange,
+  selectedPath,
+}: {
+  highlightedLines: Array<string | null> | null;
+  indicator: ReactNode;
+  lines: ViewLine[];
+  onInsertReference?: (reference: string) => void;
+  rootPath: string;
+  scrollPaneRef: RefObject<HTMLDivElement | null>;
+  selected: FileBrowserContent;
+  selectedLineRange: FileBrowserLineRange | null;
+  selectedPath: string;
+}) {
+  const linkedRowRange = resolveLinkedRowRange(selectedLineRange, lines.length);
+  const scrollToRowKey = linkedRowRange && selectedPath
+    ? `${selectedPath}:${linkedRowRange.start}-${linkedRowRange.end}`
+    : null;
+
+  return (
+    <>
+      <LineSelectionLayer
+        key={selectedPath}
+        onInsert={(range) => {
+          if (!onInsertReference) {
+            return;
+          }
+
+          onInsertReference(formatLineReference(formatWorkspacePath(rootPath, selected.path), range));
+        }}
+      >
+        {({ onSelectLine, selectedRowRange }) => (
+          <CodeViewerRows
+            highlightedLines={highlightedLines}
+            lines={lines}
+            mode="text"
+            onSelectLine={onSelectLine}
+            scrollPaneRef={scrollPaneRef}
+            scrollToRowIndex={selectedRowRange ? null : linkedRowRange?.start ?? null}
+            scrollToRowKey={selectedRowRange ? null : scrollToRowKey}
+            selectedRowRange={selectedRowRange ?? linkedRowRange}
+            showDualGutters={false}
+            showLineNumbers={true}
+            showDiffMarkers={true}
+          />
+        )}
+      </LineSelectionLayer>
+      {indicator}
+    </>
+  );
+}
+
+function resolveLinkedRowRange(selectedLineRange: FileBrowserLineRange | null | undefined, lineCount: number) {
+  if (!selectedLineRange || lineCount < 1) {
+    return null;
+  }
+
+  const start = Math.min(selectedLineRange.start, selectedLineRange.end) - 1;
+  const end = Math.max(selectedLineRange.start, selectedLineRange.end) - 1;
+
+  if (start < 0 || start >= lineCount) {
+    return null;
+  }
+
+  return {
+    start,
+    end: Math.min(end, lineCount - 1),
+  };
 }

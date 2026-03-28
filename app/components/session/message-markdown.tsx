@@ -1,4 +1,5 @@
-import { memo, type ComponentProps } from "react";
+import { memo, useMemo, type ComponentProps } from "react";
+import { Link } from "react-router";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -6,10 +7,15 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { PluggableList } from "unified";
 
 import { CodeViewer } from "~/components/files/code-viewer";
+import { remarkAssistantFileReferenceLinks } from "~/lib/assistant-file-references";
 
 import styles from "./message-markdown.module.css";
+import { useAssistantFileReferenceRoute } from "./use-assistant-file-reference-route";
+import { useAssistantFileReferenceResolutions } from "./use-assistant-file-reference-resolutions";
 
 type MessageMarkdownProps = {
+  filesPath?: string;
+  instanceId?: string;
   text: string;
   variant?: "body" | "reasoning";
 };
@@ -45,13 +51,17 @@ function MarkdownLink({ href, children, node: _node, ...props }: ComponentProps<
   const safeHref = href ? defaultUrlTransform(href) : href;
   const external = safeHref ? isExternalUrl(safeHref) : false;
 
+  if (safeHref && !external && safeHref.startsWith("/")) {
+    return <Link className={styles.link} to={safeHref}>{children}</Link>;
+  }
+
   return (
-      <a
-        {...props}
-        className={styles.link}
-        href={safeHref}
-        rel={external ? "noreferrer noopener" : props.rel}
-        target={external ? "_blank" : props.target}
+    <a
+      {...props}
+      className={styles.link}
+      href={safeHref}
+      rel={external ? "noreferrer noopener" : props.rel}
+      target={external ? "_blank" : props.target}
     >
       {children}
     </a>
@@ -86,12 +96,24 @@ const MARKDOWN_COMPONENTS = {
   pre: MarkdownPre,
 } as const;
 
-export const MessageMarkdown = memo(function MessageMarkdown({ text, variant = "body" }: MessageMarkdownProps) {
+export const MessageMarkdown = memo(function MessageMarkdown({ filesPath, instanceId, text, variant = "body" }: MessageMarkdownProps) {
+  const routeContext = useAssistantFileReferenceRoute({ filesPath, instanceId });
+  const fileReferenceResolutions = useAssistantFileReferenceResolutions(routeContext.instanceId, text);
+  const remarkPlugins = useMemo<PluggableList>(() => {
+    if (!routeContext.filesPath) {
+      return REMARK_PLUGINS;
+    }
+
+    return [
+      ...REMARK_PLUGINS,
+      remarkAssistantFileReferenceLinks({ filesPath: routeContext.filesPath, resolutions: fileReferenceResolutions }),
+    ];
+  }, [fileReferenceResolutions, routeContext.filesPath]);
   const className = [styles.root, variant === "reasoning" ? styles.reasoning : styles.body].join(" ");
 
   return (
     <div className={className}>
-      <Markdown components={MARKDOWN_COMPONENTS} rehypePlugins={REHYPE_PLUGINS} remarkPlugins={REMARK_PLUGINS}>
+      <Markdown components={MARKDOWN_COMPONENTS} rehypePlugins={REHYPE_PLUGINS} remarkPlugins={remarkPlugins}>
         {text}
       </Markdown>
     </div>

@@ -27,7 +27,7 @@ export function headers(args: Route.HeadersArgs) {
 }
 
 export default function InstanceFilesRoute({ loaderData, matches }: Route.ComponentProps) {
-  const { instance, listing, selected, selectedError, selectedPath } = loaderData;
+  const { instance, listing, selected, selectedError, selectedLineRange, selectedPath } = loaderData;
 
   return (
     <>
@@ -40,6 +40,7 @@ export default function InstanceFilesRoute({ loaderData, matches }: Route.Compon
         rootPath={instance.directory}
         selected={selected}
         selectedError={selectedError}
+        selectedLineRange={selectedLineRange}
         selectedPath={selectedPath}
       />
     </>
