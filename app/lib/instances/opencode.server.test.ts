@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InstanceRecord } from "~/lib/instances/types";
 import {
   forkOpencodeSession,
+  getOpencodeConfig,
   getOpencodeProviderCatalog,
   listRecentSidebarSessions,
   listOpencodeMessagePage,
@@ -267,6 +268,24 @@ describe("getOpencodeProviderCatalog", () => {
       default: {},
       providers: [],
     });
+  });
+});
+
+describe("getOpencodeConfig", () => {
+  it("loads the current config", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      model: "openai/gpt-5",
+    })));
+
+    await expect(getOpencodeConfig(instance)).resolves.toEqual({
+      model: "openai/gpt-5",
+    });
+  });
+
+  it("falls back when the config endpoint is unavailable", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 404 }));
+
+    await expect(getOpencodeConfig(instance)).resolves.toEqual({});
   });
 });
 

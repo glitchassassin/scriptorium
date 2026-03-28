@@ -3,7 +3,7 @@ import { useFetcher } from "react-router";
 
 import { parseSlashCommand } from "~/lib/opencode/commands";
 import type { OpencodeCommandInfo, OpencodeModelRef, OpencodeProvider } from "~/lib/opencode/events";
-import { getModelMetadata, getModelVariants } from "~/lib/opencode/models";
+import { getModelMetadata, getModelVariants, type SessionModelChoice } from "~/lib/opencode/models";
 import { useSessionComposerDraft } from "./session-composer-draft";
 import type { SessionComposerController, VisibleTray } from "./session-composer-types";
 
@@ -17,6 +17,7 @@ type UseSessionComposerControllerOptions = {
   onClearSessionError: () => void;
   prefilledPrompt: string;
   providers: OpencodeProvider[];
+  recentModels: SessionModelChoice[];
   sessionId: string;
 };
 
@@ -34,6 +35,7 @@ export function useSessionComposerController({
   onClearSessionError,
   prefilledPrompt,
   providers,
+  recentModels,
   sessionId,
 }: UseSessionComposerControllerOptions): SessionComposerController {
   const promptFetcher = useFetcher();
@@ -56,9 +58,9 @@ export function useSessionComposerController({
     selectedAgent,
     selectedModel,
     selectedVariant,
+    applySelectedModel,
     setComposerText,
     setSelectedAgent,
-    setSelectedModel,
     setSelectedVariant,
     updateComposerSelection,
   } = useSessionComposerDraft({ defaultAgent, defaultModel, defaultVariant, prefilledPrompt, sessionId });
@@ -163,6 +165,47 @@ export function useSessionComposerController({
       }),
     })).filter((group) => group.models.length > 0);
   }, [modelSearch, providers]);
+  const recentItems = useMemo(() => {
+    const query = modelSearch.trim().toLowerCase();
+
+    return recentModels.flatMap((choice) => {
+      const provider = providers.find((item) => item.id === choice.model.providerID);
+      const info = provider?.models[choice.model.modelID];
+
+      if (!provider || !info) {
+        return [];
+      }
+
+      const metadata = getModelMetadata(info);
+      const item = {
+        key: `recent:${provider.id}/${info.id}`,
+        metadata,
+        model: choice.model,
+        modelLabel: info.name,
+        providerLabel: provider.name,
+        variant: choice.variant,
+      };
+
+      if (!query) {
+        return [item];
+      }
+
+      const matches = [
+        item.modelLabel,
+        item.providerLabel,
+        choice.variant,
+        metadata.context,
+        metadata.cost,
+        metadata.status,
+        metadata.variants,
+        metadata.capabilities.reasoning ? "reasoning" : "",
+        metadata.capabilities.tools ? "tools" : "",
+        metadata.capabilities.files ? "files" : "",
+      ].some((value) => (value ?? "").toLowerCase().includes(query));
+
+      return matches ? [item] : [];
+    });
+  }, [modelSearch, providers, recentModels]);
 
   const submitPrompt = useCallback(() => {
     const formData = new FormData();
@@ -253,11 +296,11 @@ export function useSessionComposerController({
     });
   }, [composerInputRef, setComposerText, updateComposerSelection]);
 
-  const selectModel = useCallback((model: OpencodeModelRef) => {
-    setSelectedModel(model);
+  const selectModel = useCallback((model: OpencodeModelRef, variant?: string | null) => {
+    applySelectedModel(model, variant);
     setActiveTray(null);
     setModelSearch("");
-  }, [setSelectedModel]);
+  }, [applySelectedModel]);
 
   const promptData = promptFetcher.data as { error?: string | null; intent?: string } | undefined;
   const commandData = commandFetcher.data as { error?: string | null; intent?: string } | undefined;
@@ -293,6 +336,7 @@ export function useSessionComposerController({
     modelGroups,
     modelSearch,
     promptError,
+    recentModels: recentItems,
     selectedAgent,
     selectedModel,
     variantOptions,

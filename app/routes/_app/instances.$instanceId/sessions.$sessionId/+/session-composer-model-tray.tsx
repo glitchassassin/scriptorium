@@ -4,7 +4,7 @@ import { ComposerPanelTray, ComposerTrayFrame } from "~/components/ui/composer-t
 import { cn } from "~/lib/cn";
 import type { OpencodeModelRef } from "~/lib/opencode/events";
 import type { ModelCapabilities } from "~/lib/opencode/models";
-import type { SessionComposerModelGroup } from "./session-composer-types";
+import type { SessionComposerModelGroup, SessionComposerRecentModel } from "./session-composer-types";
 
 function ModelCapabilityIcons({ capabilities, isSelected }: { capabilities: ModelCapabilities; isSelected: boolean }) {
   const iconClassName = cn("size-4", isSelected ? "text-white" : "text-black");
@@ -26,14 +26,16 @@ export function SessionComposerModelTray({
   onModelSearchChange,
   onModelSelect,
   onProviderToggle,
+  recentModels,
   selectedModel,
 }: {
   collapsedProviderIDs: Set<string>;
   modelGroups: SessionComposerModelGroup[];
   modelSearch: string;
   onModelSearchChange: (value: string) => void;
-  onModelSelect: (model: OpencodeModelRef) => void;
+  onModelSelect: (model: OpencodeModelRef, variant?: string | null) => void;
   onProviderToggle: (providerID: string) => void;
+  recentModels: SessionComposerRecentModel[];
   selectedModel: OpencodeModelRef | null;
 }) {
   const effectiveCollapsedProviderIDs = modelSearch.trim() ? new Set<string>() : collapsedProviderIDs;
@@ -50,6 +52,41 @@ export function SessionComposerModelTray({
           value={modelSearch}
         />
         <div className="space-y-4">
+          {recentModels.length ? (
+            <section className="space-y-2">
+              <div className="text-sm font-bold uppercase tracking-[0.08em]">Recent</div>
+              <div>
+                {recentModels.map((entry, index) => {
+                  const isSelected = selectedModel?.providerID === entry.model.providerID && selectedModel?.modelID === entry.model.modelID;
+
+                  return (
+                    <button
+                      aria-label={`Use recent ${entry.providerLabel} ${entry.modelLabel}`}
+                      className={cn(
+                        "flex min-h-14 w-full items-start justify-between gap-3 px-1 py-3 text-left text-base",
+                        index > 0 ? "border-t border-black" : "",
+                        isSelected ? "bg-black text-white" : "bg-white text-black",
+                      )}
+                      key={entry.key}
+                      onClick={() => onModelSelect(entry.model, entry.variant)}
+                      type="button"
+                    >
+                      <span className="min-w-0 space-y-1">
+                        <span className="block">{entry.modelLabel}</span>
+                        <span className={cn("flex items-center gap-3 text-sm", isSelected ? "text-white/80" : "text-black/70")}>
+                          <ModelCapabilityIcons capabilities={entry.metadata.capabilities} isSelected={isSelected} />
+                          <span>{[entry.metadata.context, entry.metadata.cost].filter(Boolean).join(" ")}</span>
+                          {entry.metadata.status || entry.metadata.variants || entry.variant ? (
+                            <span>{[entry.metadata.status, entry.metadata.variants, entry.variant ? `variant ${entry.variant}` : null].filter(Boolean).join(" · ")}</span>
+                          ) : null}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
           {modelGroups.length ? modelGroups.map((group) => (
             <section className="space-y-2" key={group.providerID}>
               <button
@@ -98,7 +135,8 @@ export function SessionComposerModelTray({
                 })}
               </div>
             </section>
-          )) : <p className="text-base leading-6">No models match that search.</p>}
+          )) : null}
+          {recentModels.length === 0 && modelGroups.length === 0 ? <p className="text-base leading-6">No models match that search.</p> : null}
         </div>
       </ComposerPanelTray>
     </ComposerTrayFrame>

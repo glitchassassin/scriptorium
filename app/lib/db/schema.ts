@@ -115,3 +115,23 @@ export const sessionReadStatuses = sqliteTable(
     index("idx_session_read_statuses_updated_at").on(table.updatedAt),
   ],
 );
+
+export const modelUsages = sqliteTable(
+  "model_usages",
+  {
+    instanceId: text("instance_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    modelId: text("model_id").notNull(),
+    variant: text("variant"),
+    usedAt: text("used_at").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.instanceId, table.sessionId, table.providerId, table.modelId] }),
+    index("idx_model_usages_instance_used_at").on(table.instanceId, table.usedAt),
+    index("idx_model_usages_session").on(table.instanceId, table.sessionId),
+    index("idx_model_usages_used_at").on(table.usedAt),
+  ],
+);

@@ -12,6 +12,7 @@ import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import {
   abortOpencodeSession,
   forkOpencodeSession,
+  getOpencodeConfig,
   getOpencodeSession,
   getOpencodeSessionStatuses,
   getOpencodeProviderCatalog,
@@ -26,6 +27,7 @@ import {
   submitOpencodePrompt,
   unrevertOpencodeSession,
 } from "~/lib/instances/opencode.server";
+import { listRecentModelChoices, resolveSessionModelChoice } from "~/lib/model-usage.server";
 import { parseSlashCommand } from "~/lib/opencode/commands";
 import { getInstanceOrThrow } from "~/lib/instances/runtime.server";
 import { getUserMessageText } from "~/lib/opencode/message-helpers";
@@ -36,7 +38,7 @@ import type {
   OpencodeProvider,
 } from "~/lib/opencode/events";
 import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
-import { getInitialSessionModel, getInitialSessionVariant } from "~/lib/opencode/models";
+import type { SessionModelChoice } from "~/lib/opencode/models";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
@@ -92,7 +94,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     timings,
     type: "instance",
   });
-  const [messagePage, permissions, questions, session, statuses, agents, commands, providerCatalog] = await Promise.all([
+  const [messagePage, permissions, questions, session, statuses, agents, commands, providerCatalog, config] = await Promise.all([
     time(() => listOpencodeMessagePage(instance, sessionId, { limit: SESSION_MESSAGE_PAGE_SIZE }), {
       desc: "list recent session history",
       timings,
@@ -133,6 +135,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       timings,
       type: "providers",
     }),
+    time(() => getOpencodeConfig(instance), {
+      desc: "get config",
+      timings,
+      type: "config",
+    }),
   ]);
   const parentId = session.parentID ?? null;
   const parentSession = parentId
@@ -142,9 +149,30 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       type: "session",
     })
     : null;
+  const defaultChoice = await time<SessionModelChoice | null>(() => resolveSessionModelChoice({
+    configModel: config.model,
+    instance,
+    messages: messagePage.items,
+    providers: providerCatalog.providers,
+    sessionId,
+  }), {
+    desc: "resolve session model",
+    timings,
+    type: "providers",
+  });
+  const recentModels = await time(() => listRecentModelChoices({
+    instance,
+    providers: providerCatalog.providers,
+  }), {
+    desc: "list recent models",
+    timings,
+    type: "providers",
+  });
 
   return data(
       {
+        initialDefaultModel: defaultChoice?.model ?? null,
+        initialDefaultVariant: defaultChoice?.variant ?? null,
         initialHistoryCursor: messagePage.nextCursor,
         initialMessages: messagePage.items,
         initialPermissions: permissions,
@@ -152,8 +180,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         initialStatus: statuses[sessionId] ?? { type: "idle" },
         initialAgents: agents,
         initialCommands: commands,
-        initialProviderDefaults: providerCatalog.default,
         initialProviders: providerCatalog.providers,
+        initialRecentModels: recentModels,
         instance,
         parentSession,
         session,
@@ -304,6 +332,7 @@ type SessionComposerFooterProps = {
   insertReferenceEvents: EventTarget;
   prefilledPrompt: string;
   providers: OpencodeProvider[];
+  recentModels: SessionModelChoice[];
   sessionId: string;
 };
 
@@ -339,6 +368,7 @@ function SessionComposerFooter({
   insertReferenceEvents,
   prefilledPrompt,
   providers,
+  recentModels,
   sessionId,
 }: SessionComposerFooterProps) {
   const status = useSessionStatus();
@@ -356,6 +386,7 @@ function SessionComposerFooter({
       onClearSessionError={clearSessionError}
       prefilledPrompt={prefilledPrompt}
       providers={providers}
+      recentModels={recentModels}
       sessionError={sessionError}
       sessionId={sessionId}
     />
@@ -366,12 +397,14 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
   const {
     initialAgents,
     initialCommands,
+    initialDefaultModel,
+    initialDefaultVariant,
     initialHistoryCursor,
     initialMessages,
     initialPermissions,
     initialQuestions,
-    initialProviderDefaults,
     initialProviders,
+    initialRecentModels,
     initialStatus,
     instance,
     parentSession,
@@ -383,14 +416,9 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
   const commands = useMemo<OpencodeCommandInfo[]>(() => initialCommands, [initialCommands]);
   const providers = useMemo<OpencodeProvider[]>(() => initialProviders, [initialProviders]);
   const defaultAgent = useMemo<string | null>(() => getInitialAgent(initialMessages, initialAgents), [initialMessages, initialAgents]);
-  const defaultModel = useMemo<OpencodeModelRef | null>(
-    () => getInitialSessionModel(initialMessages, { default: initialProviderDefaults, providers: initialProviders }),
-    [initialMessages, initialProviderDefaults, initialProviders],
-  );
-  const defaultVariant = useMemo(
-    () => getInitialSessionVariant(initialMessages, defaultModel, initialProviders),
-    [defaultModel, initialMessages, initialProviders],
-  );
+  const defaultModel = useMemo<OpencodeModelRef | null>(() => initialDefaultModel, [initialDefaultModel]);
+  const defaultVariant = useMemo(() => initialDefaultVariant, [initialDefaultVariant]);
+  const recentModels = useMemo(() => initialRecentModels, [initialRecentModels]);
   const insertComposerReferenceEvents = useMemo(() => new EventTarget(), []);
   const insertComposerReference = useCallback((reference: string) => {
     insertComposerReferenceEvents.dispatchEvent(new CustomEvent("insert-reference", { detail: reference }));
@@ -433,6 +461,7 @@ export default function InstanceSessionLayoutRoute({ loaderData, matches }: Rout
             insertReferenceEvents={insertComposerReferenceEvents}
             prefilledPrompt={prefilledPrompt}
             providers={providers}
+            recentModels={recentModels}
             sessionId={session.id}
           />
         }

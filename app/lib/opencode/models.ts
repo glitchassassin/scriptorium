@@ -1,4 +1,5 @@
 import type {
+  OpencodeMessageInfo,
   OpencodeMessageWithParts,
   OpencodeModelRef,
   OpencodeProvider,
@@ -6,6 +7,14 @@ import type {
 } from "~/lib/opencode/events";
 
 export type SessionModel = OpencodeModelRef;
+export type SessionModelChoice = {
+  model: SessionModel;
+  variant: string | null;
+};
+
+export type TimestampedSessionModelChoice = SessionModelChoice & {
+  usedAt: number;
+};
 
 export type ModelCapabilities = {
   files: boolean;
@@ -23,6 +32,23 @@ export type ModelMetadata = {
 
 export function getModelKey(model: SessionModel) {
   return `${model.providerID}/${model.modelID}`;
+}
+
+export function parseModelRef(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const index = value.indexOf("/");
+
+  if (index <= 0 || index >= value.length - 1) {
+    return null;
+  }
+
+  return {
+    modelID: value.slice(index + 1),
+    providerID: value.slice(0, index),
+  } satisfies SessionModel;
 }
 
 export function getModelVariants(model: SessionModel, providers: OpencodeProvider[]) {
@@ -129,27 +155,67 @@ export function isKnownModel(model: SessionModel | null | undefined, providers: 
   return Boolean(providers.find((provider) => provider.id === model.providerID)?.models[model.modelID]);
 }
 
-export function getInitialSessionModel(messages: OpencodeMessageWithParts[], catalog: OpencodeProviderCatalog) {
+export function normalizeModelChoice(choice: SessionModelChoice | null | undefined, providers: OpencodeProvider[]) {
+  if (!choice || !isKnownModel(choice.model, providers)) {
+    return null;
+  }
+
+  const variants = new Set(getModelVariants(choice.model, providers));
+
+  return {
+    model: choice.model,
+    variant: typeof choice.variant === "string" && variants.has(choice.variant) ? choice.variant : null,
+  } satisfies SessionModelChoice;
+}
+
+export function getMessageInfoModelChoice(info: OpencodeMessageInfo): TimestampedSessionModelChoice | null {
+  if (info.role === "user") {
+    if (!info.model) {
+      return null;
+    }
+
+    return {
+      model: info.model,
+      variant: info.variant ?? null,
+      usedAt: info.time.created,
+    } satisfies TimestampedSessionModelChoice;
+  }
+
+  if (!info.modelID || !info.providerID) {
+    return null;
+  }
+
+  return {
+    model: {
+      modelID: info.modelID,
+      providerID: info.providerID,
+    },
+    variant: info.variant ?? null,
+    usedAt: info.time.created,
+  } satisfies TimestampedSessionModelChoice;
+}
+
+export function getMessageModelChoice(message: OpencodeMessageWithParts) {
+  return getMessageInfoModelChoice(message.info);
+}
+
+export function getLatestMessageModelChoice(messages: OpencodeMessageWithParts[], providers: OpencodeProvider[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
+    const choice = normalizeModelChoice(getMessageModelChoice(messages[index]!), providers);
 
-    if (!message) {
-      continue;
+    if (choice) {
+      return choice;
     }
+  }
 
-    if (message.info.role === "user" && isKnownModel(message.info.model, catalog.providers)) {
-      return message.info.model ?? null;
-    }
+  return null;
+}
 
-    if (message.info.role === "assistant") {
-      const model = message.info.modelID && message.info.providerID
-        ? { modelID: message.info.modelID, providerID: message.info.providerID }
-        : null;
+export function getInitialSessionModel(messages: OpencodeMessageWithParts[], catalog: OpencodeProviderCatalog) {
+  const choice = getLatestMessageModelChoice(messages, catalog.providers);
 
-      if (isKnownModel(model, catalog.providers)) {
-        return model;
-      }
-    }
+  if (choice) {
+    return choice.model;
   }
 
   for (const provider of catalog.providers) {
@@ -168,29 +234,17 @@ export function getInitialSessionVariant(messages: OpencodeMessageWithParts[], m
     return null;
   }
 
-  const variants = new Set(getModelVariants(model, providers));
-
-  if (variants.size === 0) {
-    return null;
-  }
-
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
+    const choice = getMessageModelChoice(messages[index]!);
 
-    if (!message?.info.variant || !variants.has(message.info.variant)) {
+    if (!choice || choice.model.providerID !== model.providerID || choice.model.modelID !== model.modelID) {
       continue;
     }
 
-    if (message.info.role === "user") {
-      if (message.info.model?.providerID === model.providerID && message.info.model?.modelID === model.modelID) {
-        return message.info.variant;
-      }
+    const normalized = normalizeModelChoice({ model, variant: choice.variant }, providers);
 
-      continue;
-    }
-
-    if (message.info.role === "assistant" && message.info.providerID === model.providerID && message.info.modelID === model.modelID) {
-      return message.info.variant;
+    if (normalized) {
+      return normalized.variant;
     }
   }
 

@@ -305,8 +305,12 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
     const nextText = storedDraft?.text ?? prefilledPrompt;
     const nextSelection = storedDraft?.selection ?? { start: nextText.length, end: nextText.length };
     const nextAgent = storedDraft?.selectedAgent ?? defaultAgent;
-    const nextModel = storedDraft?.selectedModel ?? null;
+    const nextModel = storedDraft?.selectedModel ?? defaultModel;
     const nextVariants = { ...(storedDraft?.variants ?? {}) };
+
+    if (nextModel && defaultModel && nextModel.providerID === defaultModel.providerID && nextModel.modelID === defaultModel.modelID && defaultVariant) {
+      nextVariants[getModelKey(nextModel)] ??= defaultVariant;
+    }
 
     selectionRef.current = nextSelection;
     setComposerText(nextText);
@@ -326,7 +330,7 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
       hydratedRef.current = true;
       setIsRestoringAttachments(false);
     });
-  }, [defaultAgent, prefilledPrompt, sessionId]);
+  }, [defaultAgent, defaultModel, defaultVariant, prefilledPrompt, sessionId]);
 
   useEffect(() => {
     if (!focusAfterRestoreRef.current) {
@@ -503,8 +507,28 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
     });
   }, [selectedModel]);
 
+  const applySelectedModel = useCallback((model: OpencodeModelRef, variant?: string | null) => {
+    setSelectedModel(model);
+
+    if (variant === undefined) {
+      return;
+    }
+
+    setVariants((current) => {
+      const key = getModelKey(model);
+
+      if (!variant) {
+        const { [key]: _removed, ...rest } = current;
+        return rest;
+      }
+
+      return { ...current, [key]: variant };
+    });
+  }, []);
+
   return {
     addImages,
+    applySelectedModel,
     clearDraftContent,
     composerInputRef,
     composerText,

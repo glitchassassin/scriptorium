@@ -118,6 +118,10 @@ export const opencodeProviderCatalogSchema = z.object({
   providers: z.array(opencodeProviderSchema),
 });
 
+export const opencodeConfigSchema = z.object({
+  model: z.string().optional(),
+}).passthrough();
+
 export const opencodeFileDiffSchema = z.object({
   file: z.string(),
   before: z.string(),
@@ -695,6 +699,7 @@ export type OpencodeKnownEvent = z.infer<typeof opencodeKnownEventSchema>;
 export type OpencodeAgent = z.infer<typeof opencodeAgentSchema>;
 export type OpencodeCommandInput = z.infer<typeof opencodeCommandInputSchema>;
 export type OpencodeCommandInfo = z.infer<typeof opencodeCommandInfoSchema>;
+export type OpencodeConfig = z.infer<typeof opencodeConfigSchema>;
 export type OpencodeModelRef = z.infer<typeof opencodeModelRefSchema>;
 export type OpencodeProvider = z.infer<typeof opencodeProviderSchema>;
 export type OpencodeProviderCatalog = z.infer<typeof opencodeProviderCatalogSchema>;

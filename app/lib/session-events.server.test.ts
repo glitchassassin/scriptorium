@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { withTestDatabase } from "~/lib/db.server";
+import { listRecentModelChoices, recordModelUsage } from "~/lib/model-usage.server";
 
 const getInstanceMock = vi.fn();
 const listInstancesMock = vi.fn();
@@ -163,5 +164,152 @@ describe("session events", () => {
     });
 
     unsubscribe();
+  });
+
+  it("clears cached model usage when a message is removed", async () => {
+    await withTestDatabase(async () => {
+      const stream = createEventStream();
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream.stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+        },
+        status: 200,
+      }));
+
+      listInstancesMock.mockResolvedValue([
+        {
+          id: "instance-1",
+          name: "Alpha",
+          directory: "/tmp/alpha",
+          port: 4311,
+          status: "running",
+        },
+      ]);
+      getInstanceMock.mockResolvedValue({
+        id: "instance-1",
+        name: "Alpha",
+        directory: "/tmp/alpha",
+        port: 4311,
+        status: "running",
+      });
+
+      recordModelUsage({
+        instanceId: "instance-1",
+        model: { modelID: "gpt-5", providerID: "openai" },
+        sessionId: "session-1",
+        usedAt: 20,
+        variant: "high",
+      });
+
+      const unsubscribe = subscribeToSessionEvents(() => {});
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+      });
+
+      stream.emit({
+        type: "message.removed",
+        properties: {
+          messageID: "message-1",
+          sessionID: "session-1",
+        },
+      });
+
+      await vi.waitFor(async () => {
+        await expect(listRecentModelChoices({
+          instance: {
+            id: "instance-1",
+            name: "Alpha",
+            directory: "/tmp/alpha",
+            port: 4311,
+            status: "running",
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+            lastStartedAt: null,
+            lastExitAt: null,
+            lastError: null,
+          },
+          providers: [{ id: "openai", models: { "gpt-5": { id: "gpt-5", name: "GPT 5", variants: { high: {} } } }, name: "OpenAI" }],
+        })).resolves.toEqual([]);
+      });
+
+      unsubscribe();
+    });
+  });
+
+  it("clears cached model usage when a session update carries revert state", async () => {
+    await withTestDatabase(async () => {
+      const stream = createEventStream();
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream.stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+        },
+        status: 200,
+      }));
+
+      listInstancesMock.mockResolvedValue([
+        {
+          id: "instance-1",
+          name: "Alpha",
+          directory: "/tmp/alpha",
+          port: 4311,
+          status: "running",
+        },
+      ]);
+      getInstanceMock.mockResolvedValue({
+        id: "instance-1",
+        name: "Alpha",
+        directory: "/tmp/alpha",
+        port: 4311,
+        status: "running",
+      });
+
+      recordModelUsage({
+        instanceId: "instance-1",
+        model: { modelID: "gpt-5", providerID: "openai" },
+        sessionId: "session-1",
+        usedAt: 20,
+        variant: "high",
+      });
+
+      const unsubscribe = subscribeToSessionEvents(() => {});
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+      });
+
+      stream.emit({
+        type: "session.updated",
+        properties: {
+          info: {
+            directory: "/tmp/alpha",
+            id: "session-1",
+            revert: { messageID: "message-1" },
+            time: { created: 10, updated: 15 },
+            title: "Session 1",
+          },
+        },
+      });
+
+      await vi.waitFor(async () => {
+        await expect(listRecentModelChoices({
+          instance: {
+            id: "instance-1",
+            name: "Alpha",
+            directory: "/tmp/alpha",
+            port: 4311,
+            status: "running",
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+            lastStartedAt: null,
+            lastExitAt: null,
+            lastError: null,
+          },
+          providers: [{ id: "openai", models: { "gpt-5": { id: "gpt-5", name: "GPT 5", variants: { high: {} } } }, name: "OpenAI" }],
+        })).resolves.toEqual([]);
+      });
+
+      unsubscribe();
+    });
   });
 });

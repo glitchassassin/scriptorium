@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 
-import type { ModelMetadata } from "~/lib/opencode/models";
+import type { ModelMetadata, SessionModelChoice } from "~/lib/opencode/models";
 import type { OpencodeCommandInfo, OpencodeModelRef } from "~/lib/opencode/events";
 import type { DraftImage } from "./session-composer-draft";
 
@@ -16,6 +16,13 @@ export type SessionComposerModelGroup = {
     model: OpencodeModelRef;
     modelLabel: string;
   }>;
+};
+
+export type SessionComposerRecentModel = SessionModelChoice & {
+  key: string;
+  metadata: ModelMetadata;
+  modelLabel: string;
+  providerLabel: string;
 };
 
 export type SessionComposerController = {
@@ -36,6 +43,7 @@ export type SessionComposerController = {
   modelGroups: SessionComposerModelGroup[];
   modelSearch: string;
   promptError: string | null;
+  recentModels: SessionComposerRecentModel[];
   selectedAgent: string | null;
   selectedModel: OpencodeModelRef | null;
   variantOptions: string[];
@@ -47,7 +55,7 @@ export type SessionComposerController = {
   onComposerTextChange: (value: string) => void;
   onCycleAgent: () => void;
   onModelSearchChange: (value: string) => void;
-  onModelSelect: (model: OpencodeModelRef) => void;
+  onModelSelect: (model: OpencodeModelRef, variant?: string | null) => void;
   onModelToggle: () => void;
   onProviderToggle: (providerID: string) => void;
   onRemoveImage: (id: string) => Promise<void>;

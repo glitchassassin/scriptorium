@@ -6,6 +6,7 @@ import {
   opencodePermissionRequestSchema,
   opencodeQuestionRequestSchema,
   opencodeAgentSchema,
+  opencodeConfigSchema,
   opencodeProviderCatalogSchema,
   opencodePromptInputSchema,
   opencodeSessionInfoSchema,
@@ -24,6 +25,7 @@ import type {
   OpencodeMessageWithParts,
   OpencodeAgent,
   OpencodeCommandInfo,
+  OpencodeConfig,
   OpencodeCommandInput,
   OpencodePromptInput,
   OpencodeProviderCatalog,
@@ -169,6 +171,17 @@ export async function getOpencodeProviderCatalog(instance: InstanceRecord) {
 
   const payload = await readJson(response);
   return parseOrThrow(opencodeProviderCatalogSchema.safeParse(payload)) satisfies OpencodeProviderCatalog;
+}
+
+export async function getOpencodeConfig(instance: InstanceRecord) {
+  const response = await fetch(`${getInstanceBaseUrl(instance)}/config`);
+
+  if (response.status === 404 || response.status === 501) {
+    return {} satisfies OpencodeConfig;
+  }
+
+  const payload = await readJson(response);
+  return parseOrThrow(opencodeConfigSchema.safeParse(payload)) satisfies OpencodeConfig;
 }
 
 export async function submitOpencodePrompt(

@@ -3,6 +3,10 @@ import { eq } from "drizzle-orm";
 import { getOrm } from "~/lib/db.server";
 import { sessionReadStatuses } from "~/lib/db/schema";
 import {
+  clearSessionModelUsage,
+  recordOpencodeMessageUsage,
+} from "~/lib/model-usage.server";
+import {
   getInstance,
   listInstances,
   subscribeToInstanceRuntimeEvents,
@@ -174,6 +178,28 @@ function getSessionActivityEvent(instanceId: string, event: OpencodeEvent) {
     default:
       return null;
   }
+}
+
+function getModelUsageInvalidation(event: OpencodeEvent) {
+  if (event.type === "message.removed") {
+    return {
+      sessionId: event.properties.sessionID,
+    };
+  }
+
+  if (event.type === "session.updated" && event.properties.info.revert) {
+    return {
+      sessionId: event.properties.info.id,
+    };
+  }
+
+  if (event.type === "session.deleted") {
+    return {
+      sessionId: event.properties.info.id,
+    };
+  }
+
+  return null;
 }
 
 async function consumeEventStream(
@@ -410,6 +436,16 @@ class SessionEventFanInManager {
       result.data.type === "session.created" || result.data.type === "session.updated"
         ? createSessionSummaryEvent(instanceId, result.data)
         : null;
+
+    if (result.data.type === "message.updated") {
+      recordOpencodeMessageUsage(instanceId, result.data.properties.info);
+    }
+
+    const invalidation = getModelUsageInvalidation(result.data);
+
+    if (invalidation) {
+      clearSessionModelUsage(instanceId, invalidation.sessionId);
+    }
 
     if (summaryEvent) {
       publishSessionEvent(summaryEvent);

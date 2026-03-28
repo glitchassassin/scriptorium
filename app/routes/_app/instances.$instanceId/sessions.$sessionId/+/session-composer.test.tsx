@@ -237,6 +237,18 @@ describe("useSessionComposerDraft", () => {
     await clearStoredSessionComposerDraft(sessionId);
   });
 
+  it("seeds the draft from the resolved default model and variant", async () => {
+    const sessionId = "session-defaults";
+
+    render(<ComposerDraftHarness defaultVariant="high" sessionId={sessionId} />);
+
+    await waitForRestore();
+    expect(screen.getByTestId("selected-model")).toHaveTextContent("openai/gpt-5");
+    expect(screen.getByTestId("selected-variant")).toHaveTextContent("high");
+
+    await clearStoredSessionComposerDraft(sessionId);
+  });
+
   it("keeps drafts isolated by session id", async () => {
     const view = render(<ComposerDraftHarness sessionId="session-a" />);
 
@@ -443,7 +455,7 @@ describe("useSessionComposerDraft", () => {
     expect(screen.getByRole("button", { name: "Insert /review" })).toBeEnabled();
   });
 
-  it("submits slash commands without a model override until one is selected", async () => {
+  it("submits the resolved default model with slash commands", async () => {
     render(
       <SessionComposer
         agents={["draft", "review"]}
@@ -471,8 +483,8 @@ describe("useSessionComposerDraft", () => {
     expect(getSubmittedFormData(commandFetcher).get("command")).toBe("review");
     expect(getSubmittedFormData(commandFetcher).get("arguments")).toBe("feature-branch");
     expect(getSubmittedFormData(commandFetcher).get("clearDraft")).toBe("1");
-    expect(getSubmittedFormData(commandFetcher).get("modelProviderID")).toBe("");
-    expect(getSubmittedFormData(commandFetcher).get("modelID")).toBe("");
+    expect(getSubmittedFormData(commandFetcher).get("modelProviderID")).toBe("openai");
+    expect(getSubmittedFormData(commandFetcher).get("modelID")).toBe("gpt-5");
   });
 
   it("submits the selected model and variant with prompts", async () => {
@@ -492,12 +504,42 @@ describe("useSessionComposerDraft", () => {
     expect(getSubmittedFormData(promptFetcher).get("variant")).toBe("high");
   });
 
-  it("shows Default before a model is explicitly selected", async () => {
+  it("shows the resolved default model before the tray is opened", async () => {
     renderSessionComposer();
 
     await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
 
+    expect(screen.getByRole("button", { name: "Toggle model tray" })).toHaveTextContent("GPT 5");
+  });
+
+  it("shows Default when no model default is available", async () => {
+    renderSessionComposer({ defaultModel: null, defaultVariant: null });
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
     expect(screen.getByRole("button", { name: "Toggle model tray" })).toHaveTextContent("Default");
+  });
+
+  it("shows recent models in the tray and applies their variant", async () => {
+    renderSessionComposer({
+      recentModels: [
+        {
+          model: { modelID: "claude-sonnet", providerID: "anthropic" },
+          variant: "high",
+        },
+      ],
+    });
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle model tray" }));
+
+    expect(screen.getByText("Recent")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Use recent Anthropic Claude Sonnet" }));
+
+    expect(screen.getByRole("button", { name: "Toggle model tray" })).toHaveTextContent("Claude Sonnet");
+    expect(screen.getByRole("button", { name: "Cycle variant" })).toHaveTextContent("high");
   });
 
   it("clears the textarea immediately after a slash-command submit", async () => {
@@ -715,10 +757,6 @@ describe("useSessionComposerDraft", () => {
 
     const variantButton = screen.getByRole("button", { name: "Cycle variant" });
     expect(variantButton).toHaveTextContent("Auto");
-    expect(variantButton).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Toggle model tray" }));
-    fireEvent.click(screen.getByRole("button", { name: "Use OpenAI GPT 5" }));
     expect(variantButton).toBeEnabled();
 
     fireEvent.click(variantButton);

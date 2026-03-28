@@ -1,5 +1,6 @@
 import safeArea from "~/styles/safe-area.module.css";
 import type { OpencodeCommandInfo, OpencodeModelRef, OpencodeProvider } from "~/lib/opencode/events";
+import type { SessionModelChoice } from "~/lib/opencode/models";
 import { SessionComposerCommandDescriptionTray, SessionComposerCommandListTray } from "./session-composer-command-tray";
 import { SessionComposerControls } from "./session-composer-controls";
 import { SessionComposerImagesTray } from "./session-composer-images-tray";
@@ -19,6 +20,7 @@ type SessionComposerProps = {
   onClearSessionError: () => void;
   providers: OpencodeProvider[];
   prefilledPrompt: string;
+  recentModels?: SessionModelChoice[];
   sessionError: string | null;
   sessionId: string;
 };
@@ -34,6 +36,7 @@ export function SessionComposer({
   onClearSessionError,
   providers,
   prefilledPrompt,
+  recentModels = [],
   sessionError,
   sessionId,
 }: SessionComposerProps) {
@@ -47,6 +50,7 @@ export function SessionComposer({
     onClearSessionError,
     prefilledPrompt,
     providers,
+    recentModels,
     sessionId,
   });
 
@@ -84,6 +88,7 @@ export function SessionComposer({
           onModelSearchChange={controller.onModelSearchChange}
           onModelSelect={controller.onModelSelect}
           onProviderToggle={controller.onProviderToggle}
+          recentModels={controller.recentModels}
           selectedModel={controller.selectedModel}
         />
       ) : null}
