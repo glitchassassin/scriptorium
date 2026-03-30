@@ -2,7 +2,7 @@ import { Form, NavLink } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
-import { useSession, useSessionUnreadStatus } from "~/store/sessions-provider";
+import { useSession, useSessionSidebarIndicator } from "~/store/sessions-provider";
 import { cn } from "~/lib/cn";
 import { SIDEBAR_SESSION_LIMIT } from "~/lib/instances/sidebar";
 
@@ -51,7 +51,7 @@ export function SidebarInstanceItem({ instance }: SidebarInstanceItemProps) {
 
 function SidebarSessionItem({ instanceId, sessionId }: { instanceId: string; sessionId: string }) {
   const session = useSession(sessionId);
-  const unread = useSessionUnreadStatus(sessionId);
+  const indicator = useSessionSidebarIndicator(sessionId);
 
   if (!session) {
     return null;
@@ -65,13 +65,13 @@ function SidebarSessionItem({ instanceId, sessionId }: { instanceId: string; ses
           "text-black",
         )}
         to={`/instances/${instanceId}/sessions/${sessionId}`}
-      >
-        {({ isActive }) => (
-          <>
-            <span className="flex justify-center">{unread ? <UnreadBadge /> : null}</span>
-            <span className={cn({ "underline underline-offset-4": isActive })}>{sessionLabel(session.title, sessionId)}</span>
-          </>
-        )}
+        >
+          {({ isActive }) => (
+            <>
+              <span className="flex justify-center">{indicator !== "none" ? <UnreadBadge variant={indicator} /> : null}</span>
+              <span className={cn({ "underline underline-offset-4": isActive })}>{sessionLabel(session.title, sessionId)}</span>
+            </>
+          )}
       </NavLink>
     </li>
   );

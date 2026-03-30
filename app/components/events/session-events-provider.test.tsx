@@ -159,6 +159,38 @@ describe("useSessionEvents", () => {
     });
   });
 
+  it("matches session status events against the session filter", () => {
+    const onEvent = vi.fn<(event: SessionEvent) => void>();
+
+    render(
+      <SessionEventsProvider>
+        <TestSubscriber filter={{ sessionId: "session-1" }} onEvent={onEvent} />
+      </SessionEventsProvider>,
+    );
+
+    emitSessionEvent({
+      type: "session.status",
+      instanceId: "instance-1",
+      sessionId: "session-2",
+      status: { type: "busy" },
+    });
+
+    emitSessionEvent({
+      type: "session.status",
+      instanceId: "instance-1",
+      sessionId: "session-1",
+      status: { type: "idle" },
+    });
+
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(onEvent).toHaveBeenCalledWith({
+      type: "session.status",
+      instanceId: "instance-1",
+      sessionId: "session-1",
+      status: { type: "idle" },
+    });
+  });
+
   it("logs invalid payloads and closes the source on unmount", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const view = render(

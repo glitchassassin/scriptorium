@@ -106,6 +106,9 @@ describe("session events", () => {
         case "session.activity":
           received.push({ type: event.type, value: event.updatedAt });
           return;
+        case "session.status":
+          received.push({ type: event.type, value: event.status.type });
+          return;
         case "session.deleted":
           received.push({ type: event.type, value: event.sessionId });
       }
@@ -143,6 +146,13 @@ describe("session events", () => {
       },
     });
     stream.emit({
+      type: "session.status",
+      properties: {
+        sessionID: "session-1",
+        status: { type: "busy" },
+      },
+    });
+    stream.emit({
       type: "session.deleted",
       properties: {
         info: {
@@ -159,6 +169,7 @@ describe("session events", () => {
         { type: "session.summary", value: "session-1" },
         { type: "session.activity", value: 15 },
         { type: "session.activity", value: 20 },
+        { type: "session.status", value: "busy" },
         { type: "session.deleted", value: "session-1" },
       ]);
     });

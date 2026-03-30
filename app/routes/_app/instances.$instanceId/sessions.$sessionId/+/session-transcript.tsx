@@ -143,11 +143,11 @@ export function SessionTranscript({
       if (page.items.length > 0) {
         setPrependRevision((current) => current + 1);
       }
-    } catch {
-      if (historyRequestRef.current === requestId && sessionIdRef.current === requestSessionId) {
-        requestRevalidation();
-      }
-    } finally {
+      } catch {
+        if (historyRequestRef.current === requestId && sessionIdRef.current === requestSessionId) {
+          requestRevalidation();
+        }
+      } finally {
       if (historyRequestRef.current === requestId && sessionIdRef.current === requestSessionId) {
         isLoadingHistoryRef.current = false;
         setIsLoadingHistory(false);

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SidebarInstanceItem } from "~/components/shell/sidebar-instance-item";
 
 const useSessionMock = vi.fn();
-const useSessionUnreadStatusMock = vi.fn();
+const useSessionSidebarIndicatorMock = vi.fn();
 
 vi.mock("react-router", () => ({
   Form: ({ children }: { children: ReactNode }) => <form>{children}</form>,
@@ -26,13 +26,13 @@ vi.mock("react-router", () => ({
 
 vi.mock("~/store/sessions-provider", () => ({
   useSession: (...args: unknown[]) => useSessionMock(...args),
-  useSessionUnreadStatus: (...args: unknown[]) => useSessionUnreadStatusMock(...args),
+  useSessionSidebarIndicator: (...args: unknown[]) => useSessionSidebarIndicatorMock(...args),
 }));
 
 describe("SidebarInstanceItem", () => {
-  it("renders an unread indicator for unread sessions", () => {
+  it("renders a solid indicator for unread idle sessions", () => {
     useSessionMock.mockReturnValue({ id: "session-1", parentID: null, title: "Unread session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: null });
-    useSessionUnreadStatusMock.mockReturnValue(true);
+    useSessionSidebarIndicatorMock.mockReturnValue("solid");
 
     render(
       <SidebarInstanceItem
@@ -46,12 +46,31 @@ describe("SidebarInstanceItem", () => {
     );
 
     expect(screen.getByText("Unread session")).toBeInTheDocument();
-    expect(screen.getByTestId("unread-badge")).toBeInTheDocument();
+    expect(screen.getByTestId("unread-badge")).toHaveClass("bg-black");
+  });
+
+  it("renders a hollow indicator for unread active sessions", () => {
+    useSessionMock.mockReturnValue({ id: "session-1", parentID: null, title: "Active unread session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: null });
+    useSessionSidebarIndicatorMock.mockReturnValue("hollow");
+
+    render(
+      <SidebarInstanceItem
+        instance={{
+          id: "instance-1",
+          name: "Alpha",
+          status: "running",
+          sessionIds: ["session-1"],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Active unread session")).toBeInTheDocument();
+    expect(screen.getByTestId("unread-badge")).toHaveClass("border-2", "border-black", "bg-transparent");
   });
 
   it("keeps the active session label underlined", () => {
     useSessionMock.mockReturnValue({ id: "session-1", parentID: null, title: "Active session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: 3 });
-    useSessionUnreadStatusMock.mockReturnValue(false);
+    useSessionSidebarIndicatorMock.mockReturnValue("none");
 
     render(
       <SidebarInstanceItem
@@ -69,7 +88,7 @@ describe("SidebarInstanceItem", () => {
 
   it("omits the unread indicator for read sessions", () => {
     useSessionMock.mockReturnValue({ id: "session-1", parentID: null, title: "Read session", directory: null, createdAt: 1, updatedAt: 2, lastReadAt: 3 });
-    useSessionUnreadStatusMock.mockReturnValue(false);
+    useSessionSidebarIndicatorMock.mockReturnValue("none");
 
     render(
       <SidebarInstanceItem

@@ -44,6 +44,7 @@ function getSessionId(event: SessionEvent) {
   switch (event.type) {
     case "session.read":
     case "session.activity":
+    case "session.status":
     case "session.deleted":
       return event.sessionId;
     case "session.summary":

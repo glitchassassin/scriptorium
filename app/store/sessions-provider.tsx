@@ -14,8 +14,10 @@ import {
   isSessionUnread,
   type SidebarSessionRecord,
 } from "~/lib/instances/sidebar";
+import type { OpencodeSessionStatus } from "~/lib/opencode/events";
 
 type SessionsContextValue = Record<string, SidebarSessionRecord>;
+type SessionStatusesContextValue = Record<string, OpencodeSessionStatus>;
 
 type UnreadStatusEvent = {
   instanceId: string;
@@ -41,12 +43,35 @@ type SessionsAction =
   | { type: "mark-read"; sessionId: string; lastReadAt: number }
   | { type: "update"; sessionId: string; state: Partial<SidebarSessionRecord> | null };
 
+type SessionStatusesAction =
+  | { type: "reset"; statuses: SessionStatusesContextValue }
+  | { type: "remove"; sessionId: string }
+  | { type: "update"; sessionId: string; status: OpencodeSessionStatus };
+
 const SessionsContext = createContext<SessionsContextValue | null>(null);
+const SessionStatusesContext = createContext<SessionStatusesContextValue | null>(null);
 const SessionsActionsContext = createContext<SessionsActionsContextValue | null>(null);
 const SessionsEventsContext = createContext<SessionsEventsContextValue | null>(null);
 
+const EMPTY_SESSION_STATUSES: SessionStatusesContextValue = {};
+const IDLE_SESSION_STATUS = { type: "idle" } satisfies OpencodeSessionStatus;
+
 export function getSessionStateId(sessionId: string) {
   return sessionId;
+}
+
+// Opencode can deliver activity-related events out of order, so sidebar timestamps
+// must only move forward or a session can incorrectly flip back to read.
+function mergeMonotonicTimestamp(previous: number | null, next: number | null | undefined) {
+  if (next === undefined || next === null) {
+    return previous;
+  }
+
+  if (previous === null) {
+    return next;
+  }
+
+  return Math.max(previous, next);
 }
 
 function sessionsReducer(current: SessionsContextValue, action: SessionsAction) {
@@ -81,15 +106,18 @@ function sessionsReducer(current: SessionsContextValue, action: SessionsAction) 
         return rest;
       }
 
+      const nextUpdatedAt = mergeMonotonicTimestamp(previous?.updatedAt ?? null, nextPartial.updatedAt);
+      const nextLastReadAt = mergeMonotonicTimestamp(previous?.lastReadAt ?? null, nextPartial.lastReadAt);
+
       const next = {
         id: action.sessionId,
         parentID: previous?.parentID ?? null,
         title: previous?.title ?? null,
         directory: previous?.directory ?? null,
         createdAt: previous?.createdAt ?? null,
-        updatedAt: previous?.updatedAt ?? null,
-        lastReadAt: previous?.lastReadAt ?? null,
         ...nextPartial,
+        updatedAt: nextUpdatedAt,
+        lastReadAt: nextLastReadAt,
       } satisfies SidebarSessionRecord;
 
       if (
@@ -112,14 +140,71 @@ function sessionsReducer(current: SessionsContextValue, action: SessionsAction) 
   }
 }
 
-export function SessionsProvider({ children, initialSessions }: { children: ReactNode; initialSessions: SessionsContextValue }) {
+function areSessionStatusesEqual(left: OpencodeSessionStatus | undefined, right: OpencodeSessionStatus) {
+  if (!left || left.type !== right.type) {
+    return false;
+  }
+
+  if (left.type !== "retry" || right.type !== "retry") {
+    return true;
+  }
+
+  return left.attempt === right.attempt && left.message === right.message && left.next === right.next;
+}
+
+function sessionStatusesReducer(current: SessionStatusesContextValue, action: SessionStatusesAction) {
+  switch (action.type) {
+    case "reset":
+      if (Object.keys(current).length === 0) {
+        return action.statuses;
+      }
+
+      return {
+        ...action.statuses,
+        ...current,
+      };
+    case "remove": {
+      if (!(action.sessionId in current)) {
+        return current;
+      }
+
+      const { [action.sessionId]: _removed, ...rest } = current;
+      return rest;
+    }
+    case "update": {
+      if (areSessionStatusesEqual(current[action.sessionId], action.status)) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [action.sessionId]: action.status,
+      };
+    }
+  }
+}
+
+export function SessionsProvider({
+  children,
+  initialSessions,
+  initialStatuses = EMPTY_SESSION_STATUSES,
+}: {
+  children: ReactNode;
+  initialSessions: SessionsContextValue;
+  initialStatuses?: SessionStatusesContextValue;
+}) {
   const [sessions, dispatch] = useReducer(sessionsReducer, initialSessions);
+  const [statuses, dispatchStatuses] = useReducer(sessionStatusesReducer, initialStatuses);
   const subscribersRef = useRef(new Map<number, { filter?: UnreadStatusEventFilter; handler: (event: UnreadStatusEvent) => void }>());
   const subscriberIdRef = useRef(0);
 
   useEffect(() => {
     dispatch({ type: "reset", sessions: initialSessions });
   }, [initialSessions]);
+
+  useEffect(() => {
+    dispatchStatuses({ type: "reset", statuses: initialStatuses });
+  }, [initialStatuses]);
 
   const subscribe = useCallback<SessionsEventsContextValue["subscribe"]>((handler, filter) => {
     const subscriberId = subscriberIdRef.current;
@@ -183,11 +268,20 @@ export function SessionsProvider({ children, initialSessions }: { children: Reac
         });
         return;
       }
+      case "session.status":
+        dispatchStatuses({
+          type: "update",
+          sessionId: event.sessionId,
+          status: event.status,
+        });
+        return;
       case "session.deleted":
         dispatch({ type: "update", sessionId: event.sessionId, state: null });
+        dispatchStatuses({ type: "remove", sessionId: event.sessionId });
         return;
       case "session.activity": {
         const updatedAt = event.updatedAt;
+
         dispatch({
           type: "update",
           sessionId: event.sessionId,
@@ -202,13 +296,15 @@ export function SessionsProvider({ children, initialSessions }: { children: Reac
       }
     }
   }, {
-    types: ["session.read", "session.summary", "session.deleted", "session.activity"] as const,
+    types: ["session.read", "session.summary", "session.status", "session.deleted", "session.activity"] as const,
   });
 
   return (
     <SessionsActionsContext.Provider value={actionsValue}>
       <SessionsEventsContext.Provider value={eventsValue}>
-        <SessionsContext.Provider value={sessions}>{children}</SessionsContext.Provider>
+        <SessionStatusesContext.Provider value={statuses}>
+          <SessionsContext.Provider value={sessions}>{children}</SessionsContext.Provider>
+        </SessionStatusesContext.Provider>
       </SessionsEventsContext.Provider>
     </SessionsActionsContext.Provider>
   );
@@ -230,6 +326,22 @@ export function useSession(id: string) {
   return sessions[id] ?? null;
 }
 
+function useSessionStatuses() {
+  const context = useContext(SessionStatusesContext);
+
+  if (!context) {
+    throw new Error("useSessionStatuses must be used within a SessionsProvider.");
+  }
+
+  return context;
+}
+
+function useSessionSidebarStatus(sessionId: string) {
+  const statuses = useSessionStatuses();
+
+  return statuses[getSessionStateId(sessionId)] ?? IDLE_SESSION_STATUS;
+}
+
 export function useSessionUnreadStatus(sessionId: string) {
   const session = useSession(getSessionStateId(sessionId));
 
@@ -238,6 +350,17 @@ export function useSessionUnreadStatus(sessionId: string) {
   }
 
   return isSessionUnread(session, session.lastReadAt);
+}
+
+export function useSessionSidebarIndicator(sessionId: string) {
+  const unread = useSessionUnreadStatus(sessionId);
+  const status = useSessionSidebarStatus(sessionId);
+
+  if (!unread) {
+    return "none" as const;
+  }
+
+  return status.type === "idle" ? "solid" as const : "hollow" as const;
 }
 
 export function useMarkSessionReadOptimistic() {

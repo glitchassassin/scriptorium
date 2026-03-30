@@ -21,6 +21,7 @@ import {
   type SessionEventType,
   type SessionReadEvent,
   type SessionSidebarSummary,
+  type SessionStatusEvent,
   type SessionSummaryEvent,
 } from "~/lib/session-events";
 
@@ -60,6 +61,7 @@ function getSessionId(event: SessionEvent) {
   switch (event.type) {
     case "session.read":
     case "session.activity":
+    case "session.status":
     case "session.deleted":
       return event.sessionId;
     case "session.summary":
@@ -133,6 +135,15 @@ function createSessionActivityEvent(instanceId: string, sessionId: string, updat
     sessionId,
     updatedAt,
   } satisfies SessionActivityEvent;
+}
+
+function createSessionStatusEvent(instanceId: string, event: Extract<OpencodeEvent, { type: "session.status" }>) {
+  return {
+    type: "session.status",
+    instanceId,
+    sessionId: event.properties.sessionID,
+    status: event.properties.status,
+  } satisfies SessionStatusEvent;
 }
 
 function getSessionActivityEvent(instanceId: string, event: OpencodeEvent) {
@@ -455,6 +466,12 @@ class SessionEventFanInManager {
 
     if (deletedEvent) {
       publishSessionEvent(deletedEvent);
+    }
+
+    const statusEvent = result.data.type === "session.status" ? createSessionStatusEvent(instanceId, result.data) : null;
+
+    if (statusEvent) {
+      publishSessionEvent(statusEvent);
     }
 
     const activityEvent = getSessionActivityEvent(instanceId, result.data);

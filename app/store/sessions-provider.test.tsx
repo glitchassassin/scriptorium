@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
 
 import {
   SessionsProvider,
@@ -7,6 +8,7 @@ import {
   type SessionState,
   useMarkSessionReadOptimistic,
   useSession,
+  useSessionSidebarIndicator,
   useUnreadStatusEvents,
   useSessionUnreadStatus,
 } from "~/store/sessions-provider";
@@ -19,6 +21,7 @@ vi.mock("~/components/events/session-events-provider", () => ({
 
 function TestConsumer() {
   const unread = useSessionUnreadStatus("session-1");
+  const indicator = useSessionSidebarIndicator("session-1");
   const session = useSession(getSessionStateId("session-1"));
 
   return (
@@ -27,6 +30,7 @@ function TestConsumer() {
       <span data-testid="parent">{String(session?.parentID ?? null)}</span>
       <span data-testid="read">{String(session?.lastReadAt ?? null)}</span>
       <span data-testid="unread">{String(unread)}</span>
+      <span data-testid="indicator">{indicator}</span>
       <span data-testid="title">{String(session?.title ?? null)}</span>
     </div>
   );
@@ -63,6 +67,14 @@ const initialSessions: Record<string, SessionState> = {
   },
 };
 
+function renderSessionsProvider(ui: ReactElement, initialStatuses?: Record<string, { type: "idle" | "busy" }>) {
+  return render(
+    <SessionsProvider initialSessions={initialSessions} initialStatuses={initialStatuses}>
+      {ui}
+    </SessionsProvider>,
+  );
+}
+
 describe("SessionsProvider", () => {
   it("derives reactive session state from session events", () => {
     let onSessionEvent: ((event: any) => void) | null = null;
@@ -71,16 +83,13 @@ describe("SessionsProvider", () => {
       onSessionEvent = handler;
     });
 
-    render(
-      <SessionsProvider initialSessions={initialSessions}>
-        <TestConsumer />
-      </SessionsProvider>,
-    );
+    renderSessionsProvider(<TestConsumer />);
 
     expect(screen.getByTestId("activity")).toHaveTextContent("2");
     expect(screen.getByTestId("parent")).toHaveTextContent("null");
     expect(screen.getByTestId("read")).toHaveTextContent("2");
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("none");
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
 
     if (!onSessionEvent) {
@@ -102,7 +111,19 @@ describe("SessionsProvider", () => {
     expect(screen.getByTestId("parent")).toHaveTextContent("null");
     expect(screen.getByTestId("read")).toHaveTextContent("2");
     expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("solid");
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
+
+    act(() => {
+      sessionEventHandler({
+        type: "session.status",
+        instanceId: "instance-1",
+        sessionId: "session-1",
+        status: { type: "busy" },
+      });
+    });
+
+    expect(screen.getByTestId("indicator")).toHaveTextContent("hollow");
 
     act(() => {
       sessionEventHandler({
@@ -116,6 +137,7 @@ describe("SessionsProvider", () => {
     expect(screen.getByTestId("parent")).toHaveTextContent("null");
     expect(screen.getByTestId("read")).toHaveTextContent("6");
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("none");
     expect(screen.getByTestId("title")).toHaveTextContent("Session");
   });
 
@@ -126,11 +148,7 @@ describe("SessionsProvider", () => {
       onSessionEvent = handler;
     });
 
-    render(
-      <SessionsProvider initialSessions={initialSessions}>
-        <TestConsumer />
-      </SessionsProvider>,
-    );
+    renderSessionsProvider(<TestConsumer />);
 
     if (!onSessionEvent) {
       throw new Error("Missing session event handler");
@@ -150,6 +168,7 @@ describe("SessionsProvider", () => {
     expect(screen.getByTestId("parent")).toHaveTextContent("null");
     expect(screen.getByTestId("read")).toHaveTextContent("null");
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("none");
   });
 
   it("publishes unread-status events from instance activity", () => {
@@ -160,11 +179,7 @@ describe("SessionsProvider", () => {
       onSessionEvent = handler;
     });
 
-    render(
-      <SessionsProvider initialSessions={initialSessions}>
-        <TestUnreadStatusConsumer onEvent={onUnreadStatusEvent} />
-      </SessionsProvider>,
-    );
+    renderSessionsProvider(<TestUnreadStatusConsumer onEvent={onUnreadStatusEvent} />);
 
     if (!onSessionEvent) {
       throw new Error("Missing session event handler");
@@ -195,11 +210,7 @@ describe("SessionsProvider", () => {
       onSessionEvent = handler;
     });
 
-    render(
-      <SessionsProvider initialSessions={initialSessions}>
-        <TestConsumer />
-      </SessionsProvider>,
-    );
+    renderSessionsProvider(<TestConsumer />);
 
     if (!onSessionEvent) {
       throw new Error("Missing session event handler");
@@ -232,11 +243,7 @@ describe("SessionsProvider", () => {
       onSessionEvent = handler;
     });
 
-    render(
-      <SessionsProvider initialSessions={initialSessions}>
-        <TestConsumer />
-      </SessionsProvider>,
-    );
+    renderSessionsProvider(<TestConsumer />);
 
     if (!onSessionEvent) {
       throw new Error("Missing session event handler");
@@ -254,25 +261,10 @@ describe("SessionsProvider", () => {
     });
 
     expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("solid");
   });
 
-  it("marks sessions read optimistically before SSE confirmation", () => {
-    useSessionEventsMock.mockImplementation(() => {});
-
-    render(
-      <SessionsProvider initialSessions={initialSessions}>
-        <TestConsumer />
-        <TestMarkReadConsumer />
-      </SessionsProvider>,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
-
-    expect(screen.getByTestId("read")).toHaveTextContent("7");
-    expect(screen.getByTestId("unread")).toHaveTextContent("false");
-  });
-
-  it("keeps the session read for near-simultaneous optimistic read and activity", () => {
+  it("keeps newer activity timestamps when older activity arrives later", () => {
     let onSessionEvent: ((event: any) => void) | null = null;
 
     useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
@@ -282,8 +274,151 @@ describe("SessionsProvider", () => {
     render(
       <SessionsProvider initialSessions={initialSessions}>
         <TestConsumer />
-        <TestMarkReadConsumer />
       </SessionsProvider>,
+    );
+
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
+    }
+
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
+
+    act(() => {
+      sessionEventHandler({
+        type: "session.activity",
+        instanceId: "instance-1",
+        sessionId: "session-1",
+        updatedAt: 503,
+      });
+      sessionEventHandler({
+        type: "session.status",
+        instanceId: "instance-1",
+        sessionId: "session-1",
+        status: { type: "busy" },
+      });
+      sessionEventHandler({
+        type: "session.activity",
+        instanceId: "instance-1",
+        sessionId: "session-1",
+        updatedAt: 4,
+      });
+    });
+
+    expect(screen.getByTestId("activity")).toHaveTextContent("503");
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("hollow");
+
+    act(() => {
+      sessionEventHandler({
+        type: "session.status",
+        instanceId: "instance-1",
+        sessionId: "session-1",
+        status: { type: "idle" },
+      });
+    });
+
+    expect(screen.getByTestId("activity")).toHaveTextContent("503");
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("solid");
+  });
+
+  it("keeps newer activity timestamps when older summaries arrive later", () => {
+    let onSessionEvent: ((event: any) => void) | null = null;
+
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
+    });
+
+    render(
+      <SessionsProvider initialSessions={initialSessions}>
+        <TestConsumer />
+      </SessionsProvider>,
+    );
+
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
+    }
+
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
+
+    act(() => {
+      sessionEventHandler({
+        type: "session.activity",
+        instanceId: "instance-1",
+        sessionId: "session-1",
+        updatedAt: 503,
+      });
+      sessionEventHandler({
+        type: "session.summary",
+        instanceId: "instance-1",
+        summary: {
+          id: "session-1",
+          parentID: null,
+          title: "Session",
+          directory: null,
+          createdAt: 1,
+          updatedAt: 4,
+        },
+      });
+    });
+
+    expect(screen.getByTestId("activity")).toHaveTextContent("503");
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("solid");
+  });
+
+  it("hydrates sidebar indicators from initial statuses", () => {
+    useSessionEventsMock.mockImplementation(() => {});
+
+    render(
+      <SessionsProvider
+        initialSessions={{
+          "session-1": {
+            ...initialSessions["session-1"],
+            lastReadAt: null,
+          },
+        }}
+        initialStatuses={{
+          "session-1": { type: "busy" },
+        }}
+      >
+        <TestConsumer />
+      </SessionsProvider>,
+    );
+
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("hollow");
+  });
+
+  it("marks sessions read optimistically before SSE confirmation", () => {
+    useSessionEventsMock.mockImplementation(() => {});
+
+    renderSessionsProvider(
+      <>
+        <TestConsumer />
+        <TestMarkReadConsumer />
+      </>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
+
+    expect(screen.getByTestId("read")).toHaveTextContent("7");
+    expect(screen.getByTestId("unread")).toHaveTextContent("false");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("none");
+  });
+
+  it("keeps the session read for near-simultaneous optimistic read and activity", () => {
+    let onSessionEvent: ((event: any) => void) | null = null;
+
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
+    });
+
+    renderSessionsProvider(
+      <>
+        <TestConsumer />
+        <TestMarkReadConsumer />
+      </>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
@@ -306,6 +441,7 @@ describe("SessionsProvider", () => {
     expect(screen.getByTestId("activity")).toHaveTextContent("507");
     expect(screen.getByTestId("read")).toHaveTextContent("7");
     expect(screen.getByTestId("unread")).toHaveTextContent("false");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("none");
 
     act(() => {
       sessionEventHandler({
@@ -319,5 +455,67 @@ describe("SessionsProvider", () => {
     expect(screen.getByTestId("activity")).toHaveTextContent("508");
     expect(screen.getByTestId("read")).toHaveTextContent("7");
     expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("solid");
+  });
+
+  it("preserves live statuses when loader revalidation brings older status snapshots", () => {
+    let onSessionEvent: ((event: any) => void) | null = null;
+
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
+    });
+
+    const view = render(
+      <SessionsProvider
+        initialSessions={{
+          "session-1": {
+            ...initialSessions["session-1"],
+            lastReadAt: null,
+            updatedAt: 503,
+          },
+        }}
+        initialStatuses={{
+          "session-1": { type: "idle" },
+        }}
+      >
+        <TestConsumer />
+      </SessionsProvider>,
+    );
+
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
+    }
+
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
+
+    act(() => {
+      sessionEventHandler({
+        type: "session.status",
+        instanceId: "instance-1",
+        sessionId: "session-1",
+        status: { type: "busy" },
+      });
+    });
+
+    expect(screen.getByTestId("indicator")).toHaveTextContent("hollow");
+
+    view.rerender(
+      <SessionsProvider
+        initialSessions={{
+          "session-1": {
+            ...initialSessions["session-1"],
+            lastReadAt: null,
+            updatedAt: 503,
+          },
+        }}
+        initialStatuses={{
+          "session-1": { type: "idle" },
+        }}
+      >
+        <TestConsumer />
+      </SessionsProvider>,
+    );
+
+    expect(screen.getByTestId("indicator")).toHaveTextContent("hollow");
   });
 });

@@ -66,6 +66,6 @@ export function filterRecentSessions<TSession extends OpencodeSessionSummary>(se
     });
 }
 
-export function sortSidebarInstances(instances: SidebarInstanceRecord[]) {
+export function sortSidebarInstances<TInstance extends Pick<SidebarInstanceRecord, "name">>(instances: TInstance[]) {
   return [...instances].sort((left, right) => left.name.localeCompare(right.name));
 }

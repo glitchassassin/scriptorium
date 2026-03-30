@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { opencodeSessionStatusSchema } from "~/lib/opencode/events";
+
 export const sessionReadEventSchema = z.object({
   type: z.literal("session.read"),
   sessionId: z.string(),
@@ -28,6 +30,13 @@ export const sessionSummaryEventSchema = z.object({
   summary: sessionSidebarSummarySchema,
 });
 
+export const sessionStatusEventSchema = z.object({
+  type: z.literal("session.status"),
+  instanceId: z.string(),
+  sessionId: z.string(),
+  status: opencodeSessionStatusSchema,
+});
+
 export const sessionDeletedEventSchema = z.object({
   type: z.literal("session.deleted"),
   instanceId: z.string(),
@@ -38,12 +47,14 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   sessionReadEventSchema,
   sessionActivityEventSchema,
   sessionSummaryEventSchema,
+  sessionStatusEventSchema,
   sessionDeletedEventSchema,
 ]);
 
 export type SessionReadEvent = z.infer<typeof sessionReadEventSchema>;
 export type SessionActivityEvent = z.infer<typeof sessionActivityEventSchema>;
 export type SessionSummaryEvent = z.infer<typeof sessionSummaryEventSchema>;
+export type SessionStatusEvent = z.infer<typeof sessionStatusEventSchema>;
 export type SessionDeletedEvent = z.infer<typeof sessionDeletedEventSchema>;
 export type SessionEvent = z.infer<typeof sessionEventSchema>;
 export type SessionEventType = SessionEvent["type"];

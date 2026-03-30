@@ -8,12 +8,15 @@ import { SessionsProvider } from "~/store/sessions-provider";
 import { AppShell } from "~/components/shell/app-shell";
 import { data } from "react-router";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
-import { listRecentSidebarSessions } from "~/lib/instances/opencode.server";
+import { getOpencodeSessionStatuses, listRecentSidebarSessions } from "~/lib/instances/opencode.server";
 import { listInstances } from "~/lib/instances/runtime.server";
 import { sortSidebarInstances, withSessionReadState } from "~/lib/instances/sidebar";
+import type { OpencodeSessionStatus } from "~/lib/opencode/events";
 import { normalizeRouteHandleMatches, resolveRouteHandleValue, type RouteHandleIconAction } from "~/lib/route-handle";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 import { listSessionReadStatuses } from "~/lib/session-read-status.server";
+
+const IDLE_SESSION_STATUS = { type: "idle" } as const;
 
 export async function loader({ request }: Route.LoaderArgs) {
   const timings = makeTimings("app layout loader");
@@ -38,23 +41,22 @@ export async function loader({ request }: Route.LoaderArgs) {
   );
   const sidebarInstances = sortSidebarInstances(await time(
     () => Promise.all(instances.map(async (instance) => {
-      try {
-        return {
-          id: instance.id,
-          name: instance.name,
-          status: instance.status,
-          recentSessions: (await listRecentSidebarSessions(instance)).map((session) =>
-            withSessionReadState(session, readStatusMap.get(session.id) ?? null),
-          ),
-        };
-      } catch {
-        return {
-          id: instance.id,
-          name: instance.name,
-          status: instance.status,
-          recentSessions: [],
-        };
-      }
+      const [recentSessions, sessionStatuses] = await Promise.all([
+        listRecentSidebarSessions(instance).catch(() => []),
+        instance.status === "running"
+          ? getOpencodeSessionStatuses(instance).catch(() => ({} as Record<string, OpencodeSessionStatus>))
+          : Promise.resolve<Record<string, OpencodeSessionStatus>>({}),
+      ]);
+
+      return {
+        id: instance.id,
+        name: instance.name,
+        status: instance.status,
+        recentSessions: recentSessions.map((session) => withSessionReadState(session, readStatusMap.get(session.id) ?? null)),
+        recentSessionStatuses: Object.fromEntries(
+          recentSessions.map((session) => [session.id, sessionStatuses[session.id] ?? IDLE_SESSION_STATUS] as const),
+        ),
+      };
     })),
     {
       desc: "list sidebar sessions",
@@ -70,12 +72,21 @@ export async function loader({ request }: Route.LoaderArgs) {
       ] as const),
     ),
   );
+  const initialSessionStatuses = Object.fromEntries(
+    sidebarInstances.flatMap((instance) =>
+      instance.recentSessions.map((session) => [
+        session.id,
+        instance.recentSessionStatuses[session.id] ?? IDLE_SESSION_STATUS,
+      ] as const),
+    ),
+  );
   const initialInstances = getInitialInstances(sidebarInstances);
 
   return data(
     {
       initialInstances,
       initialSessions,
+      initialSessionStatuses,
     },
     {
       headers: {
@@ -117,7 +128,7 @@ export default function AppLayout({ loaderData, matches }: Route.ComponentProps)
 
   return (
     <SessionEventsProvider>
-      <SessionsProvider initialSessions={loaderData.initialSessions}>
+      <SessionsProvider initialSessions={loaderData.initialSessions} initialStatuses={loaderData.initialSessionStatuses}>
         <InstancesProvider initialInstances={loaderData.initialInstances}>
           <BreadcrumbsProvider>
             <AppLayoutShell
