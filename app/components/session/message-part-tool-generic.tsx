@@ -63,7 +63,7 @@ export function MessagePartToolGeneric({ projectId: _projectId, part }: MessageP
 
   return (
     <div className="border-l-2 border-black pl-2">
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-start gap-1">
         <button
           aria-label={expanded ? "Collapse tool details" : "Expand tool details"}
           className="inline-flex min-h-11 min-w-11 items-center justify-center"
@@ -72,7 +72,7 @@ export function MessagePartToolGeneric({ projectId: _projectId, part }: MessageP
         >
           <Icon className="size-5" icon={expanded ? "mdi:unfold-less-horizontal" : "mdi:unfold-more-horizontal"} />
         </button>
-        <p className="text-sm leading-6 opacity-60">
+        <p className="min-w-0 break-words text-sm leading-6 opacity-60">
           {title} ({part.state.status})
         </p>
       </div>

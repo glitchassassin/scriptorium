@@ -76,6 +76,33 @@ describe("MessagePartTool", () => {
     expect(screen.getByText("Output")).toBeInTheDocument();
   });
 
+  it("allows long generic tool titles to wrap", () => {
+    const part: OpencodeToolPart = {
+      id: "part-long-title",
+      sessionID: "session-1",
+      messageID: "message-1",
+      type: "tool",
+      callID: "call-long-title",
+      tool: "grep",
+      state: {
+        status: "completed",
+        input: { pattern: "runtime" },
+        output: "done",
+        title:
+          "parseRuntimeCliArgs|renderRuntimeConfigurationHelp|getRuntimeConfigurationDocumentation|renderRuntimeConfigurationMarkdown|collectSchemaDocumentation|buildDocumentationExample",
+        metadata: {},
+        time: { start: 1, end: 2 },
+      },
+    };
+
+    render(<MessagePartTool part={part} />);
+
+    const title = screen.getByText(/grep: parseRuntimeCliArgs\|renderRuntimeConfigurationHelp/i);
+
+    expect(title).toHaveClass("min-w-0", "break-words");
+    expect(title.parentElement).toHaveClass("flex", "min-w-0", "items-start");
+  });
+
   it("synthesizes a diff for write tools from input content", () => {
     const part: OpencodeToolPart = {
       id: "part-3",
