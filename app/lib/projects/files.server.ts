@@ -2,7 +2,7 @@ import { basename, isAbsolute, relative, resolve } from "node:path";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 
 import { normalizeAssistantFileReferencePath } from "~/lib/assistant-file-references";
-import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
+import { getRuntimeConfiguration } from "~/lib/runtime-config/cache.server";
 import type {
   FileBrowserContent,
   FileBrowserLineRange,

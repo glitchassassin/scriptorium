@@ -15,7 +15,7 @@ import {
   registrationChallenges,
   sessions,
 } from "~/lib/db/schema";
-import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
+import { getRuntimeConfiguration } from "~/lib/runtime-config/cache.server";
 
 let sqlite: DatabaseSync | null = null;
 let orm: ReturnType<typeof drizzle> | null = null;

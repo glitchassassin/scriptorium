@@ -1,11 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { initializeRuntimeConfiguration } from "../app/lib/runtime-config/cache.server.js";
 import {
-  initializeRuntimeConfiguration,
   parseRuntimeCliArgs,
   renderRuntimeConfigurationHelp,
-} from "../app/lib/runtime-config.server.js";
+} from "../app/lib/runtime-config/cli.server.js";
 import { serveProductionApp } from "./serve.js";
 
 function getPackageRoot() {

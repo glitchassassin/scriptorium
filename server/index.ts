@@ -10,13 +10,13 @@ import morgan from "morgan";
 import type { ServerBuild } from "react-router";
 import { createRequestHandler } from "@react-router/express";
 
+import { initializeRuntimeConfiguration } from "../app/lib/runtime-config/cache.server.ts";
 import {
-  initializeRuntimeConfiguration,
   parseRuntimeCliArgs,
   renderRuntimeConfigurationHelp,
-} from "../app/lib/runtime-config.server.ts";
+} from "../app/lib/runtime-config/cli.server.ts";
 
-import type { RuntimeConfiguration } from "../app/lib/runtime-config.server.ts";
+import type { RuntimeConfiguration } from "../app/lib/runtime-config/schema.server.ts";
 
 const MODE = process.env.NODE_ENV ?? "production";
 const IS_DEV = MODE === "development";

@@ -9,7 +9,7 @@ import express from "express";
 import morgan from "morgan";
 import { createRequestHandler } from "@react-router/express";
 
-import type { RuntimeConfiguration } from "../app/lib/runtime-config.server.js";
+import type { RuntimeConfiguration } from "../app/lib/runtime-config/schema.server.js";
 
 function getBuildPaths(packageRoot: string) {
   return {

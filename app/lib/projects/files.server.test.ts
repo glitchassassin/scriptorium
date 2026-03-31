@@ -16,7 +16,7 @@ import {
   validateFileSelection,
   validateProjectFileSelection,
 } from "~/lib/projects/files.server";
-import { resetRuntimeConfigurationCache } from "~/lib/runtime-config.server";
+import { resetRuntimeConfigurationCache } from "~/lib/runtime-config/cache.server";
 
 const tempDirectories: string[] = [];
 const originalBrowserRoot = process.env.SCRIPTORIUM_BROWSER_ROOT;

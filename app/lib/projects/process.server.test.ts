@@ -14,7 +14,7 @@ vi.mock("node:child_process", () => ({
   spawn: spawnMock,
 }));
 
-vi.mock("~/lib/runtime-config.server", () => ({
+vi.mock("~/lib/runtime-config/cache.server", () => ({
   getRuntimeConfiguration: () => ({
     config: {
       opencode: {

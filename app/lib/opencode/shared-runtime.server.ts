@@ -1,4 +1,4 @@
-import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
+import { getRuntimeConfiguration } from "~/lib/runtime-config/cache.server";
 import { spawnOpencodeServeProcess, type ManagedOpencodeServeProcess } from "~/lib/projects/process.server";
 
 type ManagedSharedServer = {

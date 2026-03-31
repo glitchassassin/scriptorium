@@ -5,7 +5,7 @@ import { createCookie } from "react-router";
 
 import { getOrm } from "~/lib/db.server";
 import { sessions } from "~/lib/db/schema";
-import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
+import { getRuntimeConfiguration } from "~/lib/runtime-config/cache.server";
 import type { SessionRecord } from "~/lib/auth/types";
 
 const SESSION_COOKIE_NAME = "scriptorium_session";

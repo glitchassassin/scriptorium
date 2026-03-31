@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 
-import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
+import { getRuntimeConfiguration } from "~/lib/runtime-config/cache.server";
 
 const STOP_TIMEOUT_MS = 5000;
 const START_TIMEOUT_MS = 15000;

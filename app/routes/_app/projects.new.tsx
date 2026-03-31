@@ -7,7 +7,7 @@ import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { createProject } from "~/lib/projects/runtime.server";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
-import { getRuntimeConfiguration } from "~/lib/runtime-config.server";
+import { getRuntimeConfiguration } from "~/lib/runtime-config/cache.server";
 import { FileExplorer } from "~/routes/_rpc/files.browse";
 
 import type { Route } from "./+types/projects.new";
