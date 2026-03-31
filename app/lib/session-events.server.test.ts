@@ -5,14 +5,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withTestDatabase } from "~/lib/db.server";
 import { listRecentModelChoices, recordModelUsage } from "~/lib/model-usage.server";
 
-const getInstanceMock = vi.fn();
-const listInstancesMock = vi.fn();
-const subscribeToInstanceRuntimeEventsMock = vi.fn();
+const getProjectMock = vi.fn();
+const getSharedOpencodeServerUrlMock = vi.fn();
+const listProjectsMock = vi.fn();
+const subscribeToProjectRuntimeEventsMock = vi.fn();
 
-vi.mock("~/lib/instances/runtime.server", () => ({
-  getInstance: (...args: unknown[]) => getInstanceMock(...args),
-  listInstances: (...args: unknown[]) => listInstancesMock(...args),
-  subscribeToInstanceRuntimeEvents: (...args: unknown[]) => subscribeToInstanceRuntimeEventsMock(...args),
+vi.mock("~/lib/projects/runtime.server", () => ({
+  getProject: (...args: unknown[]) => getProjectMock(...args),
+  listProjects: (...args: unknown[]) => listProjectsMock(...args),
+  subscribeToProjectRuntimeEvents: (...args: unknown[]) => subscribeToProjectRuntimeEventsMock(...args),
+}));
+
+vi.mock("~/lib/opencode/shared-runtime.server", () => ({
+  createProjectScopedHeaders(directory: string, headers?: HeadersInit) {
+    const nextHeaders = new Headers(headers);
+    nextHeaders.set("x-opencode-directory", encodeURIComponent(directory));
+    return nextHeaders;
+  },
+  getSharedOpencodeServerUrl: (...args: unknown[]) => getSharedOpencodeServerUrlMock(...args),
 }));
 
 import {
@@ -39,12 +49,14 @@ function createEventStream() {
 
 describe("session events", () => {
   beforeEach(() => {
-    listInstancesMock.mockReset();
-    getInstanceMock.mockReset();
-    subscribeToInstanceRuntimeEventsMock.mockReset();
-    subscribeToInstanceRuntimeEventsMock.mockReturnValue(() => {});
-    listInstancesMock.mockResolvedValue([]);
-    getInstanceMock.mockResolvedValue(null);
+    listProjectsMock.mockReset();
+    getProjectMock.mockReset();
+    getSharedOpencodeServerUrlMock.mockReset();
+    subscribeToProjectRuntimeEventsMock.mockReset();
+    subscribeToProjectRuntimeEventsMock.mockReturnValue(() => {});
+    getSharedOpencodeServerUrlMock.mockResolvedValue("http://127.0.0.1:44556");
+    listProjectsMock.mockResolvedValue([]);
+    getProjectMock.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -71,7 +83,7 @@ describe("session events", () => {
     });
   });
 
-  it("fans in root session events from running instances", async () => {
+  it("fans in root session events from running projects", async () => {
     const stream = createEventStream();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream.stream, {
       headers: {
@@ -80,21 +92,21 @@ describe("session events", () => {
       status: 200,
     }));
 
-    listInstancesMock.mockResolvedValue([
+    listProjectsMock.mockResolvedValue([
       {
-        id: "instance-1",
+        id: "project-1",
         name: "Alpha",
         directory: "/tmp/alpha",
-        port: 4311,
-        status: "running",
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
       },
     ]);
-    getInstanceMock.mockResolvedValue({
-      id: "instance-1",
+    getProjectMock.mockResolvedValue({
+      id: "project-1",
       name: "Alpha",
       directory: "/tmp/alpha",
-      port: 4311,
-      status: "running",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
     });
 
     const received: Array<{ type: string; value: string | number }> = [];
@@ -116,12 +128,14 @@ describe("session events", () => {
 
     await vi.waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        "http://127.0.0.1:4311/event",
+        "http://127.0.0.1:44556/event",
         expect.objectContaining({
-          headers: { Accept: "text/event-stream" },
+          headers: expect.any(Headers),
         }),
       );
     });
+
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("x-opencode-directory")).toBe("%2Ftmp%2Falpha");
 
     stream.emit({
       type: "session.updated",
@@ -187,25 +201,25 @@ describe("session events", () => {
         status: 200,
       }));
 
-      listInstancesMock.mockResolvedValue([
+      listProjectsMock.mockResolvedValue([
         {
-          id: "instance-1",
+          id: "project-1",
           name: "Alpha",
           directory: "/tmp/alpha",
-          port: 4311,
-          status: "running",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
         },
       ]);
-      getInstanceMock.mockResolvedValue({
-        id: "instance-1",
+      getProjectMock.mockResolvedValue({
+        id: "project-1",
         name: "Alpha",
         directory: "/tmp/alpha",
-        port: 4311,
-        status: "running",
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
       });
 
       recordModelUsage({
-        instanceId: "instance-1",
+        projectId: "project-1",
         model: { modelID: "gpt-5", providerID: "openai" },
         sessionId: "session-1",
         usedAt: 20,
@@ -228,17 +242,12 @@ describe("session events", () => {
 
       await vi.waitFor(async () => {
         await expect(listRecentModelChoices({
-          instance: {
-            id: "instance-1",
+          project: {
+            id: "project-1",
             name: "Alpha",
             directory: "/tmp/alpha",
-            port: 4311,
-            status: "running",
             createdAt: "2026-01-01T00:00:00Z",
             updatedAt: "2026-01-01T00:00:00Z",
-            lastStartedAt: null,
-            lastExitAt: null,
-            lastError: null,
           },
           providers: [{ id: "openai", models: { "gpt-5": { id: "gpt-5", name: "GPT 5", variants: { high: {} } } }, name: "OpenAI" }],
         })).resolves.toEqual([]);
@@ -258,25 +267,25 @@ describe("session events", () => {
         status: 200,
       }));
 
-      listInstancesMock.mockResolvedValue([
+      listProjectsMock.mockResolvedValue([
         {
-          id: "instance-1",
+          id: "project-1",
           name: "Alpha",
           directory: "/tmp/alpha",
-          port: 4311,
-          status: "running",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
         },
       ]);
-      getInstanceMock.mockResolvedValue({
-        id: "instance-1",
+      getProjectMock.mockResolvedValue({
+        id: "project-1",
         name: "Alpha",
         directory: "/tmp/alpha",
-        port: 4311,
-        status: "running",
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
       });
 
       recordModelUsage({
-        instanceId: "instance-1",
+        projectId: "project-1",
         model: { modelID: "gpt-5", providerID: "openai" },
         sessionId: "session-1",
         usedAt: 20,
@@ -304,17 +313,12 @@ describe("session events", () => {
 
       await vi.waitFor(async () => {
         await expect(listRecentModelChoices({
-          instance: {
-            id: "instance-1",
+          project: {
+            id: "project-1",
             name: "Alpha",
             directory: "/tmp/alpha",
-            port: 4311,
-            status: "running",
             createdAt: "2026-01-01T00:00:00Z",
             updatedAt: "2026-01-01T00:00:00Z",
-            lastStartedAt: null,
-            lastExitAt: null,
-            lastError: null,
           },
           providers: [{ id: "openai", models: { "gpt-5": { id: "gpt-5", name: "GPT 5", variants: { high: {} } } }, name: "OpenAI" }],
         })).resolves.toEqual([]);

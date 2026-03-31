@@ -12,10 +12,10 @@ import {
 
 type SessionLayoutRoute = {
   loaderData: {
-    instance: { name: string };
+    project: { name: string };
     session: { id: string; title: string | null };
   };
-  params: { instanceId: string; sessionId: string };
+  params: { projectId: string; sessionId: string };
   matches: readonly [
     {
       id: "routes/_app/_layout";
@@ -24,18 +24,18 @@ type SessionLayoutRoute = {
       handle?: unknown;
     },
     {
-      id: "routes/_app/instances.$instanceId/_layout";
+      id: "routes/_app/projects.$projectId/_layout";
       data: undefined;
-      params: { instanceId: string };
+      params: { projectId: string };
       handle?: unknown;
     },
     {
-      id: "routes/_app/instances.$instanceId/sessions.$sessionId/_layout";
+      id: "routes/_app/projects.$projectId/sessions.$sessionId/_layout";
       data: {
-        instance: { name: string };
+        project: { name: string };
         session: { id: string; title: string | null };
       };
-      params: { instanceId: string; sessionId: string };
+      params: { projectId: string; sessionId: string };
       handle?: unknown;
     },
   ];
@@ -43,17 +43,17 @@ type SessionLayoutRoute = {
 
 type SessionReviewRoute = {
   loaderData: {
-    instance: { name: string };
+    project: { name: string };
   };
-  params: { instanceId: string; mode: string; sessionId: string };
+  params: { projectId: string; mode: string; sessionId: string };
   matches: readonly [
     ...SessionLayoutRoute["matches"],
     {
-      id: "routes/_app/instances.$instanceId/sessions.$sessionId/review.$mode";
+      id: "routes/_app/projects.$projectId/sessions.$sessionId/review.$mode";
       data: {
-        instance: { name: string };
+        project: { name: string };
       };
-      params: { instanceId: string; mode: string; sessionId: string };
+      params: { projectId: string; mode: string; sessionId: string };
       handle?: unknown;
     },
   ];
@@ -63,29 +63,29 @@ describe("route handles", () => {
   it("resolves the deepest title and nearest nav actions independently", () => {
     const sessionHandle: RouteHandleDefinition<SessionLayoutRoute> = defineRouteHandle<SessionLayoutRoute>({
       title: (ctx) => [
-        { label: ctx.data.instance.name, to: `/instances/${ctx.params.instanceId}` },
-        { label: ctx.data.session.title ?? ctx.data.session.id, to: `/instances/${ctx.params.instanceId}/sessions/${ctx.params.sessionId}` },
+        { label: ctx.data.project.name, to: `/projects/${ctx.params.projectId}` },
+        { label: ctx.data.session.title ?? ctx.data.session.id, to: `/projects/${ctx.params.projectId}/sessions/${ctx.params.sessionId}` },
       ],
       leadingIconAction: (ctx) => ({
         icon: "mdi:message-plus-outline",
         label: "New session",
-        action: `/instances/${ctx.params.instanceId}?index`,
+        action: `/projects/${ctx.params.projectId}?index`,
         method: "post",
         fields: { intent: "create-session" },
       }),
       iconNavActions: (ctx) => [
-        { icon: "mdi:message-outline", label: "Chat transcript", to: `/instances/${ctx.params.instanceId}/sessions/${ctx.params.sessionId}` },
+        { icon: "mdi:message-outline", label: "Chat transcript", to: `/projects/${ctx.params.projectId}/sessions/${ctx.params.sessionId}` },
       ],
     });
     const reviewHandle: RouteHandleDefinition<SessionReviewRoute> = defineRouteHandle<SessionReviewRoute>({
       title: (ctx) => {
-        const sessionMatch = ctx.requireMatch("routes/_app/instances.$instanceId/sessions.$sessionId/_layout");
+        const sessionMatch = ctx.requireMatch("routes/_app/projects.$projectId/sessions.$sessionId/_layout");
 
         return [
-          { label: sessionMatch.data.instance.name, to: `/instances/${sessionMatch.params.instanceId}` },
+          { label: sessionMatch.data.project.name, to: `/projects/${sessionMatch.params.projectId}` },
           {
             label: sessionMatch.data.session.title ?? sessionMatch.data.session.id,
-            to: `/instances/${sessionMatch.params.instanceId}/sessions/${sessionMatch.params.sessionId}`,
+            to: `/projects/${sessionMatch.params.projectId}/sessions/${sessionMatch.params.sessionId}`,
           },
           { label: "review" },
         ];
@@ -95,39 +95,39 @@ describe("route handles", () => {
     const matches = normalizeRouteHandleMatches([
       { id: "routes/_app/_layout", data: undefined, handle: undefined, params: {} },
       {
-        id: "routes/_app/instances.$instanceId/_layout",
+        id: "routes/_app/projects.$projectId/_layout",
         data: undefined,
         handle: undefined,
-        params: { instanceId: "instance-1" },
+        params: { projectId: "project-1" },
       },
       {
-        id: "routes/_app/instances.$instanceId/sessions.$sessionId/_layout",
-        data: { instance: { name: "Workspace" }, session: { id: "session-1", title: "Planning" } },
+        id: "routes/_app/projects.$projectId/sessions.$sessionId/_layout",
+        data: { project: { name: "Workspace" }, session: { id: "session-1", title: "Planning" } },
         handle: sessionHandle,
-        params: { instanceId: "instance-1", sessionId: "session-1" },
+        params: { projectId: "project-1", sessionId: "session-1" },
       },
       {
-        id: "routes/_app/instances.$instanceId/sessions.$sessionId/review.$mode",
-        data: { instance: { name: "Workspace" } },
+        id: "routes/_app/projects.$projectId/sessions.$sessionId/review.$mode",
+        data: { project: { name: "Workspace" } },
         handle: reviewHandle,
-        params: { instanceId: "instance-1", mode: "uncommitted", sessionId: "session-1" },
+        params: { projectId: "project-1", mode: "uncommitted", sessionId: "session-1" },
       },
     ] as const);
 
     expect(resolveRouteHandleValue(matches, "title")).toEqual([
-      { label: "Workspace", to: "/instances/instance-1" },
-      { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
+      { label: "Workspace", to: "/projects/project-1" },
+      { label: "Planning", to: "/projects/project-1/sessions/session-1" },
       { label: "review" },
     ]);
     expect(resolveRouteHandleValue(matches, "leadingIconAction")).toEqual({
       icon: "mdi:message-plus-outline",
       label: "New session",
-      action: "/instances/instance-1?index",
+      action: "/projects/project-1?index",
       method: "post",
       fields: { intent: "create-session" },
     });
     expect(resolveRouteHandleValue(matches, "iconNavActions")).toEqual([
-      { icon: "mdi:message-outline", label: "Chat transcript", to: "/instances/instance-1/sessions/session-1" },
+      { icon: "mdi:message-outline", label: "Chat transcript", to: "/projects/project-1/sessions/session-1" },
     ]);
   });
 

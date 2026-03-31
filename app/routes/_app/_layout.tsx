@@ -3,14 +3,14 @@ import type { Route } from "./+types/_layout";
 import { SessionEventsProvider } from "~/components/events/session-events-provider";
 import { useBrowserResumeRevalidation } from "~/components/events/use-browser-resume-revalidation";
 import { BreadcrumbsProvider, useBreadcrumbs } from "~/components/shell/breadcrumbs";
-import { getInitialInstances, InstancesProvider } from "~/store/instances-provider";
+import { getInitialProjects, ProjectsProvider } from "~/store/projects-provider";
 import { SessionsProvider } from "~/store/sessions-provider";
 import { AppShell } from "~/components/shell/app-shell";
 import { data } from "react-router";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
-import { getOpencodeSessionStatuses, listRecentSidebarSessions } from "~/lib/instances/opencode.server";
-import { listInstances } from "~/lib/instances/runtime.server";
-import { sortSidebarInstances, withSessionReadState } from "~/lib/instances/sidebar";
+import { getOpencodeSessionStatuses, listRecentSidebarSessions } from "~/lib/projects/opencode.server";
+import { listProjects } from "~/lib/projects/runtime.server";
+import { sortSidebarProjects, withSessionReadState } from "~/lib/projects/sidebar";
 import type { OpencodeSessionStatus } from "~/lib/opencode/events";
 import { normalizeRouteHandleMatches, resolveRouteHandleValue, type RouteHandleIconAction } from "~/lib/route-handle";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
@@ -26,10 +26,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     timings,
     type: "auth",
   });
-  const instances = await time(() => listInstances(), {
-    desc: "list instances",
+  const projects = await time(() => listProjects(), {
+    desc: "list projects",
     timings,
-    type: "instances",
+    type: "projects",
   });
   const readStatuses = await time(() => listSessionReadStatuses(), {
     desc: "list read statuses",
@@ -39,19 +39,16 @@ export async function loader({ request }: Route.LoaderArgs) {
   const readStatusMap = new Map(
     readStatuses.map((status) => [status.sessionId, status.lastReadAt]),
   );
-  const sidebarInstances = sortSidebarInstances(await time(
-    () => Promise.all(instances.map(async (instance) => {
+  const sidebarProjects = sortSidebarProjects(await time(
+    () => Promise.all(projects.map(async (project) => {
       const [recentSessions, sessionStatuses] = await Promise.all([
-        listRecentSidebarSessions(instance).catch(() => []),
-        instance.status === "running"
-          ? getOpencodeSessionStatuses(instance).catch(() => ({} as Record<string, OpencodeSessionStatus>))
-          : Promise.resolve<Record<string, OpencodeSessionStatus>>({}),
+        listRecentSidebarSessions(project).catch(() => []),
+        getOpencodeSessionStatuses(project).catch(() => ({} as Record<string, OpencodeSessionStatus>)),
       ]);
 
       return {
-        id: instance.id,
-        name: instance.name,
-        status: instance.status,
+        id: project.id,
+        name: project.name,
         recentSessions: recentSessions.map((session) => withSessionReadState(session, readStatusMap.get(session.id) ?? null)),
         recentSessionStatuses: Object.fromEntries(
           recentSessions.map((session) => [session.id, sessionStatuses[session.id] ?? IDLE_SESSION_STATUS] as const),
@@ -65,26 +62,26 @@ export async function loader({ request }: Route.LoaderArgs) {
     },
   ));
   const initialSessions = Object.fromEntries(
-    sidebarInstances.flatMap((instance) =>
-      instance.recentSessions.map((session) => [
+    sidebarProjects.flatMap((project) =>
+      project.recentSessions.map((session) => [
         session.id,
         session,
       ] as const),
     ),
   );
   const initialSessionStatuses = Object.fromEntries(
-    sidebarInstances.flatMap((instance) =>
-      instance.recentSessions.map((session) => [
+    sidebarProjects.flatMap((project) =>
+      project.recentSessions.map((session) => [
         session.id,
-        instance.recentSessionStatuses[session.id] ?? IDLE_SESSION_STATUS,
+        project.recentSessionStatuses[session.id] ?? IDLE_SESSION_STATUS,
       ] as const),
     ),
   );
-  const initialInstances = getInitialInstances(sidebarInstances);
+  const initialProjects = getInitialProjects(sidebarProjects);
 
   return data(
     {
-      initialInstances,
+      initialProjects,
       initialSessions,
       initialSessionStatuses,
     },
@@ -129,7 +126,7 @@ export default function AppLayout({ loaderData, matches }: Route.ComponentProps)
   return (
     <SessionEventsProvider>
       <SessionsProvider initialSessions={loaderData.initialSessions} initialStatuses={loaderData.initialSessionStatuses}>
-        <InstancesProvider initialInstances={loaderData.initialInstances}>
+        <ProjectsProvider initialProjects={loaderData.initialProjects}>
           <BreadcrumbsProvider>
             <AppLayoutShell
               breadcrumbsFallback={[{ content: "Scriptorium" }]}
@@ -137,7 +134,7 @@ export default function AppLayout({ loaderData, matches }: Route.ComponentProps)
               iconNavActions={iconNavActions}
             />
           </BreadcrumbsProvider>
-        </InstancesProvider>
+        </ProjectsProvider>
       </SessionsProvider>
     </SessionEventsProvider>
   );

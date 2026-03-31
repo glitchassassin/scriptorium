@@ -8,9 +8,13 @@ export const sessionReadEventSchema = z.object({
   lastReadAt: z.number(),
 });
 
+const sessionProjectScopeSchema = {
+  projectId: z.string(),
+};
+
 export const sessionActivityEventSchema = z.object({
   type: z.literal("session.activity"),
-  instanceId: z.string(),
+  ...sessionProjectScopeSchema,
   sessionId: z.string(),
   updatedAt: z.number(),
 });
@@ -26,20 +30,20 @@ export const sessionSidebarSummarySchema = z.object({
 
 export const sessionSummaryEventSchema = z.object({
   type: z.literal("session.summary"),
-  instanceId: z.string(),
+  ...sessionProjectScopeSchema,
   summary: sessionSidebarSummarySchema,
 });
 
 export const sessionStatusEventSchema = z.object({
   type: z.literal("session.status"),
-  instanceId: z.string(),
+  ...sessionProjectScopeSchema,
   sessionId: z.string(),
   status: opencodeSessionStatusSchema,
 });
 
 export const sessionDeletedEventSchema = z.object({
   type: z.literal("session.deleted"),
-  instanceId: z.string(),
+  ...sessionProjectScopeSchema,
   sessionId: z.string(),
 });
 

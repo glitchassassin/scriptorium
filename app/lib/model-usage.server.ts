@@ -2,9 +2,9 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { getOrm } from "~/lib/db.server";
 import { modelUsages } from "~/lib/db/schema";
-import { listOpencodeMessages, listOpencodeSessions } from "~/lib/instances/opencode.server";
-import { listInstances } from "~/lib/instances/runtime.server";
-import type { InstanceRecord } from "~/lib/instances/types";
+import { listOpencodeMessages, listOpencodeSessions } from "~/lib/projects/opencode.server";
+import { listProjects } from "~/lib/projects/runtime.server";
+import type { ProjectRecord } from "~/lib/projects/types";
 import type { OpencodeMessageInfo, OpencodeMessageWithParts, OpencodeProvider } from "~/lib/opencode/events";
 import {
   getLatestMessageModelChoice,
@@ -18,27 +18,27 @@ import {
 type ModelUsageRow = typeof modelUsages.$inferSelect;
 
 type ModelUsageRecord = SessionModelChoice & {
-  instanceId: string;
+  projectId: string;
   sessionId: string;
   usedAt: number;
 };
 
 type RecordModelUsageInput = {
-  instanceId: string;
+  projectId: string;
   sessionId: string;
   model: SessionModelChoice["model"];
   usedAt: number;
   variant?: string | null;
 };
 
-const warmingInstances = new Map<string, Promise<void>>();
+const warmingProjects = new Map<string, Promise<void>>();
 const warmingSessions = new Map<string, Promise<void>>();
-const warmedInstances = new Set<string>();
+const warmedProjects = new Set<string>();
 let warmingGlobal: Promise<void> | null = null;
 let warmedGlobal = false;
 
-function getSessionKey(instanceId: string, sessionId: string) {
-  return `${instanceId}:${sessionId}`;
+function getSessionKey(projectId: string, sessionId: string) {
+  return `${projectId}:${sessionId}`;
 }
 
 function mapRow(row: ModelUsageRow): ModelUsageRecord | null {
@@ -49,7 +49,7 @@ function mapRow(row: ModelUsageRow): ModelUsageRecord | null {
   }
 
   return {
-    instanceId: row.instanceId,
+    projectId: row.projectId,
     model: {
       modelID: row.modelId,
       providerID: row.providerId,
@@ -60,19 +60,19 @@ function mapRow(row: ModelUsageRow): ModelUsageRecord | null {
   } satisfies ModelUsageRecord;
 }
 
-function getRows(input?: { instanceId?: string; sessionId?: string }) {
+function getRows(input?: { projectId?: string; sessionId?: string }) {
   const db = getOrm();
 
-  if (input?.instanceId && input.sessionId) {
+  if (input?.projectId && input.sessionId) {
     return db.select().from(modelUsages)
-      .where(and(eq(modelUsages.instanceId, input.instanceId), eq(modelUsages.sessionId, input.sessionId)))
+      .where(and(eq(modelUsages.projectId, input.projectId), eq(modelUsages.sessionId, input.sessionId)))
       .orderBy(desc(modelUsages.usedAt))
       .all();
   }
 
-  if (input?.instanceId) {
+  if (input?.projectId) {
     return db.select().from(modelUsages)
-      .where(eq(modelUsages.instanceId, input.instanceId))
+      .where(eq(modelUsages.projectId, input.projectId))
       .orderBy(desc(modelUsages.usedAt))
       .all();
   }
@@ -117,7 +117,7 @@ function getChoices(rows: ModelUsageRow[], providers: OpencodeProvider[], input?
   return items;
 }
 
-function recordMessages(instanceId: string, messages: OpencodeMessageWithParts[]) {
+function recordMessages(projectId: string, messages: OpencodeMessageWithParts[]) {
   messages.forEach((message) => {
     const choice = getMessageInfoModelChoice(message.info);
 
@@ -126,7 +126,7 @@ function recordMessages(instanceId: string, messages: OpencodeMessageWithParts[]
     }
 
     recordModelUsage({
-      instanceId,
+      projectId,
       model: choice.model,
       sessionId: message.info.sessionID,
       usedAt: choice.usedAt,
@@ -135,8 +135,8 @@ function recordMessages(instanceId: string, messages: OpencodeMessageWithParts[]
   });
 }
 
-async function warmSession(instance: InstanceRecord, sessionId: string) {
-  const key = getSessionKey(instance.id, sessionId);
+async function warmSession(project: ProjectRecord, sessionId: string) {
+  const key = getSessionKey(project.id, sessionId);
   const current = warmingSessions.get(key);
 
   if (current) {
@@ -146,7 +146,7 @@ async function warmSession(instance: InstanceRecord, sessionId: string) {
 
   const next = (async () => {
     try {
-      recordMessages(instance.id, await listOpencodeMessages(instance, sessionId));
+      recordMessages(project.id, await listOpencodeMessages(project, sessionId));
     } catch {
       return;
     } finally {
@@ -158,12 +158,12 @@ async function warmSession(instance: InstanceRecord, sessionId: string) {
   await next;
 }
 
-async function warmInstance(instance: InstanceRecord) {
-  if (warmedInstances.has(instance.id)) {
+async function warmProject(project: ProjectRecord) {
+  if (warmedProjects.has(project.id)) {
     return;
   }
 
-  const current = warmingInstances.get(instance.id);
+  const current = warmingProjects.get(project.id);
 
   if (current) {
     await current;
@@ -172,21 +172,21 @@ async function warmInstance(instance: InstanceRecord) {
 
   const next = (async () => {
     try {
-      const sessions = await listOpencodeSessions(instance);
+      const sessions = await listOpencodeSessions(project);
 
       for (const session of sessions) {
-        recordMessages(instance.id, await listOpencodeMessages(instance, session.id));
+        recordMessages(project.id, await listOpencodeMessages(project, session.id));
       }
 
-      warmedInstances.add(instance.id);
+      warmedProjects.add(project.id);
     } catch {
       return;
     } finally {
-      warmingInstances.delete(instance.id);
+      warmingProjects.delete(project.id);
     }
   })();
 
-  warmingInstances.set(instance.id, next);
+  warmingProjects.set(project.id, next);
   await next;
 }
 
@@ -202,10 +202,10 @@ async function warmGlobal() {
 
   warmingGlobal = (async () => {
     try {
-      const instances = await listInstances();
+      const projects = await listProjects();
 
-      for (const instance of instances) {
-        await warmInstance(instance);
+      for (const project of projects) {
+        await warmProject(project);
       }
 
       warmedGlobal = true;
@@ -219,34 +219,34 @@ async function warmGlobal() {
   await warmingGlobal;
 }
 
-async function getSessionChoice(instance: InstanceRecord, sessionId: string, messages: OpencodeMessageWithParts[], providers: OpencodeProvider[]) {
+async function getSessionChoice(project: ProjectRecord, sessionId: string, messages: OpencodeMessageWithParts[], providers: OpencodeProvider[]) {
   const choice = getLatestMessageModelChoice(messages, providers);
 
   if (choice) {
     return choice;
   }
 
-  let items = getChoices(getRows({ instanceId: instance.id, sessionId }), providers, { limit: 1 });
+  let items = getChoices(getRows({ projectId: project.id, sessionId }), providers, { limit: 1 });
 
   if (items.length > 0) {
     return items[0] ?? null;
   }
 
-  await warmSession(instance, sessionId);
-  items = getChoices(getRows({ instanceId: instance.id, sessionId }), providers, { limit: 1 });
+  await warmSession(project, sessionId);
+  items = getChoices(getRows({ projectId: project.id, sessionId }), providers, { limit: 1 });
 
   return items[0] ?? null;
 }
 
-async function getInstanceChoices(instance: InstanceRecord, providers: OpencodeProvider[], limit: number, exclude?: Set<string>) {
-  let items = getChoices(getRows({ instanceId: instance.id }), providers, { exclude, limit });
+async function getProjectChoices(project: ProjectRecord, providers: OpencodeProvider[], limit: number, exclude?: Set<string>) {
+  let items = getChoices(getRows({ projectId: project.id }), providers, { exclude, limit });
 
-  if (items.length >= limit || warmedInstances.has(instance.id)) {
+  if (items.length >= limit || warmedProjects.has(project.id)) {
     return items;
   }
 
-  await warmInstance(instance);
-  items = getChoices(getRows({ instanceId: instance.id }), providers, { exclude, limit });
+  await warmProject(project);
+  items = getChoices(getRows({ projectId: project.id }), providers, { exclude, limit });
 
   return items;
 }
@@ -271,7 +271,7 @@ export function recordModelUsage(input: RecordModelUsageInput, now = new Date())
 
   const db = getOrm();
   const where = and(
-    eq(modelUsages.instanceId, input.instanceId),
+    eq(modelUsages.projectId, input.projectId),
     eq(modelUsages.sessionId, input.sessionId),
     eq(modelUsages.providerId, input.model.providerID),
     eq(modelUsages.modelId, input.model.modelID),
@@ -296,7 +296,7 @@ export function recordModelUsage(input: RecordModelUsageInput, now = new Date())
   } else {
     db.insert(modelUsages).values({
       createdAt: updatedAt,
-      instanceId: input.instanceId,
+      projectId: input.projectId,
       modelId: input.model.modelID,
       providerId: input.model.providerID,
       sessionId: input.sessionId,
@@ -307,7 +307,7 @@ export function recordModelUsage(input: RecordModelUsageInput, now = new Date())
   }
 
   return {
-    instanceId: input.instanceId,
+    projectId: input.projectId,
     model: input.model,
     sessionId: input.sessionId,
     usedAt: input.usedAt,
@@ -315,7 +315,7 @@ export function recordModelUsage(input: RecordModelUsageInput, now = new Date())
   } satisfies ModelUsageRecord;
 }
 
-export function recordOpencodeMessageUsage(instanceId: string, info: OpencodeMessageInfo) {
+export function recordOpencodeMessageUsage(projectId: string, info: OpencodeMessageInfo) {
   const choice = getMessageInfoModelChoice(info);
 
   if (!choice) {
@@ -323,7 +323,7 @@ export function recordOpencodeMessageUsage(instanceId: string, info: OpencodeMes
   }
 
   return recordModelUsage({
-    instanceId,
+    projectId,
     model: choice.model,
     sessionId: info.sessionID,
     usedAt: choice.usedAt,
@@ -331,20 +331,20 @@ export function recordOpencodeMessageUsage(instanceId: string, info: OpencodeMes
   });
 }
 
-export function clearSessionModelUsage(instanceId: string, sessionId: string) {
+export function clearSessionModelUsage(projectId: string, sessionId: string) {
   getOrm().delete(modelUsages)
-    .where(and(eq(modelUsages.instanceId, instanceId), eq(modelUsages.sessionId, sessionId)))
+    .where(and(eq(modelUsages.projectId, projectId), eq(modelUsages.sessionId, sessionId)))
     .run();
 }
 
 export async function resolveSessionModelChoice(input: {
   configModel?: string | null;
-  instance: InstanceRecord;
+  project: ProjectRecord;
   messages: OpencodeMessageWithParts[];
   providers: OpencodeProvider[];
   sessionId: string;
 }) {
-  const current = await getSessionChoice(input.instance, input.sessionId, input.messages, input.providers);
+  const current = await getSessionChoice(input.project, input.sessionId, input.messages, input.providers);
 
   if (current) {
     return current;
@@ -360,10 +360,10 @@ export async function resolveSessionModelChoice(input: {
     return config;
   }
 
-  const instance = await getInstanceChoices(input.instance, input.providers, 1);
+  const project = await getProjectChoices(input.project, input.providers, 1);
 
-  if (instance.length > 0) {
-    return instance[0] ?? null;
+  if (project.length > 0) {
+    return project[0] ?? null;
   }
 
   const global = await getGlobalChoices(input.providers, 1);
@@ -371,19 +371,19 @@ export async function resolveSessionModelChoice(input: {
 }
 
 export async function listRecentModelChoices(input: {
-  instance: InstanceRecord;
+  project: ProjectRecord;
   limit?: number;
   providers: OpencodeProvider[];
 }) {
   const limit = input.limit ?? 3;
-  const instance = await getInstanceChoices(input.instance, input.providers, limit);
+  const project = await getProjectChoices(input.project, input.providers, limit);
 
-  if (instance.length >= limit) {
-    return instance;
+  if (project.length >= limit) {
+    return project;
   }
 
-  const exclude = new Set(instance.map((item) => getModelKey(item.model)));
-  const global = await getGlobalChoices(input.providers, limit - instance.length, exclude);
+  const exclude = new Set(project.map((item) => getModelKey(item.model)));
+  const global = await getGlobalChoices(input.providers, limit - project.length, exclude);
 
-  return [...instance, ...global].slice(0, limit);
+  return [...project, ...global].slice(0, limit);
 }

@@ -1,5 +1,5 @@
 import { autoRoutes } from "react-router-auto-routes";
 
 export default autoRoutes({
-  ignoredRouteFiles: ["AGENTS.md"],
+  ignoredRouteFiles: ["**/*.test.{ts,tsx}", "AGENTS.md"],
 });

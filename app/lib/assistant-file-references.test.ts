@@ -54,11 +54,11 @@ describe("assistant file references", () => {
     }
 
     expect(buildAssistantFileReferenceHref(
-      "/instances/instance-1/sessions/session-1/files",
+      "/projects/project-1/sessions/session-1/files",
       reference,
       "app/components/session/message-markdown.tsx",
     )).toBe(
-      "/instances/instance-1/sessions/session-1/files?file=app%2Fcomponents%2Fsession%2Fmessage-markdown.tsx&path=app%2Fcomponents%2Fsession&line=44&endLine=47",
+      "/projects/project-1/sessions/session-1/files?file=app%2Fcomponents%2Fsession%2Fmessage-markdown.tsx&path=app%2Fcomponents%2Fsession&line=44&endLine=47",
     );
   });
 });

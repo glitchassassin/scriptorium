@@ -10,7 +10,7 @@ import { CodeViewerRows } from "~/components/files/code-viewer/rows";
 import { ScrollIndicator } from "~/components/files/code-viewer/scroll-indicator";
 import type { ViewLine } from "~/components/files/code-viewer/types";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
-import type { FileBrowserContent, FileBrowserLineRange, FileBrowserListing } from "~/lib/instances/types";
+import type { FileBrowserContent, FileBrowserLineRange, FileBrowserListing } from "~/lib/projects/types";
 import { FileExplorer } from "~/routes/_rpc/files.browse";
 
 type FilesBrowserProps = {

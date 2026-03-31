@@ -6,7 +6,7 @@ import { DiffView } from "~/components/session/diff-view";
 import type { OpencodeToolPart } from "~/lib/opencode/events";
 
 type MessagePartToolGenericProps = {
-  instanceId?: string;
+  projectId?: string;
   part: OpencodeToolPart;
 };
 
@@ -55,7 +55,7 @@ function renderObject(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
-export function MessagePartToolGeneric({ instanceId: _instanceId, part }: MessagePartToolGenericProps) {
+export function MessagePartToolGeneric({ projectId: _projectId, part }: MessagePartToolGenericProps) {
   const [expanded, setExpanded] = useState(false);
   const diff = useMemo(() => getToolDiff(part), [part]);
   const filePath = useMemo(() => getFilePath(part), [part]);

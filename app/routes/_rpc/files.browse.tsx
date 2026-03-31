@@ -6,7 +6,7 @@ import type {
   FileBrowserSelection,
   FileBrowserSelectionMode,
   FileTreeNode,
-} from "~/lib/instances/types";
+} from "~/lib/projects/types";
 
 import type { Route } from "./+types/files.browse";
 
@@ -22,7 +22,7 @@ const EMPTY_EXPANDED_PATHS: string[] = [];
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { requireAuthenticatedPasskey } = await import("~/lib/auth/guards.server");
-  const { browseFiles, resolveBrowserPath } = await import("~/lib/instances/files.server");
+  const { browseFiles, resolveBrowserPath } = await import("~/lib/projects/files.server");
 
   await requireAuthenticatedPasskey(request);
 

@@ -7,13 +7,14 @@ import {
   recordOpencodeMessageUsage,
 } from "~/lib/model-usage.server";
 import {
-  getInstance,
-  listInstances,
-  subscribeToInstanceRuntimeEvents,
-  type InstanceRuntimeEvent,
-} from "~/lib/instances/runtime.server";
-import { isRootSession, toSessionSummary } from "~/lib/instances/sidebar";
+  getProject,
+  listProjects,
+  subscribeToProjectRuntimeEvents,
+  type ProjectRuntimeEvent,
+} from "~/lib/projects/runtime.server";
+import { isRootSession, toSessionSummary } from "~/lib/projects/sidebar";
 import { parseOpencodeEvent, type OpencodeEvent } from "~/lib/opencode/events";
+import { createProjectScopedHeaders, getSharedOpencodeServerUrl } from "~/lib/opencode/shared-runtime.server";
 import {
   type SessionActivityEvent,
   type SessionDeletedEvent,
@@ -95,7 +96,7 @@ function publishSessionEvent(event: SessionEvent) {
   }
 }
 
-function createSessionSummaryEvent(instanceId: string, event: Extract<OpencodeEvent, { type: "session.created" | "session.updated" }>) {
+function createSessionSummaryEvent(projectId: string, event: Extract<OpencodeEvent, { type: "session.created" | "session.updated" }>) {
   if (!isRootSession(event.properties.info)) {
     return null;
   }
@@ -104,7 +105,7 @@ function createSessionSummaryEvent(instanceId: string, event: Extract<OpencodeEv
 
   return {
     type: "session.summary",
-    instanceId,
+    projectId,
     summary: {
       id: summary.id,
       parentID: summary.parentID,
@@ -116,37 +117,37 @@ function createSessionSummaryEvent(instanceId: string, event: Extract<OpencodeEv
   } satisfies SessionSummaryEvent;
 }
 
-function createSessionDeletedEvent(instanceId: string, event: Extract<OpencodeEvent, { type: "session.deleted" }>) {
+function createSessionDeletedEvent(projectId: string, event: Extract<OpencodeEvent, { type: "session.deleted" }>) {
   if (!isRootSession(event.properties.info)) {
     return null;
   }
 
   return {
     type: "session.deleted",
-    instanceId,
+    projectId,
     sessionId: event.properties.info.id,
   } satisfies SessionDeletedEvent;
 }
 
-function createSessionActivityEvent(instanceId: string, sessionId: string, updatedAt: number) {
+function createSessionActivityEvent(projectId: string, sessionId: string, updatedAt: number) {
   return {
     type: "session.activity",
-    instanceId,
+    projectId,
     sessionId,
     updatedAt,
   } satisfies SessionActivityEvent;
 }
 
-function createSessionStatusEvent(instanceId: string, event: Extract<OpencodeEvent, { type: "session.status" }>) {
+function createSessionStatusEvent(projectId: string, event: Extract<OpencodeEvent, { type: "session.status" }>) {
   return {
     type: "session.status",
-    instanceId,
+    projectId,
     sessionId: event.properties.sessionID,
     status: event.properties.status,
   } satisfies SessionStatusEvent;
 }
 
-function getSessionActivityEvent(instanceId: string, event: OpencodeEvent) {
+function getSessionActivityEvent(projectId: string, event: OpencodeEvent) {
   switch (event.type) {
     case "session.created":
     case "session.updated": {
@@ -155,13 +156,13 @@ function getSessionActivityEvent(instanceId: string, event: OpencodeEvent) {
       }
 
       return createSessionActivityEvent(
-        instanceId,
+        projectId,
         event.properties.info.id,
         event.properties.info.time.updated ?? event.properties.info.time.created,
       );
     }
     case "message.updated":
-      return createSessionActivityEvent(instanceId, event.properties.info.sessionID, event.properties.info.time.created);
+      return createSessionActivityEvent(projectId, event.properties.info.sessionID, event.properties.info.time.created);
     case "message.part.updated": {
       const partTime = "time" in event.properties.part ? event.properties.part.time : undefined;
 
@@ -169,22 +170,22 @@ function getSessionActivityEvent(instanceId: string, event: OpencodeEvent) {
         const start = "start" in partTime ? partTime.start : null;
         const end = "end" in partTime ? partTime.end : null;
         return createSessionActivityEvent(
-          instanceId,
+          projectId,
           event.properties.part.sessionID,
           typeof end === "number" ? end : typeof start === "number" ? start : Date.now(),
         );
       }
 
-      return createSessionActivityEvent(instanceId, event.properties.part.sessionID, Date.now());
+      return createSessionActivityEvent(projectId, event.properties.part.sessionID, Date.now());
     }
     case "message.part.delta":
     case "message.part.removed":
     case "permission.asked":
     case "question.asked":
-      return createSessionActivityEvent(instanceId, event.properties.sessionID, Date.now());
+      return createSessionActivityEvent(projectId, event.properties.sessionID, Date.now());
     case "session.error":
       return event.properties.sessionID
-        ? createSessionActivityEvent(instanceId, event.properties.sessionID, Date.now())
+        ? createSessionActivityEvent(projectId, event.properties.sessionID, Date.now())
         : null;
     default:
       return null;
@@ -310,18 +311,14 @@ class SessionEventFanInManager {
     }
 
     this.started = true;
-    this.unsubscribeRuntime = subscribeToInstanceRuntimeEvents((event) => {
+    this.unsubscribeRuntime = subscribeToProjectRuntimeEvents((event) => {
       void this.handleRuntimeEvent(event);
     });
 
-    const instances = await listInstances();
+    const projects = await listProjects();
 
-    for (const instance of instances) {
-      if (instance.status !== "running") {
-        continue;
-      }
-
-      this.connectInstance(instance.id, instance.port);
+    for (const project of projects) {
+      this.connectProject(project.id);
     }
   }
 
@@ -337,50 +334,50 @@ class SessionEventFanInManager {
     this.connections.clear();
   }
 
-  private async handleRuntimeEvent(event: InstanceRuntimeEvent) {
-    if (event.type === "instance.removed") {
-      this.disconnectInstance(event.instanceId);
+  private async handleRuntimeEvent(event: ProjectRuntimeEvent) {
+    if (event.type === "project.removed") {
+      this.disconnectProject(event.projectId);
       return;
     }
 
-    if (event.instance.status === "running") {
-      this.connectInstance(event.instance.id, event.instance.port);
-      return;
-    }
-
-    this.disconnectInstance(event.instance.id);
+    this.connectProject(event.project.id);
   }
 
-  private connectInstance(instanceId: string, port: number) {
-    if (this.connections.has(instanceId)) {
+  private connectProject(projectId: string) {
+    if (this.connections.has(projectId)) {
       return;
     }
 
     const controller = new AbortController();
-    this.connections.set(instanceId, controller);
-    void this.streamInstanceEvents(instanceId, port, controller);
+    this.connections.set(projectId, controller);
+    void this.streamProjectEvents(projectId, controller);
   }
 
-  private disconnectInstance(instanceId: string) {
-    const controller = this.connections.get(instanceId);
+  private disconnectProject(projectId: string) {
+    const controller = this.connections.get(projectId);
 
     if (!controller) {
       return;
     }
 
-    this.connections.delete(instanceId);
+    this.connections.delete(projectId);
     controller.abort();
   }
 
-  private async streamInstanceEvents(instanceId: string, initialPort: number, controller: AbortController) {
-    let port = initialPort;
-
+  private async streamProjectEvents(projectId: string, controller: AbortController) {
     while (!controller.signal.aborted) {
       try {
-        const response = await fetch(`http://127.0.0.1:${port}/event`, {
-          headers: {
+        const project = await getProject(projectId);
+
+        if (!project) {
+          this.disconnectProject(projectId);
+          return;
+        }
+
+        const response = await fetch(`${await getSharedOpencodeServerUrl()}/event`, {
+          headers: createProjectScopedHeaders(project.directory, {
             Accept: "text/event-stream",
-          },
+          }),
           signal: controller.signal,
         });
 
@@ -391,7 +388,7 @@ class SessionEventFanInManager {
         await consumeEventStream(
           response.body,
           (payload) => {
-            this.handleInstancePayload(instanceId, payload);
+            this.handleProjectPayload(projectId, payload);
           },
           controller.signal,
         );
@@ -400,14 +397,13 @@ class SessionEventFanInManager {
           return;
         }
 
-        const latest = await getInstance(instanceId);
+        const latest = await getProject(projectId);
 
-        if (!latest || latest.status !== "running") {
-          this.disconnectInstance(instanceId);
+        if (!latest) {
+          this.disconnectProject(projectId);
           return;
         }
 
-        port = latest.port;
         await wait(500, controller.signal);
         continue;
       }
@@ -416,19 +412,18 @@ class SessionEventFanInManager {
         return;
       }
 
-      const latest = await getInstance(instanceId);
+      const latest = await getProject(projectId);
 
-      if (!latest || latest.status !== "running") {
-        this.disconnectInstance(instanceId);
+      if (!latest) {
+        this.disconnectProject(projectId);
         return;
       }
 
-      port = latest.port;
       await wait(250, controller.signal);
     }
   }
 
-  private handleInstancePayload(instanceId: string, payload: string) {
+  private handleProjectPayload(projectId: string, payload: string) {
     let parsedPayload: unknown;
 
     try {
@@ -445,36 +440,36 @@ class SessionEventFanInManager {
 
     const summaryEvent =
       result.data.type === "session.created" || result.data.type === "session.updated"
-        ? createSessionSummaryEvent(instanceId, result.data)
+        ? createSessionSummaryEvent(projectId, result.data)
         : null;
 
     if (result.data.type === "message.updated") {
-      recordOpencodeMessageUsage(instanceId, result.data.properties.info);
+      recordOpencodeMessageUsage(projectId, result.data.properties.info);
     }
 
     const invalidation = getModelUsageInvalidation(result.data);
 
     if (invalidation) {
-      clearSessionModelUsage(instanceId, invalidation.sessionId);
+      clearSessionModelUsage(projectId, invalidation.sessionId);
     }
 
     if (summaryEvent) {
       publishSessionEvent(summaryEvent);
     }
 
-    const deletedEvent = result.data.type === "session.deleted" ? createSessionDeletedEvent(instanceId, result.data) : null;
+      const deletedEvent = result.data.type === "session.deleted" ? createSessionDeletedEvent(projectId, result.data) : null;
 
     if (deletedEvent) {
       publishSessionEvent(deletedEvent);
     }
 
-    const statusEvent = result.data.type === "session.status" ? createSessionStatusEvent(instanceId, result.data) : null;
+      const statusEvent = result.data.type === "session.status" ? createSessionStatusEvent(projectId, result.data) : null;
 
     if (statusEvent) {
       publishSessionEvent(statusEvent);
     }
 
-    const activityEvent = getSessionActivityEvent(instanceId, result.data);
+      const activityEvent = getSessionActivityEvent(projectId, result.data);
 
     if (activityEvent) {
       publishSessionEvent(activityEvent);

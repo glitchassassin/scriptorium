@@ -2,23 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   filterRecentSessions,
-  isSessionUnread,
   isRootSession,
+  isSessionUnread,
   SIDEBAR_SESSION_LIMIT,
-} from "~/lib/instances/sidebar";
-import { useInstances, type InstanceState } from "~/store/instances-provider";
+} from "~/lib/projects/sidebar";
+import { type ProjectState, useProjects } from "~/store/projects-provider";
 import { useSessions } from "~/store/sessions-provider";
 
-type VisibleInstanceState = InstanceState & {
+type VisibleProjectState = ProjectState & {
   sessionIds: string[];
 };
 
-function sortInstances<TInstance extends Pick<InstanceState, "name">>(instances: TInstance[]) {
-  return [...instances].sort((left, right) => left.name.localeCompare(right.name));
+function sortProjects<TProject extends Pick<ProjectState, "name">>(projects: TProject[]) {
+  return [...projects].sort((left, right) => left.name.localeCompare(right.name));
 }
 
-export function useVisibleSidebarInstances() {
-  const instances = useInstances();
+export function useVisibleSidebarProjects() {
+  const projects = useProjects();
   const sessions = useSessions();
   const [now, setNow] = useState(() => Date.now());
 
@@ -33,9 +33,9 @@ export function useVisibleSidebarInstances() {
   }, []);
 
   return useMemo(() => {
-    return sortInstances(Object.values(instances).map((instance) => {
+    return sortProjects(Object.values(projects).map((project) => {
       const visibleSessionIds = filterRecentSessions(
-        instance.sessionIds
+        project.sessionIds
           .map((sessionId) => sessions[sessionId])
           .filter((session): session is NonNullable<typeof session> => session !== undefined)
           // The sidebar reflects the root session only. Subagent sessions do not become
@@ -46,19 +46,19 @@ export function useVisibleSidebarInstances() {
       ).map((session) => session.id);
 
       return {
-        ...instance,
+        ...project,
         sessionIds: visibleSessionIds,
-      } satisfies VisibleInstanceState;
-    })).filter((instance) => instance.sessionIds.length > 0);
-  }, [instances, now, sessions]);
+      } satisfies VisibleProjectState;
+    })).filter((project) => project.sessionIds.length > 0);
+  }, [now, projects, sessions]);
 }
 
-export function useHasVisibleUnreadSessions() {
-  const instances = useVisibleSidebarInstances();
+export function useHasVisibleUnreadProjectSessions() {
+  const projects = useVisibleSidebarProjects();
   const sessions = useSessions();
 
-  return instances.some((instance) =>
-    instance.sessionIds.slice(0, SIDEBAR_SESSION_LIMIT).some((sessionId) => {
+  return projects.some((project) =>
+    project.sessionIds.slice(0, SIDEBAR_SESSION_LIMIT).some((sessionId) => {
       const session = sessions[sessionId];
 
       return session ? isSessionUnread(session, session.lastReadAt) : false;
@@ -66,4 +66,4 @@ export function useHasVisibleUnreadSessions() {
   );
 }
 
-export type { VisibleInstanceState };
+export type { VisibleProjectState };

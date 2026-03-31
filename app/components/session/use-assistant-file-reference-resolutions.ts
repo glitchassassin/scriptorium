@@ -24,7 +24,7 @@ const cacheListeners = new Set<() => void>();
 // still will not promote plain text into links just because the workspace changed underneath
 // them. That gap is acceptable until we add an invalidation signal for assistant file refs.
 
-export function useAssistantFileReferenceResolutions(instanceId: string | undefined, markdownText: string) {
+export function useAssistantFileReferenceResolutions(projectId: string | undefined, markdownText: string) {
   const [cacheRevision, setCacheRevision] = useState(0);
   const lookupPaths = useMemo(() => collectAssistantFileReferenceCandidates(markdownText), [markdownText]);
   const lookupKey = lookupPaths.join("\u0000");
@@ -39,12 +39,12 @@ export function useAssistantFileReferenceResolutions(instanceId: string | undefi
   }, []);
 
   useEffect(() => {
-    if (!instanceId || lookupPaths.length === 0) {
+    if (!projectId || lookupPaths.length === 0) {
       return;
     }
 
     const missingLookupPaths = lookupPaths.filter((lookupPath) => {
-      const cacheKey = buildCacheKey(instanceId, lookupPath);
+       const cacheKey = buildCacheKey(projectId, lookupPath);
       const cachedResolution = resolutionCache.get(cacheKey);
 
       if (cachedResolution && !hasCacheEntryExpired(cachedResolution)) {
@@ -67,7 +67,7 @@ export function useAssistantFileReferenceResolutions(instanceId: string | undefi
       return;
     }
 
-    void fetch(buildResolveUrl(instanceId, missingLookupPaths))
+    void fetch(buildResolveUrl(projectId, missingLookupPaths))
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`Failed to resolve file references: ${response.status}`);
@@ -77,7 +77,7 @@ export function useAssistantFileReferenceResolutions(instanceId: string | undefi
       })
       .then((payload) => {
         for (const lookupPath of missingLookupPaths) {
-          const cacheKey = buildCacheKey(instanceId, lookupPath);
+          const cacheKey = buildCacheKey(projectId, lookupPath);
           const resolvedValue = payload.results[lookupPath] ?? null;
 
           pendingResolutionKeys.delete(cacheKey);
@@ -91,7 +91,7 @@ export function useAssistantFileReferenceResolutions(instanceId: string | undefi
       })
       .catch(() => {
         for (const lookupPath of missingLookupPaths) {
-          const cacheKey = buildCacheKey(instanceId, lookupPath);
+          const cacheKey = buildCacheKey(projectId, lookupPath);
           pendingResolutionKeys.delete(cacheKey);
           resolutionCache.set(cacheKey, {
             expiresAt: Date.now() + NEGATIVE_CACHE_TTL_MS,
@@ -101,16 +101,16 @@ export function useAssistantFileReferenceResolutions(instanceId: string | undefi
 
         emitCacheUpdate();
       });
-  }, [instanceId, lookupKey, lookupPaths]);
+  }, [lookupKey, lookupPaths, projectId]);
 
   return useMemo(() => {
-    if (!instanceId || lookupPaths.length === 0) {
+    if (!projectId || lookupPaths.length === 0) {
       return new Map<string, AssistantFileReferenceResolution | null>();
     }
 
     return new Map(
       lookupPaths.map((lookupPath) => {
-        const cachedResolution = resolutionCache.get(buildCacheKey(instanceId, lookupPath));
+        const cachedResolution = resolutionCache.get(buildCacheKey(projectId, lookupPath));
 
         if (!cachedResolution || hasCacheEntryExpired(cachedResolution)) {
           return [lookupPath, null] as const;
@@ -119,25 +119,25 @@ export function useAssistantFileReferenceResolutions(instanceId: string | undefi
         return [lookupPath, cachedResolution.value] as const;
       }),
     );
-  }, [cacheRevision, instanceId, lookupPaths]);
+  }, [cacheRevision, lookupPaths, projectId]);
 }
 
 function hasCacheEntryExpired(entry: ResolutionCacheEntry) {
   return entry.expiresAt !== null && entry.expiresAt <= Date.now();
 }
 
-function buildCacheKey(instanceId: string, lookupPath: string) {
-  return `${instanceId}:${lookupPath}`;
+function buildCacheKey(projectId: string, lookupPath: string) {
+  return `${projectId}:${lookupPath}`;
 }
 
-function buildResolveUrl(instanceId: string, lookupPaths: string[]) {
+function buildResolveUrl(projectId: string, lookupPaths: string[]) {
   const searchParams = new URLSearchParams();
 
   for (const lookupPath of lookupPaths) {
     searchParams.append("candidate", lookupPath);
   }
 
-  return `/instances/${instanceId}/file-references/resolve?${searchParams.toString()}`;
+  return `/projects/${projectId}/file-references/resolve?${searchParams.toString()}`;
 }
 
 function emitCacheUpdate() {

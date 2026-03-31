@@ -1,9 +1,9 @@
-import { SidebarInstancesNav } from "./sidebar-instances-nav";
+import { SidebarProjectsNav } from "./sidebar-projects-nav";
 
 export function SidebarNav() {
   return (
     <nav aria-label="Sidebar" className="pt-2">
-      <SidebarInstancesNav />
+      <SidebarProjectsNav />
     </nav>
   );
 }

@@ -11,6 +11,7 @@ import {
   SessionEventsProvider,
   useSessionEvents,
   type SessionEvent,
+  type SessionEventFilter,
 } from "~/components/events/session-events-provider";
 import { RECONNECT_DELAYS_MS } from "~/lib/events/persistent-event-source";
 
@@ -57,7 +58,7 @@ function TestSubscriber({
   filter,
   onEvent,
 }: {
-  filter?: { sessionId?: string };
+  filter?: SessionEventFilter;
   onEvent: (event: SessionEvent) => void;
 }) {
   useSessionEvents(onEvent, filter);
@@ -126,14 +127,14 @@ describe("useSessionEvents", () => {
 
     emitSessionEvent({
       type: "session.activity",
-      instanceId: "instance-1",
+      projectId: "project-1",
       sessionId: "session-2",
       updatedAt: 5,
     });
 
     emitSessionEvent({
       type: "session.summary",
-      instanceId: "instance-1",
+      projectId: "project-1",
       summary: {
         id: "session-1",
         parentID: null,
@@ -147,7 +148,7 @@ describe("useSessionEvents", () => {
     expect(onEvent).toHaveBeenCalledTimes(1);
     expect(onEvent).toHaveBeenCalledWith({
       type: "session.summary",
-      instanceId: "instance-1",
+      projectId: "project-1",
       summary: {
         id: "session-1",
         parentID: null,
@@ -170,14 +171,14 @@ describe("useSessionEvents", () => {
 
     emitSessionEvent({
       type: "session.status",
-      instanceId: "instance-1",
+      projectId: "project-1",
       sessionId: "session-2",
       status: { type: "busy" },
     });
 
     emitSessionEvent({
       type: "session.status",
-      instanceId: "instance-1",
+      projectId: "project-1",
       sessionId: "session-1",
       status: { type: "idle" },
     });
@@ -185,9 +186,59 @@ describe("useSessionEvents", () => {
     expect(onEvent).toHaveBeenCalledTimes(1);
     expect(onEvent).toHaveBeenCalledWith({
       type: "session.status",
-      instanceId: "instance-1",
+      projectId: "project-1",
       sessionId: "session-1",
       status: { type: "idle" },
+    });
+  });
+
+  it("filters by project id", () => {
+    const onEvent = vi.fn<(event: SessionEvent) => void>();
+
+    render(
+      <SessionEventsProvider>
+        <TestSubscriber filter={{ projectId: "project-2" }} onEvent={onEvent} />
+      </SessionEventsProvider>,
+    );
+
+    emitSessionEvent({
+      type: "session.summary",
+      projectId: "project-1",
+      summary: {
+        id: "session-1",
+        parentID: null,
+        title: "Session 1",
+        directory: null,
+        createdAt: 4,
+        updatedAt: 6,
+      },
+    });
+
+    emitSessionEvent({
+      type: "session.summary",
+      projectId: "project-2",
+      summary: {
+        id: "session-2",
+        parentID: null,
+        title: "Session 2",
+        directory: null,
+        createdAt: 4,
+        updatedAt: 6,
+      },
+    });
+
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(onEvent).toHaveBeenCalledWith({
+      type: "session.summary",
+      projectId: "project-2",
+      summary: {
+        id: "session-2",
+        parentID: null,
+        title: "Session 2",
+        directory: null,
+        createdAt: 4,
+        updatedAt: 6,
+      },
     });
   });
 

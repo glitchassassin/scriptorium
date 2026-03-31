@@ -5,11 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MessageMarkdown } from "~/components/session/message-markdown";
 
-function renderWithSessionRoute(element: ReactNode, initialEntry = "/instances/instance-1/sessions/session-1") {
+function renderWithSessionRoute(element: ReactNode, initialEntry = "/projects/project-1/sessions/session-1") {
   const router = createMemoryRouter(
     [
       {
-        path: "/instances/:instanceId/sessions/:sessionId",
+        path: "/projects/:projectId/sessions/:sessionId",
         element,
       },
     ],
@@ -30,7 +30,7 @@ describe("MessageMarkdown", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(typeof input === "string" ? input : input.toString(), "http://localhost");
 
-      expect(url.pathname).toBe("/instances/instance-1/file-references/resolve");
+      expect(url.pathname).toBe("/projects/project-1/file-references/resolve");
       expect(url.searchParams.getAll("candidate")).toEqual([
         "message-markdown.tsx",
         "docs/e-ink style guide.md",
@@ -51,13 +51,13 @@ describe("MessageMarkdown", () => {
     await waitFor(() => {
       expect(screen.getByRole("link", { name: "message-markdown.tsx:44" })).toHaveAttribute(
         "href",
-        "/instances/instance-1/sessions/session-1/files?file=app%2Fcomponents%2Fsession%2Fmessage-markdown.tsx&path=app%2Fcomponents%2Fsession&line=44",
+        "/projects/project-1/sessions/session-1/files?file=app%2Fcomponents%2Fsession%2Fmessage-markdown.tsx&path=app%2Fcomponents%2Fsession&line=44",
       );
     });
 
     expect(screen.getByRole("link", { name: "docs/e-ink style guide.md" })).toHaveAttribute(
       "href",
-      "/instances/instance-1/sessions/session-1/files?file=docs%2Fe-ink+style+guide.md&path=docs",
+      "/projects/project-1/sessions/session-1/files?file=docs%2Fe-ink+style+guide.md&path=docs",
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -102,7 +102,7 @@ describe("MessageMarkdown", () => {
   it("retries negative resolutions after the cache TTL expires", async () => {
     let now = 10_000;
     vi.spyOn(Date, "now").mockImplementation(() => now);
-    const instanceId = "instance-retry";
+    const projectId = "project-retry";
     const fileName = "retry-file.ts";
 
     const fetchMock = vi.fn()
@@ -116,12 +116,12 @@ describe("MessageMarkdown", () => {
       <RouterProvider
         router={createMemoryRouter(
           [
-            {
-              path: "/instances/:instanceId/sessions/:sessionId",
-              element: <MessageMarkdown text={fileName} />,
-            },
+              {
+                path: "/projects/:projectId/sessions/:sessionId",
+                element: <MessageMarkdown text={fileName} />,
+              },
           ],
-          { initialEntries: ["/instances/instance-retry/sessions/session-1"] },
+          { initialEntries: ["/projects/project-retry/sessions/session-1"] },
         )}
       />,
     );
@@ -134,12 +134,12 @@ describe("MessageMarkdown", () => {
       <RouterProvider
         router={createMemoryRouter(
           [
-            {
-              path: "/instances/:instanceId/sessions/:sessionId",
-              element: <MessageMarkdown text={`${fileName} updated`} />,
-            },
+              {
+                path: "/projects/:projectId/sessions/:sessionId",
+                element: <MessageMarkdown text={`${fileName} updated`} />,
+              },
           ],
-          { initialEntries: ["/instances/instance-retry/sessions/session-1"] },
+          { initialEntries: ["/projects/project-retry/sessions/session-1"] },
         )}
       />,
     );
@@ -150,12 +150,12 @@ describe("MessageMarkdown", () => {
       <RouterProvider
         router={createMemoryRouter(
           [
-            {
-              path: "/instances/:instanceId/sessions/:sessionId",
-              element: <MessageMarkdown text={`${fileName} retried`} />,
-            },
+              {
+                path: "/projects/:projectId/sessions/:sessionId",
+                element: <MessageMarkdown text={`${fileName} retried`} />,
+              },
           ],
-          { initialEntries: ["/instances/instance-retry/sessions/session-1"] },
+          { initialEntries: ["/projects/project-retry/sessions/session-1"] },
         )}
       />,
     );
@@ -167,8 +167,8 @@ describe("MessageMarkdown", () => {
     await waitFor(() => {
       expect(screen.getByRole("link", { name: new RegExp(fileName, "i") })).toHaveAttribute(
         "href",
-        `/instances/${instanceId}/sessions/session-1/files?file=app%2F${fileName}&path=app`,
-      );
-    });
+          `/projects/${projectId}/sessions/session-1/files?file=app%2F${fileName}&path=app`,
+        );
+      });
   });
 });

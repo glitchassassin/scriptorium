@@ -4,18 +4,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MessagePartTool } from "~/components/session/message-part-tool";
 import type { OpencodeToolPart } from "~/lib/opencode/events";
-import { useOptionalInstanceIdParam } from "~/components/session/use-optional-instance-id-param";
+import { useOptionalProjectIdParam } from "~/components/session/use-optional-project-id-param";
 
-vi.mock("~/components/session/use-optional-instance-id-param", () => ({
-  useOptionalInstanceIdParam: vi.fn(),
+vi.mock("~/components/session/use-optional-project-id-param", () => ({
+  useOptionalProjectIdParam: vi.fn(),
 }));
 
-const mockUseOptionalInstanceIdParam = vi.mocked(useOptionalInstanceIdParam);
+const mockUseOptionalProjectIdParam = vi.mocked(useOptionalProjectIdParam);
 
 describe("MessagePartTool", () => {
   afterEach(() => {
-    mockUseOptionalInstanceIdParam.mockReset();
-    mockUseOptionalInstanceIdParam.mockReturnValue(undefined);
+    mockUseOptionalProjectIdParam.mockReset();
+    mockUseOptionalProjectIdParam.mockReturnValue(undefined);
   });
 
   it("renders bash tool output with command text", () => {
@@ -182,7 +182,7 @@ describe("MessagePartTool", () => {
       },
     };
 
-    mockUseOptionalInstanceIdParam.mockReturnValue("instance-1");
+    mockUseOptionalProjectIdParam.mockReturnValue("project-1");
 
     render(
       <MemoryRouter>
@@ -193,7 +193,7 @@ describe("MessagePartTool", () => {
     expect(screen.getByText("Task (completed)")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /investigate transcript links/i })).toHaveAttribute(
       "href",
-      "/instances/instance-1/sessions/session-child",
+      "/projects/project-1/sessions/session-child",
     );
     expect(screen.getByRole("link", { name: /investigate transcript links/i })).toHaveClass("underline");
   });

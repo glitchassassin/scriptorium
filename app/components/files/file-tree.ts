@@ -4,7 +4,7 @@ import type {
   FileTreeNode,
   FileTreeStatus,
   GitChangedFile,
-} from "~/lib/instances/types";
+} from "~/lib/projects/types";
 
 type StatusFile = {
   path: string;

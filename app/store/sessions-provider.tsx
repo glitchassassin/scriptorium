@@ -13,20 +13,20 @@ import { useSessionEvents } from "~/components/events/session-events-provider";
 import {
   isSessionUnread,
   type SidebarSessionRecord,
-} from "~/lib/instances/sidebar";
+} from "~/lib/projects/sidebar";
 import type { OpencodeSessionStatus } from "~/lib/opencode/events";
 
 type SessionsContextValue = Record<string, SidebarSessionRecord>;
 type SessionStatusesContextValue = Record<string, OpencodeSessionStatus>;
 
 type UnreadStatusEvent = {
-  instanceId: string;
+  projectId: string;
   sessionId: string;
   updatedAt: number;
 };
 
 type UnreadStatusEventFilter = {
-  instanceId?: string;
+  projectId?: string;
   sessionId?: string;
 };
 
@@ -218,7 +218,7 @@ export function SessionsProvider({
 
   const notifyUnreadStatusEvent = useCallback((event: UnreadStatusEvent) => {
     for (const subscriber of subscribersRef.current.values()) {
-      if (subscriber.filter?.instanceId && subscriber.filter.instanceId !== event.instanceId) {
+      if (subscriber.filter?.projectId && subscriber.filter.projectId !== event.projectId) {
         continue;
       }
 
@@ -262,7 +262,7 @@ export function SessionsProvider({
           },
         });
         notifyUnreadStatusEvent({
-          instanceId: event.instanceId,
+          projectId: event.projectId,
           sessionId: event.summary.id,
           updatedAt,
         });
@@ -288,7 +288,7 @@ export function SessionsProvider({
           state: { updatedAt },
         });
         notifyUnreadStatusEvent({
-          instanceId: event.instanceId,
+          projectId: event.projectId,
           sessionId: event.sessionId,
           updatedAt,
         });
@@ -385,7 +385,7 @@ export function useUnreadStatusEvents(handler: (event: UnreadStatusEvent) => voi
     }
 
     return context.subscribe((event) => handlerRef.current(event), filter);
-  }, [context, filter?.instanceId, filter?.sessionId]);
+  }, [context, filter?.projectId, filter?.sessionId]);
 }
 
 export type { SidebarSessionRecord as SessionState };

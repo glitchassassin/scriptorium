@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
 import { SidebarNav } from "~/components/shell/sidebar-nav";
-import { useHasVisibleUnreadSessions } from "~/components/shell/sidebar-state";
+import { useHasVisibleUnreadProjectSessions } from "~/components/shell/sidebar-state";
 import { UnreadBadge } from "~/components/ui/unread-badge";
 import { cn } from "~/lib/cn";
 import type { RouteHandleIconAction } from "~/lib/route-handle";
@@ -49,7 +49,7 @@ function HeaderIconAction({ action }: { action: RouteHandleIconAction }) {
 
 export function AppShell({ breadcrumbs, leadingIconAction, iconNavActions }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const hasUnreadSidebarSessions = useHasVisibleUnreadSessions();
+  const hasUnreadSidebarSessions = useHasVisibleUnreadProjectSessions();
   const location = useLocation();
   const titleLabel = breadcrumbs.map((breadcrumb) =>
     typeof breadcrumb.content === "string" ? breadcrumb.content : null
@@ -94,9 +94,9 @@ export function AppShell({ breadcrumbs, leadingIconAction, iconNavActions }: App
               <header className="flex items-center justify-between gap-3">
                 <NavLink
                   className="inline-flex min-h-11 items-center px-3 py-2 text-sm uppercase tracking-[0.08em] text-black"
-                  to="/instances"
+                  to="/projects"
                 >
-                  <span className="font-bold">Instances</span>
+                  <span className="font-bold">Projects</span>
                 </NavLink>
                 <button
                   aria-label="Close navigation"

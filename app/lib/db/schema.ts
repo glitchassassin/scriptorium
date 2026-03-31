@@ -79,27 +79,16 @@ export const sessions = sqliteTable(
   (table) => [index("idx_sessions_expires_at").on(table.expiresAt)],
 );
 
-export const instances = sqliteTable(
-  "instances",
+export const projects = sqliteTable(
+  "projects",
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     directory: text("directory").notNull(),
-    port: integer("port").notNull(),
-    status: text("status").notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
-    lastStartedAt: text("last_started_at"),
-    lastExitAt: text("last_exit_at"),
-    lastError: text("last_error"),
   },
-  (table) => [
-    index("idx_instances_status").on(table.status),
-    check(
-      "instances_status_check",
-      sql`${table.status} in ('starting', 'running', 'stopped', 'error')`,
-    ),
-  ],
+  (table) => [index("idx_projects_directory").on(table.directory)],
 );
 
 export const sessionReadStatuses = sqliteTable(
@@ -119,7 +108,7 @@ export const sessionReadStatuses = sqliteTable(
 export const modelUsages = sqliteTable(
   "model_usages",
   {
-    instanceId: text("instance_id").notNull(),
+    projectId: text("project_id").notNull(),
     sessionId: text("session_id").notNull(),
     providerId: text("provider_id").notNull(),
     modelId: text("model_id").notNull(),
@@ -129,9 +118,9 @@ export const modelUsages = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.instanceId, table.sessionId, table.providerId, table.modelId] }),
-    index("idx_model_usages_instance_used_at").on(table.instanceId, table.usedAt),
-    index("idx_model_usages_session").on(table.instanceId, table.sessionId),
+    primaryKey({ columns: [table.projectId, table.sessionId, table.providerId, table.modelId] }),
+    index("idx_model_usages_project_used_at").on(table.projectId, table.usedAt),
+    index("idx_model_usages_session").on(table.projectId, table.sessionId),
     index("idx_model_usages_used_at").on(table.usedAt),
   ],
 );

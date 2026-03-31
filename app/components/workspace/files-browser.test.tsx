@@ -3,7 +3,7 @@ import { createMemoryRouter, RouterProvider, useSearchParams } from "react-route
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FilesBrowser, formatLineReference, formatWorkspacePath } from "~/components/workspace/files-browser";
-import type { FileBrowserContent, FileBrowserListing } from "~/lib/instances/types";
+import type { FileBrowserContent, FileBrowserListing } from "~/lib/projects/types";
 
 const listing: FileBrowserListing = {
   currentPath: "/repo",

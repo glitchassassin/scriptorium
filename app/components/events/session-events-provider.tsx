@@ -13,7 +13,7 @@ import { PersistentEventSource } from "~/lib/events/persistent-event-source";
 import { sessionEventSchema, type SessionEvent, type SessionEventType } from "~/lib/session-events";
 
 type SessionEventFilter<TTypes extends readonly SessionEventType[] | undefined = readonly SessionEventType[] | undefined> = {
-  instanceId?: string;
+  projectId?: string;
   sessionId?: string;
   types?: TTypes;
 };
@@ -61,8 +61,8 @@ function matchesFilter(event: SessionEvent, filter?: SessionEventFilter) {
     return false;
   }
 
-  if (filter.instanceId) {
-    if (!("instanceId" in event) || event.instanceId !== filter.instanceId) {
+  if (filter.projectId) {
+    if (!("projectId" in event) || event.projectId !== filter.projectId) {
       return false;
     }
   }
@@ -156,7 +156,7 @@ export function useSessionEvents<TTypes extends readonly SessionEventType[] | un
     }
 
     return context.subscribe((event) => handlerRef.current(event as FilteredSessionEvent<TTypes>), filter);
-  }, [context, filter?.instanceId, filter?.sessionId, typesKey]);
+  }, [context, filter?.projectId, filter?.sessionId, typesKey]);
 }
 
 export type { FilteredSessionEvent, SessionEvent, SessionEventFilter };

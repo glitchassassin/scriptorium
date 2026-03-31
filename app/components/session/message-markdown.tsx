@@ -15,7 +15,7 @@ import { useAssistantFileReferenceResolutions } from "./use-assistant-file-refer
 
 type MessageMarkdownProps = {
   filesPath?: string;
-  instanceId?: string;
+  projectId?: string;
   text: string;
   variant?: "body" | "reasoning";
 };
@@ -96,9 +96,9 @@ const MARKDOWN_COMPONENTS = {
   pre: MarkdownPre,
 } as const;
 
-export const MessageMarkdown = memo(function MessageMarkdown({ filesPath, instanceId, text, variant = "body" }: MessageMarkdownProps) {
-  const routeContext = useAssistantFileReferenceRoute({ filesPath, instanceId });
-  const fileReferenceResolutions = useAssistantFileReferenceResolutions(routeContext.instanceId, text);
+export const MessageMarkdown = memo(function MessageMarkdown({ filesPath, projectId, text, variant = "body" }: MessageMarkdownProps) {
+  const routeContext = useAssistantFileReferenceRoute({ filesPath, projectId });
+  const fileReferenceResolutions = useAssistantFileReferenceResolutions(routeContext.projectId, text);
   const remarkPlugins = useMemo<PluggableList>(() => {
     if (!routeContext.filesPath) {
       return REMARK_PLUGINS;

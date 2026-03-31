@@ -3,10 +3,10 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "~/components/shell/app-shell";
-import { getSessionIconNavActions } from "~/routes/_app/instances.$instanceId/sessions.$sessionId/+/session-route";
+import { getSessionIconNavActions } from "~/routes/_app/projects.$projectId/sessions.$sessionId/+/session-route";
 
 const useLocationMock = vi.fn();
-const useHasVisibleUnreadSessionsMock = vi.fn();
+const useHasVisibleUnreadProjectSessionsMock = vi.fn();
 
 vi.mock("react-router", () => ({
   Form: ({ action, children, method }: { action?: string; children: ReactNode; method?: string }) => (
@@ -38,51 +38,51 @@ vi.mock("~/components/shell/sidebar-nav", () => ({
 }));
 
 vi.mock("~/components/shell/sidebar-state", () => ({
-  useHasVisibleUnreadSessions: (...args: unknown[]) => useHasVisibleUnreadSessionsMock(...args),
+  useHasVisibleUnreadProjectSessions: (...args: unknown[]) => useHasVisibleUnreadProjectSessionsMock(...args),
 }));
 
 describe("AppShell", () => {
   it("uses the deepest title and nearest nav actions independently", () => {
-    useLocationMock.mockReturnValue({ pathname: "/instances/instance-1/sessions/session-1/review/uncommitted" });
-    useHasVisibleUnreadSessionsMock.mockReturnValue(false);
+    useLocationMock.mockReturnValue({ pathname: "/projects/project-1/sessions/session-1/review/uncommitted" });
+    useHasVisibleUnreadProjectSessionsMock.mockReturnValue(false);
 
     render(
         <AppShell
           breadcrumbs={[
-            { content: "Workspace", to: "/instances/instance-1" },
-            { content: "Planning", to: "/instances/instance-1/sessions/session-1" },
+            { content: "Workspace", to: "/projects/project-1" },
+            { content: "Planning", to: "/projects/project-1/sessions/session-1" },
             { content: "review" },
           ]}
           leadingIconAction={{
             icon: "mdi:message-plus-outline",
             label: "New session",
-            action: "/instances/instance-1?index",
+            action: "/projects/project-1?index",
             method: "post",
             fields: { intent: "create-session" },
           }}
-          iconNavActions={getSessionIconNavActions("instance-1", "session-1")}
+          iconNavActions={getSessionIconNavActions("project-1", "session-1")}
         />,
       );
 
     expect(screen.getByRole("heading", { name: "Workspace / Planning / review" })).toBeInTheDocument();
     expect(screen.getByLabelText("Chat transcript")).toHaveAttribute(
       "href",
-      "/instances/instance-1/sessions/session-1",
+      "/projects/project-1/sessions/session-1",
     );
     expect(screen.getByLabelText("Review")).toHaveAttribute(
       "href",
-      "/instances/instance-1/sessions/session-1/review/uncommitted",
+      "/projects/project-1/sessions/session-1/review/uncommitted",
     );
     expect(screen.getByRole("button", { name: "New session" }).closest("form")).toHaveAttribute(
       "action",
-      "/instances/instance-1?index",
+      "/projects/project-1?index",
     );
     expect(screen.queryByLabelText("Instance overview")).not.toBeInTheDocument();
   });
 
   it("renders submit-style icon actions as forms with hidden fields", () => {
-    useLocationMock.mockReturnValue({ pathname: "/instances/instance-1" });
-    useHasVisibleUnreadSessionsMock.mockReturnValue(false);
+    useLocationMock.mockReturnValue({ pathname: "/projects/project-1" });
+    useHasVisibleUnreadProjectSessionsMock.mockReturnValue(false);
 
     render(
       <AppShell
@@ -91,7 +91,7 @@ describe("AppShell", () => {
         iconNavActions={[{
           icon: "mdi:message-plus-outline",
           label: "New session",
-          action: "/instances/instance-1?index",
+          action: "/projects/project-1?index",
           method: "post",
           fields: { intent: "create-session" },
         }]}
@@ -101,14 +101,14 @@ describe("AppShell", () => {
     const button = screen.getByRole("button", { name: "New session" });
     const form = button.closest("form");
 
-    expect(form).toHaveAttribute("action", "/instances/instance-1?index");
+    expect(form).toHaveAttribute("action", "/projects/project-1?index");
     expect(form).toHaveAttribute("method", "post");
     expect(screen.getByDisplayValue("create-session")).toHaveAttribute("name", "intent");
   });
 
   it("shows an unread indicator on the navigation toggle when any sidebar session is unread", () => {
-    useLocationMock.mockReturnValue({ pathname: "/instances/instance-1" });
-    useHasVisibleUnreadSessionsMock.mockReturnValue(true);
+    useLocationMock.mockReturnValue({ pathname: "/projects/project-1" });
+    useHasVisibleUnreadProjectSessionsMock.mockReturnValue(true);
 
     render(
       <AppShell
@@ -122,8 +122,8 @@ describe("AppShell", () => {
   });
 
   it("ignores unread sessions outside the visible sidebar limit", () => {
-    useLocationMock.mockReturnValue({ pathname: "/instances/instance-1" });
-    useHasVisibleUnreadSessionsMock.mockReturnValue(false);
+    useLocationMock.mockReturnValue({ pathname: "/projects/project-1" });
+    useHasVisibleUnreadProjectSessionsMock.mockReturnValue(false);
 
     render(
       <AppShell

@@ -4,7 +4,7 @@ vi.mock("~/components/pwa/service-worker-registration", () => ({
   ServiceWorkerRegistration: () => null,
 }));
 
-vi.mock("~/lib/instances/runtime.server", () => ({
+vi.mock("~/lib/projects/runtime.server", () => ({
   ensureStarted: vi.fn(),
 }));
 
@@ -20,16 +20,16 @@ describe("root titles", () => {
         params: {},
       },
       {
-        data: { instance: { name: "Workspace" }, session: { id: "session-1", title: "Planning" } },
+        data: { project: { name: "Workspace" }, session: { id: "session-1", title: "Planning" } },
         handle: {
           title: [
-            { label: "Workspace", to: "/instances/instance-1" },
-            { label: "Planning", to: "/instances/instance-1/sessions/session-1" },
+            { label: "Workspace", to: "/projects/project-1" },
+            { label: "Planning", to: "/projects/project-1/sessions/session-1" },
             { label: "review" },
           ],
         },
-        id: "routes/_app/instances.$instanceId/sessions.$sessionId/review.$mode",
-        params: { instanceId: "instance-1", mode: "uncommitted", sessionId: "session-1" },
+        id: "routes/_app/projects.$projectId/sessions.$sessionId/review.$mode",
+        params: { projectId: "project-1", mode: "uncommitted", sessionId: "session-1" },
       },
     ] as never)).toBe("review | Planning | scriptorium");
   });

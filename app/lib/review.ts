@@ -1,4 +1,4 @@
-import type { FileTreeStatus, GitStatusSummary } from "~/lib/instances/types";
+import type { FileTreeStatus, GitStatusSummary } from "~/lib/projects/types";
 
 export const sessionReviewModes = ["session", "recent", "uncommitted"] as const;
 

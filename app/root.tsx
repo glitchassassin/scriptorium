@@ -14,7 +14,7 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import safeArea from "~/styles/safe-area.module.css";
 import { ServiceWorkerRegistration } from "~/components/pwa/service-worker-registration";
-import { ensureStarted } from "~/lib/instances/runtime.server";
+import { ensureStarted } from "~/lib/projects/runtime.server";
 import { APP_NAME, getDocumentTitle, normalizeRouteHandleMatches, resolveRouteHandleValue } from "~/lib/route-handle";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 
@@ -31,7 +31,7 @@ export async function loader() {
   const timings = makeTimings("root loader");
 
   await time(() => ensureStarted(), {
-    desc: "ensure instance runtime started",
+    desc: "ensure shared project runtime started",
     timings,
     type: "runtime",
   });

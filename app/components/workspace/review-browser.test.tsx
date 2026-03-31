@@ -3,7 +3,7 @@ import { createMemoryRouter, RouterProvider, useParams, useSearchParams } from "
 import { describe, expect, it } from "vitest";
 
 import { ReviewBrowser } from "~/components/workspace/review-browser";
-import type { GitStatusSummary } from "~/lib/instances/types";
+import type { GitStatusSummary } from "~/lib/projects/types";
 import type { ReviewData, ReviewFileSelection } from "~/lib/review";
 import { getSessionReviewModeOptions } from "~/lib/review";
 
@@ -188,7 +188,7 @@ describe("ReviewBrowser", () => {
     expect(router.state.location.search).toBe("");
   });
 
-  it("omits the mode picker for instance review", () => {
+  it("omits the mode picker for project review", () => {
     renderInstanceReview();
 
     expect(screen.queryByRole("button", { name: "Review mode" })).not.toBeInTheDocument();

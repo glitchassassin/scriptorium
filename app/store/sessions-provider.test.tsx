@@ -39,9 +39,9 @@ function TestConsumer() {
 function TestUnreadStatusConsumer({
   onEvent,
 }: {
-  onEvent: (event: { instanceId: string; sessionId: string; updatedAt: number }) => void;
+  onEvent: (event: { projectId: string; sessionId: string; updatedAt: number }) => void;
 }) {
-  useUnreadStatusEvents(onEvent, { instanceId: "instance-1", sessionId: "session-1" });
+  useUnreadStatusEvents(onEvent, { projectId: "project-1", sessionId: "session-1" });
   return null;
 }
 
@@ -101,7 +101,7 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.activity",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         updatedAt: 503,
       });
@@ -117,7 +117,7 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.status",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         status: { type: "busy" },
       });
@@ -159,7 +159,7 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.deleted",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
       });
     });
@@ -171,7 +171,7 @@ describe("SessionsProvider", () => {
     expect(screen.getByTestId("indicator")).toHaveTextContent("none");
   });
 
-  it("publishes unread-status events from instance activity", () => {
+  it("publishes unread-status events from project activity", () => {
     let onSessionEvent: ((event: any) => void) | null = null;
     const onUnreadStatusEvent = vi.fn();
 
@@ -190,14 +190,14 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.activity",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         updatedAt: 5,
       });
     });
 
     expect(onUnreadStatusEvent).toHaveBeenCalledWith({
-      instanceId: "instance-1",
+      projectId: "project-1",
       sessionId: "session-1",
       updatedAt: 5,
     });
@@ -221,7 +221,7 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.summary",
-        instanceId: "instance-1",
+        projectId: "project-1",
         summary: {
           id: "session-1",
           parentID: "session-root",
@@ -254,7 +254,7 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.activity",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         updatedAt: 10_000,
       });
@@ -286,19 +286,19 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.activity",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         updatedAt: 503,
       });
       sessionEventHandler({
         type: "session.status",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         status: { type: "busy" },
       });
       sessionEventHandler({
         type: "session.activity",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         updatedAt: 4,
       });
@@ -311,7 +311,7 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.status",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         status: { type: "idle" },
       });
@@ -344,13 +344,13 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.activity",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         updatedAt: 503,
       });
       sessionEventHandler({
         type: "session.summary",
-        instanceId: "instance-1",
+        projectId: "project-1",
         summary: {
           id: "session-1",
           parentID: null,
@@ -432,7 +432,7 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.activity",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         updatedAt: 7 + 500,
       });
@@ -446,7 +446,7 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.activity",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         updatedAt: 7 + 501,
       });
@@ -491,7 +491,7 @@ describe("SessionsProvider", () => {
     act(() => {
       sessionEventHandler({
         type: "session.status",
-        instanceId: "instance-1",
+        projectId: "project-1",
         sessionId: "session-1",
         status: { type: "busy" },
       });

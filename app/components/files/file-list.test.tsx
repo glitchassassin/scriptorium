@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FileTreeList } from "~/components/files/file-list";
-import type { FileTreeNode } from "~/lib/instances/types";
+import type { FileTreeNode } from "~/lib/projects/types";
 
 const TREE: FileTreeNode[] = [
   {

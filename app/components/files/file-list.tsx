@@ -6,7 +6,7 @@ import type {
   FileBrowserSelection,
   FileBrowserSelectionMode,
   FileTreeNode,
-} from "~/lib/instances/types";
+} from "~/lib/projects/types";
 
 type FileTreeListProps = {
   currentPath?: string | null;

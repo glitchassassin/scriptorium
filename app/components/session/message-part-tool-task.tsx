@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import type { OpencodeToolPart } from "~/lib/opencode/events";
 
 type MessagePartToolTaskProps = {
-  instanceId?: string;
+  projectId?: string;
   part: OpencodeToolPart;
 };
 
@@ -21,17 +21,17 @@ function getLabel(part: OpencodeToolPart) {
   return getText(part.state.input.description) || getSessionId(part) || "Task session";
 }
 
-export function MessagePartToolTask({ instanceId, part }: MessagePartToolTaskProps) {
+export function MessagePartToolTask({ projectId, part }: MessagePartToolTaskProps) {
   const id = getSessionId(part);
   const label = getLabel(part);
 
   return (
     <div className="pt-2 text-sm leading-6">
       <p className="opacity-60">Task ({part.state.status})</p>
-      {id && instanceId ? (
+      {id && projectId ? (
         <Link
           className="inline-flex min-h-11 items-center gap-1 font-bold underline underline-offset-4"
-          to={`/instances/${instanceId}/sessions/${id}`}
+          to={`/projects/${projectId}/sessions/${id}`}
         >
           <span>{label}</span>
           <Icon className="size-4" icon="mdi:arrow-right" />
