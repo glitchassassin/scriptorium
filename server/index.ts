@@ -98,10 +98,16 @@ async function createApp(runtime: RuntimeConfiguration, packageRoot: string) {
   }));
 
   if (IS_DEV) {
+    const hmrPort = runtime.config.server.port >= 65535
+      ? runtime.config.server.port - 1
+      : runtime.config.server.port + 1;
     const vite = await import("vite");
     const viteDevServer = await vite.createServer({
       appType: "custom",
       server: {
+        hmr: {
+          port: hmrPort,
+        },
         middlewareMode: true,
       },
     });

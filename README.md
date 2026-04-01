@@ -101,6 +101,7 @@ Common flags and env vars include:
 - `--browser-root` / `SCRIPTORIUM_BROWSER_ROOT`
 - `--db-path` / `SCRIPTORIUM_DB_PATH`
 - `--opencode-bin` / `OPENCODE_BIN`
+- `--opencode-url` / `SCRIPTORIUM_OPENCODE_URL`
 - `--tailscale` / `--no-tailscale`
 - `SESSION_SECRET` to override the generated session secret
 
@@ -110,6 +111,7 @@ Example:
 SCRIPTORIUM_HOST=127.0.0.1 \
 SCRIPTORIUM_PORT=6200 \
 SCRIPTORIUM_BROWSER_ROOT=$HOME/src \
+SCRIPTORIUM_OPENCODE_URL=http://127.0.0.1:44556 \
 OPENCODE_BIN=opencode \
 npm start -- --no-tailscale
 ```

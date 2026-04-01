@@ -23,6 +23,7 @@ workspace:
   browserRoot: $HOME
 opencode:
   bin: opencode
+  url: <set opencode.url>
 network:
   tailscale: false
 database:
@@ -35,6 +36,7 @@ database:
 | `server.port` | number | `5174` | `--port` | `SCRIPTORIUM_PORT` | Port for the web server. |
 | `workspace.browserRoot` | string | `$HOME` | `--browser-root` | `SCRIPTORIUM_BROWSER_ROOT` | Root directory exposed in the workspace browser. |
 | `opencode.bin` | string | `opencode` | `--opencode-bin` | `OPENCODE_BIN` | OpenCode executable name or path. |
+| `opencode.url` | string |  | `--opencode-url` | `SCRIPTORIUM_OPENCODE_URL` | OpenCode server base URL. When set, Scriptorium connects to this server instead of launching its own shared OpenCode process. |
 | `network.tailscale` | boolean | `false` | `--tailscale` |  | Expose the app with tailscale serve. |
 | `database.path` | string | `<scriptorium_data_dir>/app.db` | `--db-path` | `SCRIPTORIUM_DB_PATH` | Path to the SQLite database file. |
 

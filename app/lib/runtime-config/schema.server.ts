@@ -175,6 +175,14 @@ export function createConfigSchema(sources: OverrideSources = {}) {
         }),
         sources,
       ),
+      url: override(
+        meta(z.string().url().optional(), {
+          cli: "opencode-url",
+          env: "SCRIPTORIUM_OPENCODE_URL",
+          description: "OpenCode server base URL. When set, Scriptorium connects to this server instead of launching its own shared OpenCode process.",
+        }),
+        sources,
+      ),
     }),
     network: section({
       tailscale: override(

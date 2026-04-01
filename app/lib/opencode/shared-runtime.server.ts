@@ -10,6 +10,10 @@ type SharedRuntimeGlobal = typeof globalThis & {
   __scriptoriumSharedOpencodeRuntime?: SharedOpencodeRuntime;
 };
 
+function getConfiguredOpencodeServerUrl() {
+  return getRuntimeConfiguration().config.opencode.url ?? null;
+}
+
 class SharedOpencodeRuntime {
   private current: Promise<ManagedSharedServer> | null = null;
   private lastError: Error | null = null;
@@ -17,6 +21,11 @@ class SharedOpencodeRuntime {
   private shutdownBound = false;
 
   async ensureStarted() {
+    if (getConfiguredOpencodeServerUrl()) {
+      this.lastError = null;
+      return true;
+    }
+
     this.bindShutdown();
 
     try {
@@ -29,6 +38,12 @@ class SharedOpencodeRuntime {
   }
 
   async getServerUrl() {
+    const configuredServerUrl = getConfiguredOpencodeServerUrl();
+
+    if (configuredServerUrl) {
+      return configuredServerUrl;
+    }
+
     const started = await this.ensureStarted();
 
     if (!started) {

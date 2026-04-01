@@ -11,6 +11,7 @@ describe("runtime configuration cli", () => {
       "--port=6200",
       "--browser-root=/tmp/workspace",
       "--opencode-bin=custom-opencode",
+      "--opencode-url=http://localhost:4400",
       "--no-tailscale",
       "--db-path=/tmp/scriptorium.db",
       "--config-dir=/tmp/scriptorium-config",
@@ -23,6 +24,7 @@ describe("runtime configuration cli", () => {
         port: "6200",
         "browser-root": "/tmp/workspace",
         "opencode-bin": "custom-opencode",
+        "opencode-url": "http://localhost:4400",
         tailscale: false,
         "db-path": "/tmp/scriptorium.db",
       },
@@ -39,6 +41,7 @@ describe("runtime configuration cli", () => {
     expect(help).toContain("--config-dir <path>");
     expect(help).toContain("--data-dir <path>");
     expect(help).toContain("--host <string>");
+    expect(help).toContain("--opencode-url <string>");
     expect(help).toContain("--tailscale, --no-tailscale");
   });
 });

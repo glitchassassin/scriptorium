@@ -41,6 +41,8 @@ describe("runtime configuration loader", () => {
       "  port: 6100",
       "workspace:",
       "  browserRoot: /tmp/workspace",
+      "opencode:",
+      "  url: http://localhost:4200",
       "network:",
       "  tailscale: true",
       "",
@@ -52,8 +54,10 @@ describe("runtime configuration loader", () => {
       env: {
         SCRIPTORIUM_HOST: "env-host",
         OPENCODE_BIN: "custom-opencode",
+        SCRIPTORIUM_OPENCODE_URL: "http://localhost:4300",
       },
       cli: {
+        "opencode-url": "http://localhost:4400",
         port: "6200",
       },
     });
@@ -63,6 +67,7 @@ describe("runtime configuration loader", () => {
     expect(runtime.config.workspace.browserRoot).toBe("/tmp/workspace");
     expect(runtime.config.network.tailscale).toBe(true);
     expect(runtime.config.opencode.bin).toBe("custom-opencode");
+    expect(runtime.config.opencode.url).toBe("http://localhost:4400");
     expect(runtime.config.database.path).toBe(join(dataDir, "app.db"));
   });
 
