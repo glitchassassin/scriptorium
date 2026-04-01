@@ -1,7 +1,7 @@
 {
   "name": "scriptorium",
   "description": "Experimental single-user app for browsing local workspaces and running OpenCode-backed coding sessions.",
-  "version": "0.1.0",
+  "version": "0.0.0-semantically-released",
   "license": "MIT",
   "repository": {
     "type": "git",
