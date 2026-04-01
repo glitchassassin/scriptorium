@@ -1,15 +1,28 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const listOpencodeMessagesMock = vi.fn();
+const listOpencodeSessionsMock = vi.fn();
+const listProjectsMock = vi.fn();
+
+vi.mock("~/lib/projects/opencode.server", () => ({
+  listOpencodeMessages: (...args: unknown[]) => listOpencodeMessagesMock(...args),
+  listOpencodeSessions: (...args: unknown[]) => listOpencodeSessionsMock(...args),
+}));
+
+vi.mock("~/lib/projects/runtime.server", () => ({
+  listProjects: (...args: unknown[]) => listProjectsMock(...args),
+}));
 
 import { withTestDatabase } from "~/lib/db.server";
-import type { ProjectRecord } from "~/lib/projects/types";
 import {
   listRecentModelChoices,
   recordModelUsage,
   resolveSessionModelChoice,
 } from "~/lib/model-usage.server";
 import type { OpencodeMessageWithParts, OpencodeProvider } from "~/lib/opencode/events";
+import type { ProjectRecord } from "~/lib/projects/types";
 
 const instanceA: ProjectRecord = {
   id: "project-a",
@@ -85,6 +98,16 @@ function createUserMessage(input: {
 }
 
 describe("model usage", () => {
+  beforeEach(() => {
+    listOpencodeMessagesMock.mockReset();
+    listOpencodeSessionsMock.mockReset();
+    listProjectsMock.mockReset();
+
+    listOpencodeMessagesMock.mockResolvedValue([]);
+    listOpencodeSessionsMock.mockResolvedValue([]);
+    listProjectsMock.mockResolvedValue([]);
+  });
+
   it("prefers current-project recents and keeps the newest variant per model", async () => {
     await withTestDatabase(async () => {
       recordModelUsage({
