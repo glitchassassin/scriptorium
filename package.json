@@ -28,6 +28,10 @@
   "engines": {
     "node": ">=24"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "react-router build && npm run build:runtime",
     "build:runtime": "tsc -p tsconfig.runtime.json",
@@ -35,7 +39,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "docs:config": "node ./scripts/generate-config-docs.ts",
+    "docs:config:check": "npm run docs:config && git diff --exit-code -- docs/config.md",
     "prepack": "npm run docs:config && npm run build",
+    "release:verify": "npm run docs:config:check && npm run typecheck && npm test && npm run build",
     "start": "node ./bin/scriptorium.js",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -85,6 +91,7 @@
     "drizzle-kit": "^1.0.0-beta.17-8a36f93",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^28.1.0",
+    "semantic-release": "^25.0.3",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
     "vite": "^7.1.7",
