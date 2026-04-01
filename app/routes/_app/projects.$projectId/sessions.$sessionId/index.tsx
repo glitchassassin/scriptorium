@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router";
 import { Icon } from "@iconify/react";
 
+import { getDocumentTitle } from "~/lib/document-title";
 import { useMarkSessionReadOptimistic, useSession, useUnreadStatusEvents } from "~/store/sessions-provider";
 import { useSessionInfo, useSessionStatus } from "~/routes/_app/projects.$projectId/sessions.$sessionId/+/session-live";
 import { SessionTranscript } from "~/routes/_app/projects.$projectId/sessions.$sessionId/+/session-transcript";
 
 import type { Route } from "./+types/index";
-import { type SessionRouteContext } from "./+/session-route";
+import { getSessionName, type SessionRouteContext } from "./+/session-route";
 
 export default function ProjectSessionTranscriptRoute() {
   const { actionPath, project, parentSession, transcriptInitialState } = useOutletContext<SessionRouteContext>();
@@ -88,6 +89,7 @@ export default function ProjectSessionTranscriptRoute() {
 
   return (
     <>
+      <title>{getDocumentTitle(getSessionName(session), project.name)}</title>
       {parentSession ? (
         <div className="border-b-2 border-black px-3">
           <Link

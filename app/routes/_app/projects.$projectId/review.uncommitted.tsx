@@ -1,19 +1,9 @@
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ReviewBrowser } from "~/components/workspace/review-browser";
-import { defineRouteHandle } from "~/lib/route-handle";
-import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getDocumentTitle } from "~/lib/document-title";
 import { getServerTimingHeaders, loadProjectUncommittedReviewRouteData } from "~/routes/_app/projects.$projectId/review.server";
 
-import { getProjectBreadcrumbs } from "./+/project-route";
-
 import type { Route } from "./+types/review.uncommitted";
-
-export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: ({ data, params }) => [
-    ...getProjectBreadcrumbs(data?.project?.name, params.projectId),
-    { label: "review" },
-  ],
-});
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   return loadProjectUncommittedReviewRouteData({
@@ -31,6 +21,7 @@ export default function ProjectReviewRoute({ loaderData, matches }: Route.Compon
 
   return (
     <>
+      <title>{getDocumentTitle("review", project.name)}</title>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item to={`/projects/${project.id}`}>{project.name}</Breadcrumbs.Item>
         <Breadcrumbs.Item>review</Breadcrumbs.Item>

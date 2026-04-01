@@ -17,11 +17,6 @@ export type RouteHandleIconSubmitAction = {
 
 export type RouteHandleIconAction = RouteHandleIconLinkAction | RouteHandleIconSubmitAction;
 
-export type RouteBreadcrumb = {
-  label: string;
-  to?: string;
-};
-
 type RouteMatchLike = {
   id: string;
   data?: unknown;
@@ -48,22 +43,13 @@ export type RouteHandleContext<TComponentProps extends RouteComponentPropsLike> 
 };
 
 export type RouteHandleDefinition<TComponentProps extends RouteComponentPropsLike> = {
-  title?: RouteHandleValue<RouteBreadcrumb[], TComponentProps>;
   leadingIconAction?: RouteHandleValue<RouteHandleIconAction | undefined, TComponentProps>;
   iconNavActions?: RouteHandleValue<RouteHandleIconAction[], TComponentProps>;
 };
 
 export type RouteHandle = RouteHandleDefinition<RouteComponentPropsLike>;
 
-export type RouteHandleKey = keyof Pick<RouteHandle, "title" | "leadingIconAction" | "iconNavActions">;
-
-export type ResolvedHandleValueMap = {
-  title: RouteBreadcrumb[];
-  leadingIconAction: RouteHandleIconAction | undefined;
-  iconNavActions: RouteHandleIconAction[];
-};
-
-export const APP_NAME = "scriptorium";
+export type RouteHandleKey = keyof Pick<RouteHandle, "leadingIconAction" | "iconNavActions">;
 
 type RouteMatchById<TComponentProps extends RouteComponentPropsLike, TId extends RouteMatchId<TComponentProps>> = Extract<
   Exclude<TComponentProps["matches"][number], undefined>,
@@ -78,10 +64,6 @@ type NormalizedRouteMatch<TMatch extends RouteMatchLike> = Omit<TMatch, "handle"
 
 function isDefined<TValue>(value: TValue | undefined): value is TValue {
   return value !== undefined;
-}
-
-function isNonEmptyString(value: string | undefined): value is string {
-  return Boolean(value?.trim());
 }
 
 type RuntimeRouteHandleContext = {
@@ -141,10 +123,6 @@ export function normalizeRouteHandleMatches<TMatches extends readonly (RouteMatc
 
 export function resolveRouteHandleValue(
   matches: NormalizedRouteMatch<RouteMatchLike>[],
-  key: "title",
-): RouteBreadcrumb[] | undefined;
-export function resolveRouteHandleValue(
-  matches: NormalizedRouteMatch<RouteMatchLike>[],
   key: "iconNavActions",
 ): RouteHandleIconAction[] | undefined;
 export function resolveRouteHandleValue(
@@ -166,24 +144,4 @@ export function resolveRouteHandleValue(matches: NormalizedRouteMatch<RouteMatch
 
   const context = createRouteHandleContext(matches, activeMatch) satisfies RuntimeRouteHandleContext;
   return value(context);
-}
-
-export function getRouteTitleLabels(breadcrumbs: RouteBreadcrumb[] | undefined, maxItems = 2) {
-  if (!breadcrumbs?.length) {
-    return [];
-  }
-
-  const labels = breadcrumbs.map((breadcrumb) => breadcrumb.label?.trim()).filter(isNonEmptyString);
-
-  if (maxItems <= 0) {
-    return labels;
-  }
-
-  return labels.slice(-maxItems).reverse();
-}
-
-export function getDocumentTitle(breadcrumbs?: RouteBreadcrumb[]) {
-  const labels = getRouteTitleLabels(breadcrumbs);
-
-  return labels.length ? [...labels, APP_NAME].join(" | ") : APP_NAME;
 }

@@ -51,20 +51,13 @@ import {
   useSessionStatus,
 } from "~/routes/_app/projects.$projectId/sessions.$sessionId/+/session-live";
 
-import { getSessionBreadcrumbs, getSessionIconNavActions, getSessionName, type SessionRouteContext } from "./+/session-route";
+import { getSessionIconNavActions, getSessionName, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/_layout";
 
 import { SESSION_MESSAGE_PAGE_SIZE } from "~/lib/opencode/message-page";
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: ({ data, params }) =>
-    getSessionBreadcrumbs({
-      projectId: params.projectId,
-      projectName: data?.project?.name,
-      session: data?.session,
-      sessionId: params.sessionId,
-    }),
   leadingIconAction: ({ params }) => {
     const projectId = params.projectId ?? "";
 

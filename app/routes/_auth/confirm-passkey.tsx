@@ -3,24 +3,10 @@ import { data, Form, Link, redirect, useActionData } from "react-router";
 import { AuthSection, StatusMessage } from "~/components/auth/auth-shell";
 import { consumeActivationCode, getPendingEnrollment } from "~/lib/auth/activation-codes.server";
 import { activatePasskey } from "~/lib/auth/passkeys.server";
-import { defineRouteHandle } from "~/lib/route-handle";
-import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { createAuthenticatedSession } from "~/lib/auth/sessions.server";
 
 import type { Route } from "./+types/confirm-passkey";
-
-export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: ({ data }) => {
-    const enrollment = data?.enrollment;
-    const expired = enrollment && enrollment.expiresAt <= new Date().toISOString();
-
-    if (!enrollment || enrollment.status !== "pending" || enrollment.consumedAt || expired) {
-      return [{ label: "Passkey unavailable" }];
-    }
-
-    return [{ label: `Activate ${enrollment.label}` }];
-  },
-});
+import { getConfirmPasskeyDocumentTitle, isPendingEnrollmentAvailable } from "./+/confirm-passkey-state";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const enrollmentId = new URL(request.url).searchParams.get("enrollment")?.trim() || "";
@@ -64,15 +50,15 @@ export async function action({ request }: Route.ActionArgs) {
 export default function ConfirmPasskeyRoute({ loaderData }: Route.ComponentProps) {
   const latestActionData = useActionData() as { error?: string } | undefined;
   const enrollment = loaderData.enrollment;
-  const expired = enrollment && enrollment.expiresAt <= new Date().toISOString();
 
-  if (!enrollment || enrollment.status !== "pending" || enrollment.consumedAt || expired) {
+  if (!isPendingEnrollmentAvailable(enrollment)) {
     return (
       <AuthSection
         title="That enrollment is no longer available"
         copy="Pending registrations are intentionally short-lived. Start again from registration and use the newest console code."
         footer={<Link className="underline underline-offset-4" to="/register">Register a passkey</Link>}
       >
+        <title>{getConfirmPasskeyDocumentTitle(enrollment)}</title>
         <StatusMessage message={null} />
       </AuthSection>
     );
@@ -83,6 +69,7 @@ export default function ConfirmPasskeyRoute({ loaderData }: Route.ComponentProps
       title={`Activate ${enrollment.label}`}
       copy="Check the server console for the one-time confirmation code (expires in 10 minutes)."
     >
+      <title>{getConfirmPasskeyDocumentTitle(enrollment)}</title>
       <Form className="space-y-4" method="post">
         <input name="enrollmentId" type="hidden" value={loaderData.enrollmentId} />
         <label className="block space-y-2">

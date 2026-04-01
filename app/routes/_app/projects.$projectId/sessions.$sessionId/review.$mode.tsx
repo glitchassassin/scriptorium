@@ -2,6 +2,7 @@ import { useOutletContext } from "react-router";
 
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ReviewBrowser } from "~/components/workspace/review-browser";
+import { getDocumentTitle } from "~/lib/document-title";
 import type { SessionReviewMode } from "~/lib/review";
 import { getSessionReviewModeOptions } from "~/lib/review";
 import { defineRouteHandle } from "~/lib/route-handle";
@@ -12,7 +13,7 @@ import {
   loadSessionReviewRouteData,
 } from "~/routes/_app/projects.$projectId/review.server";
 
-import { getSessionBreadcrumbs, getSessionIconNavActions, getSessionName, type SessionRouteContext } from "./+/session-route";
+import { getSessionIconNavActions, getSessionName, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/review.$mode";
 
@@ -21,19 +22,6 @@ function getMode(mode: string | undefined): SessionReviewMode {
 }
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: (ctx) => {
-    const sessionMatch = ctx.requireMatch("routes/_app/projects.$projectId/sessions.$sessionId/_layout");
-
-    return [
-      ...getSessionBreadcrumbs({
-        projectId: sessionMatch.params.projectId,
-        projectName: sessionMatch.data.project?.name,
-        session: sessionMatch.data.session,
-        sessionId: sessionMatch.params.sessionId,
-      }),
-      { label: "review" },
-    ];
-  },
   iconNavActions: ({ params }) => getSessionIconNavActions(params.projectId ?? "", params.sessionId ?? "", getMode(params.mode)),
 });
 
@@ -57,6 +45,7 @@ export default function SessionReviewRoute({ loaderData, matches }: Route.Compon
 
   return (
     <>
+      <title>{getDocumentTitle("review", getSessionName(session))}</title>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item to={`/projects/${project.id}`}>{project.name}</Breadcrumbs.Item>
         <Breadcrumbs.Item to={`/projects/${project.id}/sessions/${session.id}`}>

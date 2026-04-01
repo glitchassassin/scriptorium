@@ -3,15 +3,10 @@ import { useState } from "react";
 
 import { AuthSection, StatusMessage } from "~/components/auth/auth-shell";
 import { getAuthState, isPasskeyAuthRequired } from "~/lib/auth/guards.server";
-import { defineRouteHandle } from "~/lib/route-handle";
-import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getDocumentTitle } from "~/lib/document-title";
 
 import type { Route } from "./+types/login";
 import { signInWithPasskey } from "./+/webauthn.client";
-
-export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: [{ label: "login" }],
-});
 
 export async function loader({ request }: Route.LoaderArgs) {
   if (!isPasskeyAuthRequired(request)) {
@@ -52,6 +47,7 @@ export default function LoginRoute({}: Route.ComponentProps) {
 
   return (
     <AuthSection title="Login" copy="">
+      <title>{getDocumentTitle("login")}</title>
       <div className="space-y-4">
         <button
           className="inline-flex min-h-11 w-full items-center justify-center bg-black px-3 py-2 text-base text-white sm:w-auto"

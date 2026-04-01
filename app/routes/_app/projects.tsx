@@ -6,6 +6,7 @@ import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { useDoubleCheck } from "~/hooks/use-double-check";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
+import { getDocumentTitle } from "~/lib/document-title";
 import { listProjects, removeProject } from "~/lib/projects/runtime.server";
 import type { ProjectRecord } from "~/lib/projects/types";
 import { defineRouteHandle } from "~/lib/route-handle";
@@ -15,7 +16,6 @@ import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.s
 import type { Route } from "./+types/projects";
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: [{ label: "Projects" }],
   iconNavActions: [
     {
       icon: "mdi:plus",
@@ -106,6 +106,7 @@ function ProjectRow({ project }: { project: ProjectRecord }) {
 export default function ProjectsRoute({ actionData, loaderData, matches }: Route.ComponentProps) {
   return (
     <>
+      <title>{getDocumentTitle("Projects")}</title>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item>Projects</Breadcrumbs.Item>
       </Breadcrumbs>

@@ -2,18 +2,14 @@ import { Link } from "react-router";
 
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
-import { defineRouteHandle } from "~/lib/route-handle";
-import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getDocumentTitle } from "~/lib/document-title";
 
 import type { Route } from "./+types/settings";
-
-export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: [{ label: "Settings" }],
-});
 
 export default function SettingsRoute({ matches }: Route.ComponentProps) {
   return (
     <>
+      <title>{getDocumentTitle("Settings")}</title>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item>Settings</Breadcrumbs.Item>
       </Breadcrumbs>

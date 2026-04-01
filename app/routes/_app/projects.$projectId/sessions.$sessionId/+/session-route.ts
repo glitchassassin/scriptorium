@@ -4,7 +4,7 @@ import type {
   OpencodePermissionRequest,
   OpencodeQuestionRequest,
 } from "~/lib/opencode/events";
-import type { RouteBreadcrumb, RouteHandleIconAction } from "~/lib/route-handle";
+import type { RouteHandleIconAction } from "~/lib/route-handle";
 
 export type SessionTranscriptInitialState = {
   initialHistoryCursor: string | null;
@@ -24,24 +24,6 @@ export type SessionRouteContext = {
 
 export function getSessionName(session?: { title?: string | null; id?: string | null }) {
   return session?.title?.trim() || session?.id?.slice(0, 12) || "Session";
-}
-
-export function getSessionBreadcrumbs(args: {
-  projectId?: string;
-  projectName?: string | null;
-  session?: { title?: string | null; id?: string | null };
-  sessionId?: string;
-}): RouteBreadcrumb[] {
-  return [
-    {
-      label: args.projectName?.trim() || "Project",
-      ...(args.projectId ? { to: `/projects/${args.projectId}` } : {}),
-    },
-    {
-      label: getSessionName(args.session),
-      ...(args.projectId && args.sessionId ? { to: `/projects/${args.projectId}/sessions/${args.sessionId}` } : {}),
-    },
-  ];
 }
 
 export function getSessionIconNavActions(projectId: string, sessionId: string, reviewMode: "session" | "recent" | "uncommitted" = "uncommitted"): RouteHandleIconAction[] {

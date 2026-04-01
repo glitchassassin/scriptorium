@@ -7,24 +7,19 @@ import { useProjectEvents } from "~/components/events/project-events-provider";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
+import { getDocumentTitle } from "~/lib/document-title";
 import { getGitStatusSummary } from "~/lib/projects/git.server";
 import { createOpencodeSession, listOpencodeSessions } from "~/lib/projects/opencode.server";
 import { sortSessions, toSessionSummary } from "~/lib/projects/sidebar";
 import { getProjectOrThrow, removeProject } from "~/lib/projects/runtime.server";
 import type { OpencodeSessionSummary } from "~/lib/projects/types";
 import { opencodeSessionMutationEventSchema } from "~/lib/opencode/events";
-import { defineRouteHandle } from "~/lib/route-handle";
-import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 
-import { getProjectBreadcrumbs } from "./+/project-route";
+import { getProjectName } from "./+/project-route";
 import { ProjectSessionList } from "./+/project-session-list";
 
 import type { Route } from "./+types/index";
-
-export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: (ctx) => getProjectBreadcrumbs(ctx.data.project.name, ctx.params.projectId),
-});
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const timings = makeTimings("project loader");
@@ -181,6 +176,7 @@ export default function ProjectDetailRoute({ loaderData, matches }: Route.Compon
 
   return (
     <>
+      <title>{getDocumentTitle(getProjectName(project.name))}</title>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item to={`/projects/${project.id}`}>{project.name}</Breadcrumbs.Item>
       </Breadcrumbs>

@@ -4,17 +4,12 @@ import { Form, redirect } from "react-router";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
+import { getDocumentTitle } from "~/lib/document-title";
 import { createProject } from "~/lib/projects/runtime.server";
-import { defineRouteHandle } from "~/lib/route-handle";
-import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { getRuntimeConfiguration } from "~/lib/runtime-config/cache.server";
 import { FileExplorer } from "~/routes/_rpc/files.browse";
 
 import type { Route } from "./+types/projects.new";
-
-export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: [{ label: "Projects", to: "/projects" }, { label: "New project" }],
-});
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAuthenticatedPasskey(request);
@@ -46,6 +41,7 @@ export default function NewProjectRoute({ actionData, loaderData, matches }: Rou
 
   return (
     <>
+      <title>{getDocumentTitle("New project", "Projects")}</title>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item to="/projects">Projects</Breadcrumbs.Item>
         <Breadcrumbs.Item>New project</Breadcrumbs.Item>

@@ -14,8 +14,8 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import safeArea from "~/styles/safe-area.module.css";
 import { ServiceWorkerRegistration } from "~/components/pwa/service-worker-registration";
+import { APP_NAME } from "~/lib/document-title";
 import { ensureStarted } from "~/lib/projects/runtime.server";
-import { APP_NAME, getDocumentTitle, normalizeRouteHandleMatches, resolveRouteHandleValue } from "~/lib/route-handle";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 
 export const links: Route.LinksFunction = () => [
@@ -45,12 +45,6 @@ export async function loader() {
 
 export function headers(args: Route.HeadersArgs) {
   return getServerTimingHeaders(args);
-}
-
-export function getTitleFromMatches(matches: Route.ComponentProps["matches"]) {
-  const breadcrumbs = resolveRouteHandleValue(normalizeRouteHandleMatches(matches), "title");
-
-  return getDocumentTitle(breadcrumbs);
 }
 
 export function getErrorDocumentTitle(error: unknown) {
@@ -87,13 +81,8 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-export default function App({ matches }: Route.ComponentProps) {
-  return (
-    <>
-      <title>{getTitleFromMatches(matches)}</title>
-      <Outlet />
-    </>
-  );
+export default function App() {
+  return <Outlet />;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

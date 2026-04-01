@@ -1,20 +1,11 @@
 import { FilesBrowser } from "~/components/workspace/files-browser";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
-import { defineRouteHandle } from "~/lib/route-handle";
-import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getDocumentTitle } from "~/lib/document-title";
 import { getServerTimingHeaders } from "~/lib/server-timing.server";
 
-import { getProjectBreadcrumbs } from "./+/project-route";
 import { loadProjectFilesRouteData } from "./files.server";
 
 import type { Route } from "./+types/files";
-
-export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: ({ data, params }) => [
-    ...getProjectBreadcrumbs(data?.project?.name, params.projectId),
-    { label: "files" },
-  ],
-});
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const projectId = params.projectId;
@@ -31,6 +22,7 @@ export default function ProjectFilesRoute({ loaderData, matches }: Route.Compone
 
   return (
     <>
+      <title>{getDocumentTitle("files", project.name)}</title>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item to={`/projects/${project.id}`}>{project.name}</Breadcrumbs.Item>
         <Breadcrumbs.Item>files</Breadcrumbs.Item>

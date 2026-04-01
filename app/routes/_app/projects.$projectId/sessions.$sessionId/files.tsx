@@ -2,31 +2,14 @@ import { useOutletContext } from "react-router";
 
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { FilesBrowser } from "~/components/workspace/files-browser";
-import { defineRouteHandle } from "~/lib/route-handle";
-import type { RouteHandleDefinition } from "~/lib/route-handle";
+import { getDocumentTitle } from "~/lib/document-title";
 import { getServerTimingHeaders } from "~/lib/server-timing.server";
 import { useSessionInfo } from "~/routes/_app/projects.$projectId/sessions.$sessionId/+/session-live";
 import { loadProjectFilesRouteData } from "~/routes/_app/projects.$projectId/files.server";
 
-import { getSessionBreadcrumbs, getSessionName, type SessionRouteContext } from "./+/session-route";
+import { getSessionName, type SessionRouteContext } from "./+/session-route";
 
 import type { Route } from "./+types/files";
-
-export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: (ctx) => {
-    const sessionMatch = ctx.requireMatch("routes/_app/projects.$projectId/sessions.$sessionId/_layout");
-
-    return [
-      ...getSessionBreadcrumbs({
-        projectId: sessionMatch.params.projectId,
-        projectName: sessionMatch.data.project?.name,
-        session: sessionMatch.data.session,
-        sessionId: sessionMatch.params.sessionId,
-      }),
-      { label: "files" },
-    ];
-  },
-});
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const projectId = params.projectId;
@@ -45,6 +28,7 @@ export default function SessionFilesRoute({ loaderData, matches }: Route.Compone
 
   return (
     <>
+      <title>{getDocumentTitle("files", getSessionName(session))}</title>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item to={`/projects/${project.id}`}>{project.name}</Breadcrumbs.Item>
         <Breadcrumbs.Item to={`/projects/${project.id}/sessions/${session.id}`}>

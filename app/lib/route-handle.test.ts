@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  APP_NAME,
   defineRouteHandle,
-  getDocumentTitle,
-  getRouteTitleLabels,
   normalizeRouteHandleMatches,
   resolveRouteHandleValue,
   type RouteHandleDefinition,
@@ -60,12 +57,8 @@ type SessionReviewRoute = {
 };
 
 describe("route handles", () => {
-  it("resolves the deepest title and nearest nav actions independently", () => {
+  it("resolves the nearest handle value for each icon action independently", () => {
     const sessionHandle: RouteHandleDefinition<SessionLayoutRoute> = defineRouteHandle<SessionLayoutRoute>({
-      title: (ctx) => [
-        { label: ctx.data.project.name, to: `/projects/${ctx.params.projectId}` },
-        { label: ctx.data.session.title ?? ctx.data.session.id, to: `/projects/${ctx.params.projectId}/sessions/${ctx.params.sessionId}` },
-      ],
       leadingIconAction: (ctx) => ({
         icon: "mdi:message-plus-outline",
         label: "New session",
@@ -78,17 +71,14 @@ describe("route handles", () => {
       ],
     });
     const reviewHandle: RouteHandleDefinition<SessionReviewRoute> = defineRouteHandle<SessionReviewRoute>({
-      title: (ctx) => {
+      iconNavActions: (ctx) => {
         const sessionMatch = ctx.requireMatch("routes/_app/projects.$projectId/sessions.$sessionId/_layout");
 
-        return [
-          { label: sessionMatch.data.project.name, to: `/projects/${sessionMatch.params.projectId}` },
-          {
-            label: sessionMatch.data.session.title ?? sessionMatch.data.session.id,
-            to: `/projects/${sessionMatch.params.projectId}/sessions/${sessionMatch.params.sessionId}`,
-          },
-          { label: "review" },
-        ];
+        return [{
+          icon: "mdi:source-branch",
+          label: "Review",
+          to: `/projects/${sessionMatch.params.projectId}/sessions/${sessionMatch.params.sessionId}/review/uncommitted`,
+        }];
       },
     });
 
@@ -114,11 +104,6 @@ describe("route handles", () => {
       },
     ] as const);
 
-    expect(resolveRouteHandleValue(matches, "title")).toEqual([
-      { label: "Workspace", to: "/projects/project-1" },
-      { label: "Planning", to: "/projects/project-1/sessions/session-1" },
-      { label: "review" },
-    ]);
     expect(resolveRouteHandleValue(matches, "leadingIconAction")).toEqual({
       icon: "mdi:message-plus-outline",
       label: "New session",
@@ -127,25 +112,11 @@ describe("route handles", () => {
       fields: { intent: "create-session" },
     });
     expect(resolveRouteHandleValue(matches, "iconNavActions")).toEqual([
-      { icon: "mdi:message-outline", label: "Chat transcript", to: "/projects/project-1/sessions/session-1" },
+      {
+        icon: "mdi:source-branch",
+        label: "Review",
+        to: "/projects/project-1/sessions/session-1/review/uncommitted",
+      },
     ]);
-  });
-
-  it("formats document titles from the deepest breadcrumb labels", () => {
-    expect(getRouteTitleLabels([
-      { label: "Workspace" },
-      { label: "Planning" },
-      { label: "review" },
-    ])).toEqual(["review", "Planning"]);
-    expect(getDocumentTitle([
-      { label: "Workspace" },
-      { label: "Planning" },
-      { label: "review" },
-    ])).toBe("review | Planning | scriptorium");
-  });
-
-  it("falls back to the app name when no breadcrumbs are available", () => {
-    expect(getRouteTitleLabels(undefined)).toEqual([]);
-    expect(getDocumentTitle(undefined)).toBe(APP_NAME);
   });
 });

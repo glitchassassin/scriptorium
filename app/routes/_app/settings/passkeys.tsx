@@ -8,13 +8,13 @@ import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { countActivePasskeys, getPasskeyById, listActivePasskeys, revokePasskey } from "~/lib/auth/passkeys.server";
 import { useDoubleCheck } from "~/hooks/use-double-check";
 import { destroyAuthenticatedSession, destroySessionsForPasskey } from "~/lib/auth/sessions.server";
+import { getDocumentTitle } from "~/lib/document-title";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 
 import type { Route } from "./+types/passkeys";
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  title: [{ label: "Settings", to: "/settings" }, { label: "Passkeys" }],
   iconNavActions: [
     {
       icon: "mdi:arrow-left",
@@ -111,6 +111,7 @@ function PasskeyRow({
 export default function SettingsPasskeysRoute({ actionData, loaderData, matches }: Route.ComponentProps) {
   return (
     <>
+      <title>{getDocumentTitle("Passkeys", "Settings")}</title>
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item to="/settings">Settings</Breadcrumbs.Item>
         <Breadcrumbs.Item>Passkeys</Breadcrumbs.Item>
