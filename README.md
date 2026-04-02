@@ -9,7 +9,7 @@ This repo is intentionally exploratory. Expect rough edges, fast iteration, and 
 - Launches and tracks local coding instances
 - Browses workspace files and git state from the app
 - Streams session events and message history
-- Uses passkey-based authentication for local access
+- Uses passkey-based authentication for non-`localhost` access
 
 ## Requirements
 
@@ -35,6 +35,8 @@ npm run dev
 ```
 
 The dev server runs through Scriptorium's unified Node server entrypoint with Vite in middleware mode.
+
+On startup, Scriptorium creates missing config files and generates a session secret when needed. The SQLite database is opened lazily, and pending migrations run when the database is first opened.
 
 To expose the dev server through Tailscale for a run:
 
@@ -72,6 +74,17 @@ By default, development and production both run on port `5174`.
 
 For the full generated config reference, see `docs/config.md`.
 
+## Authentication
+
+`localhost` intentionally bypasses passkey authentication for local-only access.
+
+Requests through `127.0.0.1`, LAN IPs, Tailscale hostnames, and forwarded hosts still require passkey authentication.
+
+First-time passkey registration is a two-step flow:
+
+- complete the browser or device passkey prompt
+- open `/confirm-passkey` and enter the one-time code printed to the server console
+
 ## Configuration
 
 Scriptorium reads runtime settings from:
@@ -80,6 +93,8 @@ Scriptorium reads runtime settings from:
 - environment variables
 - `config.yml` for non-sensitive settings
 - `secrets.yml` for secrets such as the session signing secret
+
+Runtime config files live in the config directory. Runtime data such as the SQLite database live in the data directory.
 
 Use `--config-dir <path>` / `SCRIPTORIUM_CONFIG_DIR` to override config location.
 Use `--data-dir <path>` / `SCRIPTORIUM_DATA_DIR` to override runtime data location.
@@ -105,6 +120,8 @@ Common flags and env vars include:
 - `--tailscale` / `--no-tailscale`
 - `SESSION_SECRET` to override the generated session secret
 
+`workspace.browserRoot` controls both the root shown in the workspace browser and the working directory used when Scriptorium launches its shared `opencode serve` process.
+
 Example:
 
 ```bash
@@ -116,6 +133,8 @@ OPENCODE_BIN=opencode \
 npm start -- --no-tailscale
 ```
 
+Use `localhost` rather than `127.0.0.1` only when you explicitly want the intentional no-auth local bypass.
+
 ## Tailscale On Launch
 
 The unified server optionally runs `tailscale serve` when `network.tailscale: true` is set in config or `--tailscale` is passed.
@@ -126,8 +145,14 @@ If Tailscale is enabled and installed/authenticated, that makes the app reachabl
 
 On shutdown, the script also tries to turn the Tailscale serve configuration back off.
 
+## Offline Behavior
+
+Scriptorium registers a service worker in development and production.
+
+Static assets are cached, and offline navigations fall back to a minimal offline page. Live workspace data and session activity still require a network connection.
+
 ## Notes
 
 - The app is designed around a personal/local workflow, not a multi-tenant hosted service
-- Runtime config and secrets live in the per-user Scriptorium data directory, documented in `docs/config.md`
+- Runtime config and secrets live in the per-user Scriptorium config directory, documented in `docs/config.md`
 - This repository does not include Docker configuration

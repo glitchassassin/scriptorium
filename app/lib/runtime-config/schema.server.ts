@@ -161,7 +161,7 @@ export function createConfigSchema(sources: OverrideSources = {}) {
         meta(z.string().min(1).default(defaultHomeDirectory), {
           cli: "browser-root",
           env: "SCRIPTORIUM_BROWSER_ROOT",
-          description: "Root directory exposed in the workspace browser.",
+          description: "Root directory exposed in the workspace browser. When Scriptorium launches a shared OpenCode process, this directory is also used as its working directory.",
         }),
         sources,
       ),
@@ -198,7 +198,7 @@ export function createConfigSchema(sources: OverrideSources = {}) {
         meta(z.string().min(1).default(getDefaultDatabasePath(sources)), {
           cli: "db-path",
           env: "SCRIPTORIUM_DB_PATH",
-          description: "Path to the SQLite database file.",
+          description: "Path to the SQLite database file. Scriptorium runs pending migrations automatically when opening this database.",
         }),
         sources,
       ),
@@ -212,7 +212,7 @@ export function createSecretsSchema(sources: OverrideSources = {}) {
       sessionSecret: override(
         meta(z.string().min(32).optional(), {
           env: "SESSION_SECRET",
-          description: "Session signing secret.",
+          description: "Session signing secret. If unset, Scriptorium generates one on first run and writes it to `secrets.yml`.",
         }),
         sources,
       ),
