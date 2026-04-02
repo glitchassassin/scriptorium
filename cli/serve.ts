@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -10,6 +9,7 @@ import morgan from "morgan";
 import { createRequestHandler } from "@react-router/express";
 
 import type { RuntimeConfiguration } from "../app/lib/runtime-config/schema.server.js";
+import { runTailscale } from "../server/tailscale.js";
 
 function getBuildPaths(packageRoot: string) {
   return {
@@ -34,7 +34,7 @@ async function loadServerBuild(serverBuildPath: string) {
 
 function startTailscale(port: number) {
   try {
-    execSync(`tailscale serve --bg http://localhost:${port}`, { stdio: "inherit" });
+    runTailscale(["serve", "--bg", `http://localhost:${port}`], "inherit");
   } catch {
     // tailscale not available - ignore
   }
@@ -42,7 +42,7 @@ function startTailscale(port: number) {
 
 function stopTailscale() {
   try {
-    execSync("tailscale serve --https=443 off", { stdio: "ignore" });
+    runTailscale(["serve", "--https=443", "off"], "ignore");
   } catch {
     // tailscale not available - ignore
   }

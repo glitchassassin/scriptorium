@@ -5,7 +5,8 @@
     "server/**/*.ts"
   ],
   "exclude": [
-    "app/lib/runtime-config/**/*.test.ts"
+    "app/lib/runtime-config/**/*.test.ts",
+    "server/**/*.test.ts"
   ],
   "compilerOptions": {
     "lib": ["ES2022"],

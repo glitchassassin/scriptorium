@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -15,6 +14,7 @@ import {
   parseRuntimeCliArgs,
   renderRuntimeConfigurationHelp,
 } from "../app/lib/runtime-config/cli.server.ts";
+import { runTailscale } from "./tailscale.ts";
 
 import type { RuntimeConfiguration } from "../app/lib/runtime-config/schema.server.ts";
 
@@ -61,7 +61,7 @@ function assertBuildExists(packageRoot: string) {
 
 function startTailscale(port: number) {
   try {
-    execSync(`tailscale serve --bg http://localhost:${port}`, { stdio: "inherit" });
+    runTailscale(["serve", "--bg", `http://localhost:${port}`], "inherit");
   } catch {
     // tailscale not available - ignore
   }
@@ -69,7 +69,7 @@ function startTailscale(port: number) {
 
 function stopTailscale() {
   try {
-    execSync("tailscale serve --https=443 off", { stdio: "ignore" });
+    runTailscale(["serve", "--https=443", "off"], "ignore");
   } catch {
     // tailscale not available - ignore
   }
