@@ -9,6 +9,7 @@ import morgan from "morgan";
 import type { ServerBuild } from "react-router";
 import { createRequestHandler } from "@react-router/express";
 
+import { getOrm } from "../app/lib/db.server.ts";
 import { initializeRuntimeConfiguration } from "../app/lib/runtime-config/cache.server.ts";
 import {
   parseRuntimeCliArgs,
@@ -172,6 +173,7 @@ export async function main(args = process.argv.slice(2)) {
     dataDir: parsedCli.dataDir,
     env: process.env,
   });
+  getOrm();
   const packageRoot = findPackageRoot();
   const app = await createApp(runtime, packageRoot);
   const host = runtime.config.server.host;

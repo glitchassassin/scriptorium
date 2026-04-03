@@ -29,28 +29,6 @@ function resolveDatabasePath() {
   return resolve(getRuntimeConfiguration().config.database.path);
 }
 
-function resetLegacyAuthSchema(database: DatabaseSync) {
-  const rows = database
-    .prepare(
-      `SELECT name FROM sqlite_master WHERE sql LIKE '%passkeys_legacy%' AND type IN ('table', 'index', 'trigger', 'view')`,
-    )
-    .all() as Array<{ name: string }>;
-
-  if (rows.length === 0) {
-    return;
-  }
-
-  database.exec(`
-    DROP TABLE IF EXISTS activation_codes;
-    DROP TABLE IF EXISTS sessions;
-    DROP TABLE IF EXISTS authentication_challenges;
-    DROP TABLE IF EXISTS registration_challenges;
-    DROP TABLE IF EXISTS passkeys;
-    DROP TABLE IF EXISTS passkeys_legacy;
-    DROP TABLE IF EXISTS __drizzle_migrations;
-  `);
-}
-
 function cleanEphemeralAuthState(database: ReturnType<typeof drizzle>) {
   const now = new Date().toISOString();
 
@@ -72,7 +50,6 @@ function openDatabase(path: string) {
   });
 
   database.exec(`PRAGMA journal_mode = WAL;`);
-  resetLegacyAuthSchema(database);
 
   const db = drizzle({ client: database });
 

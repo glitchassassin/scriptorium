@@ -27,7 +27,7 @@ describe("runtime configuration docs", () => {
       path: ["auth", "sessionSecret"],
       type: "string",
       env: "SESSION_SECRET",
-      description: "Session signing secret.",
+      description: "Session signing secret. If unset, Scriptorium generates one on first run and writes it to `secrets.yml`.",
     }));
   });
 

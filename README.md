@@ -36,7 +36,7 @@ npm run dev
 
 The dev server runs through Scriptorium's unified Node server entrypoint with Vite in middleware mode.
 
-On startup, Scriptorium creates missing config files and generates a session secret when needed. The SQLite database is opened lazily, and pending migrations run when the database is first opened.
+On startup, Scriptorium creates missing config files and generates a session secret when needed. The SQLite database is opened and pending migrations run before the server starts accepting requests.
 
 To expose the dev server through Tailscale for a run:
 

@@ -198,7 +198,7 @@ export function createConfigSchema(sources: OverrideSources = {}) {
         meta(z.string().min(1).default(getDefaultDatabasePath(sources)), {
           cli: "db-path",
           env: "SCRIPTORIUM_DB_PATH",
-          description: "Path to the SQLite database file. Scriptorium runs pending migrations automatically when opening this database.",
+          description: "Path to the SQLite database file. Scriptorium opens this database and runs pending migrations during server startup.",
         }),
         sources,
       ),
