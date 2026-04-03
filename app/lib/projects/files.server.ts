@@ -13,15 +13,23 @@ import type {
 
 const FILE_REFERENCE_CACHE_TTL_MS = 5_000;
 
-type FileReferenceManifestCacheEntry = {
+type FileReferenceLookupCacheEntry = {
   expiresAt: number;
-  paths: string[];
+  result: { path: string } | null;
 };
 
-const fileReferenceManifestCache = new Map<string, FileReferenceManifestCacheEntry>();
+type PendingFileReferenceLookup = {
+  basename: string;
+  matchKind: "basename" | "suffix";
+  matches: string[];
+  normalizedLookupPath: string;
+};
+
+const fileReferenceLookupCache = new Map<string, FileReferenceLookupCacheEntry>();
+const MISSING_FILE_REFERENCE_LOOKUP = Symbol("missing file reference lookup");
 
 // Transcript link resolution may probe several candidate paths in one render pass, so
-// cache the workspace manifest briefly instead of rescanning the tree on each lookup.
+// cache individual lookup results briefly instead of rescanning the tree each time.
 
 function getBrowserRoot() {
   return resolve(getRuntimeConfiguration().config.workspace.browserRoot);
@@ -49,28 +57,6 @@ function listDirectoryEntries(directory: string) {
 
       return left.name.localeCompare(right.name);
     });
-}
-
-function collectRelativeFilePaths(rootPath: string, directory: string = rootPath): string[] {
-  const entries = readdirSync(directory, { withFileTypes: true });
-  const paths: string[] = [];
-
-  for (const entry of entries) {
-    const entryPath = resolve(directory, entry.name);
-
-    if (entry.isDirectory()) {
-      paths.push(...collectRelativeFilePaths(rootPath, entryPath));
-      continue;
-    }
-
-    if (!entry.isFile()) {
-      continue;
-    }
-
-    paths.push(relative(rootPath, entryPath).replace(/\\/g, "/"));
-  }
-
-  return paths;
 }
 
 function buildBrowserListing(
@@ -194,9 +180,11 @@ export function resolveProjectFileReferences(
   lookupPaths: string[],
   instanceDirectory: string,
 ): Record<string, { path: string } | null> {
-  const manifest = getCachedFileReferenceManifest(instanceDirectory);
-  const manifestSet = new Set(manifest);
+  const normalizedRootPath = resolve(instanceDirectory);
   const results: Record<string, { path: string } | null> = {};
+  const lookupsByNormalizedPath = new Map<string, string[]>();
+  const uncachedNormalizedLookupPaths: string[] = [];
+  const resolvedByNormalizedPath = new Map<string, { path: string } | null>();
 
   for (const lookupPath of lookupPaths) {
     const normalizedLookupPath = normalizeAssistantFileReferencePath(lookupPath, "inlineCode");
@@ -206,30 +194,40 @@ export function resolveProjectFileReferences(
       continue;
     }
 
-    const exactMatch = manifestSet.has(normalizedLookupPath) ? normalizedLookupPath : null;
+    const existingLookupPaths = lookupsByNormalizedPath.get(normalizedLookupPath);
 
-    if (exactMatch) {
-      results[lookupPath] = { path: exactMatch };
+    if (existingLookupPaths) {
+      existingLookupPaths.push(lookupPath);
       continue;
     }
 
-    const suffixMatches = manifest.filter((path) => path.endsWith(`/${normalizedLookupPath}`));
+    lookupsByNormalizedPath.set(normalizedLookupPath, [lookupPath]);
 
-    if (suffixMatches.length === 1 && suffixMatches[0]) {
-      results[lookupPath] = { path: suffixMatches[0] };
+    const cachedResolution = getCachedFileReferenceLookup(normalizedRootPath, normalizedLookupPath);
+
+    if (cachedResolution !== MISSING_FILE_REFERENCE_LOOKUP) {
+      resolvedByNormalizedPath.set(normalizedLookupPath, cachedResolution);
       continue;
     }
 
-    if (!normalizedLookupPath.includes("/")) {
-      const basenameMatches = manifest.filter((path) => basename(path) === normalizedLookupPath);
+    uncachedNormalizedLookupPaths.push(normalizedLookupPath);
+  }
 
-      if (basenameMatches.length === 1 && basenameMatches[0]) {
-        results[lookupPath] = { path: basenameMatches[0] };
-        continue;
-      }
+  if (uncachedNormalizedLookupPaths.length > 0) {
+    const resolvedLookups = resolveFileReferenceLookups(normalizedRootPath, uncachedNormalizedLookupPaths);
+
+    for (const [normalizedLookupPath, resolution] of resolvedLookups) {
+      setCachedFileReferenceLookup(normalizedRootPath, normalizedLookupPath, resolution);
+      resolvedByNormalizedPath.set(normalizedLookupPath, resolution);
     }
+  }
 
-    results[lookupPath] = null;
+  for (const [normalizedLookupPath, sourceLookupPaths] of lookupsByNormalizedPath) {
+    const resolvedLookup = resolvedByNormalizedPath.get(normalizedLookupPath) ?? null;
+
+    for (const lookupPath of sourceLookupPaths) {
+      results[lookupPath] = resolvedLookup;
+    }
   }
 
   return results;
@@ -266,22 +264,172 @@ export function readProjectFile(
   return readBrowserFile(inputPath, instanceDirectory);
 }
 
-function getCachedFileReferenceManifest(rootPath: string) {
-  const normalizedRootPath = resolve(rootPath);
+function getCachedFileReferenceLookup(rootPath: string, normalizedLookupPath: string) {
+  const cacheKey = buildFileReferenceLookupCacheKey(rootPath, normalizedLookupPath);
   const now = Date.now();
-  const cachedEntry = fileReferenceManifestCache.get(normalizedRootPath);
+  const cachedEntry = fileReferenceLookupCache.get(cacheKey);
 
   if (cachedEntry && cachedEntry.expiresAt > now) {
-    return cachedEntry.paths;
+    return cachedEntry.result;
   }
 
-  const paths = collectRelativeFilePaths(normalizedRootPath);
-  fileReferenceManifestCache.set(normalizedRootPath, {
-    expiresAt: now + FILE_REFERENCE_CACHE_TTL_MS,
-    paths,
-  });
+  if (cachedEntry) {
+    fileReferenceLookupCache.delete(cacheKey);
+  }
 
-  return paths;
+  return MISSING_FILE_REFERENCE_LOOKUP;
+}
+
+function setCachedFileReferenceLookup(
+  rootPath: string,
+  normalizedLookupPath: string,
+  result: { path: string } | null,
+) {
+  fileReferenceLookupCache.set(buildFileReferenceLookupCacheKey(rootPath, normalizedLookupPath), {
+    expiresAt: Date.now() + FILE_REFERENCE_CACHE_TTL_MS,
+    result,
+  });
+}
+
+function buildFileReferenceLookupCacheKey(rootPath: string, normalizedLookupPath: string) {
+  return `${rootPath}\u0000${normalizedLookupPath}`;
+}
+
+function resolveFileReferenceLookups(rootPath: string, normalizedLookupPaths: string[]) {
+  const results = new Map<string, { path: string } | null>();
+  const pendingLookups = new Map<string, PendingFileReferenceLookup>();
+
+  for (const normalizedLookupPath of normalizedLookupPaths) {
+    const exactMatch = resolveExactRelativeFilePath(rootPath, normalizedLookupPath);
+
+    if (exactMatch) {
+      results.set(normalizedLookupPath, { path: exactMatch });
+      continue;
+    }
+
+    pendingLookups.set(normalizedLookupPath, {
+      basename: basename(normalizedLookupPath),
+      matchKind: normalizedLookupPath.includes("/") ? "suffix" : "basename",
+      matches: [],
+      normalizedLookupPath,
+    });
+  }
+
+  if (pendingLookups.size === 0) {
+    return results;
+  }
+
+  collectRelativeFilePathMatches(rootPath, pendingLookups);
+
+  for (const [normalizedLookupPath, lookup] of pendingLookups) {
+    const match = lookup.matches.length === 1 ? lookup.matches[0] : null;
+    results.set(normalizedLookupPath, match ? { path: match } : null);
+  }
+
+  return results;
+}
+
+function resolveExactRelativeFilePath(rootPath: string, normalizedLookupPath: string) {
+  const resolvedLookupPath = resolve(rootPath, normalizedLookupPath);
+
+  if (!isWithinRoot(rootPath, resolvedLookupPath)) {
+    return null;
+  }
+
+  const stat = statSync(resolvedLookupPath, { throwIfNoEntry: false });
+
+  if (!stat?.isFile()) {
+    return null;
+  }
+
+  return relative(rootPath, resolvedLookupPath).replace(/\\/g, "/");
+}
+
+function collectRelativeFilePathMatches(
+  rootPath: string,
+  pendingLookups: Map<string, PendingFileReferenceLookup>,
+) {
+  const basenameLookups = new Map<string, PendingFileReferenceLookup[]>();
+  const suffixLookups = new Map<string, PendingFileReferenceLookup[]>();
+  const directories = [rootPath];
+
+  for (const lookup of pendingLookups.values()) {
+    const lookupGroup = lookup.matchKind === "basename" ? basenameLookups : suffixLookups;
+    const matchingLookups = lookupGroup.get(lookup.basename);
+
+    if (matchingLookups) {
+      matchingLookups.push(lookup);
+      continue;
+    }
+
+    lookupGroup.set(lookup.basename, [lookup]);
+  }
+
+  while (directories.length > 0) {
+    const directory = directories.pop();
+
+    if (!directory) {
+      continue;
+    }
+
+    const entries = readDirectoryEntries(directory);
+
+    if (!entries) {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const entryPath = resolve(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        directories.push(entryPath);
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const basenameMatches = basenameLookups.get(entry.name);
+      const suffixMatches = suffixLookups.get(entry.name);
+
+      if (!basenameMatches && !suffixMatches) {
+        continue;
+      }
+
+      const relativePath = relative(rootPath, entryPath).replace(/\\/g, "/");
+
+      if (basenameMatches) {
+        for (const lookup of basenameMatches) {
+          recordFileReferenceLookupMatch(lookup, relativePath);
+        }
+      }
+
+      if (suffixMatches) {
+        for (const lookup of suffixMatches) {
+          if (relativePath.endsWith(`/${lookup.normalizedLookupPath}`)) {
+            recordFileReferenceLookupMatch(lookup, relativePath);
+          }
+        }
+      }
+    }
+  }
+}
+
+function readDirectoryEntries(directory: string) {
+  try {
+    return readdirSync(directory, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+}
+
+function recordFileReferenceLookupMatch(lookup: PendingFileReferenceLookup, relativePath: string) {
+  if (lookup.matches.length >= 2) {
+    return;
+  }
+
+  lookup.matches.push(relativePath);
 }
 
 function parsePositiveLineNumber(value: string | null) {

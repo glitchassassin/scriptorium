@@ -28,12 +28,12 @@ type LinkableNode = {
   children: MarkdownNode[];
 };
 
-const TEXT_REFERENCE_PATTERN = /@?(?:\.\/)?(?:[A-Za-z0-9_$+.-]+\/)*[A-Za-z0-9_$+.-]+\.[A-Za-z0-9_$+.-]+(?:#L\d+(?:C\d+)?|:\d+-\d+|:\d+(?::\d+)?)?/g;
+const TEXT_REFERENCE_PATTERN = /@?(?:\.\/)?(?:[A-Za-z0-9_@$+.-]+\/)*[A-Za-z0-9_@$+.-]+\.[A-Za-z0-9_$+.-]+(?:#L\d+(?:C\d+)?|:\d+-\d+|:\d+(?::\d+)?)?/g;
 const COLUMN_REFERENCE_PATTERN = /^(.*):(\d+):(\d+)$/;
 const HASH_LINE_REFERENCE_PATTERN = /^(.*)#L(\d+)(?:C\d+)?$/i;
 const RANGE_REFERENCE_PATTERN = /^(.*):(\d+)-(\d+)$/;
 const SINGLE_LINE_REFERENCE_PATTERN = /^(.*):(\d+)$/;
-const VALID_REFERENCE_PATH_PATTERN = /^[A-Za-z0-9_$+./ -]+$/;
+const VALID_REFERENCE_PATH_PATTERN = /^[A-Za-z0-9_@$+./ -]+$/;
 
 export function buildAssistantFileReferenceHref(
   filesPath: string,
@@ -127,7 +127,7 @@ export function normalizeAssistantFileReferencePath(
 ): string | null {
   let normalized = value.trim();
 
-  if (normalized.startsWith("@")) {
+  if (source === "text" && normalized.startsWith("@")) {
     normalized = normalized.slice(1).trimStart();
   }
 

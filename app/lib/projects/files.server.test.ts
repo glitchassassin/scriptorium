@@ -144,4 +144,22 @@ describe("files browser helpers", () => {
       "/tmp/outside.txt": null,
     });
   });
+
+  it("resolves exact dependency paths without promoting ambiguous basenames", () => {
+    const root = createWorkspace();
+
+    mkdirSync(join(root, "app", "widgets"), { recursive: true });
+    mkdirSync(join(root, "frontend", "node_modules", "pkg"), { recursive: true });
+    writeFileSync(join(root, "app", "widgets", "widget.tsx"), "app widget");
+    writeFileSync(join(root, "frontend", "node_modules", "pkg", "widget.tsx"), "package widget");
+    writeFileSync(join(root, "frontend", "node_modules", "pkg", "third-party.ts"), "third party");
+
+    expect(resolveProjectFileReferences([
+      "frontend/node_modules/pkg/third-party.ts",
+      "widget.tsx",
+    ], root)).toEqual({
+      "frontend/node_modules/pkg/third-party.ts": { path: "frontend/node_modules/pkg/third-party.ts" },
+      "widget.tsx": null,
+    });
+  });
 });

@@ -44,6 +44,56 @@ describe("assistant file references", () => {
     expect(parseAssistantFileReference("docs/e-ink style guide.md", "inlineCode")).toMatchObject({
       lookupPath: "docs/e-ink style guide.md",
     });
+    expect(parseAssistantFileReference("node_modules/@react-router/express/dist/index.mjs", "inlineCode")).toMatchObject({
+      lookupPath: "node_modules/@react-router/express/dist/index.mjs",
+    });
+  });
+
+  it("collects scoped package file references", () => {
+    expect(collectAssistantFileReferenceCandidates([
+      "See `node_modules/@react-router/express/dist/index.mjs`.",
+      "Also check node_modules/@react-router/express/dist/index.mjs:12.",
+    ].join("\n\n"))).toEqual([
+      "node_modules/@react-router/express/dist/index.mjs",
+    ]);
+  });
+
+  it("parses unusual but valid inline-code paths", () => {
+    expect(parseAssistantFileReference("node_modules/@react-router/express/dist/index.mjs:12", "inlineCode")).toMatchObject({
+      lookupPath: "node_modules/@react-router/express/dist/index.mjs",
+      startLine: 12,
+      endLine: 12,
+    });
+    expect(parseAssistantFileReference("node_modules/react-router/dist/development/index-react-server-client.d.mts", "inlineCode")).toMatchObject({
+      lookupPath: "node_modules/react-router/dist/development/index-react-server-client.d.mts",
+    });
+    expect(parseAssistantFileReference(".env", "inlineCode")).toMatchObject({
+      lookupPath: ".env",
+    });
+    expect(parseAssistantFileReference(".gitignore", "inlineCode")).toMatchObject({
+      lookupPath: ".gitignore",
+    });
+    expect(parseAssistantFileReference("foo/bar+baz.ts", "inlineCode")).toMatchObject({
+      lookupPath: "foo/bar+baz.ts",
+    });
+    expect(parseAssistantFileReference("schemas/$schema.json", "inlineCode")).toMatchObject({
+      lookupPath: "schemas/$schema.json",
+    });
+    expect(parseAssistantFileReference("node_modules\\@react-router\\express\\dist\\index.mjs", "inlineCode")).toMatchObject({
+      lookupPath: "node_modules/@react-router/express/dist/index.mjs",
+    });
+  });
+
+  it("collects unusual valid text references", () => {
+    expect(collectAssistantFileReferenceCandidates([
+      "See node_modules/@react-router/express/dist/index.mjs:12 and types/foo.d.ts,",
+      "Also check foo/bar+baz.ts and schemas/$schema.json,",
+    ].join("\n\n"))).toEqual([
+      "node_modules/@react-router/express/dist/index.mjs",
+      "types/foo.d.ts",
+      "foo/bar+baz.ts",
+      "schemas/$schema.json",
+    ]);
   });
 
   it("builds session file links with line ranges", () => {
