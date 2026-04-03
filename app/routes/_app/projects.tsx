@@ -8,10 +8,10 @@ import { useDoubleCheck } from "~/hooks/use-double-check";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { getDocumentTitle } from "~/lib/document-title";
 import { listProjects, removeProject } from "~/lib/projects/runtime.server";
-import type { ProjectRecord } from "~/lib/projects/types";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
+import { useSortedProjects, type ProjectState } from "~/store/projects-provider";
 
 import type { Route } from "./+types/projects";
 
@@ -71,7 +71,7 @@ export async function action({ request }: Route.ActionArgs) {
   return data({ error: null });
 }
 
-function ProjectRow({ project }: { project: ProjectRecord }) {
+function ProjectRow({ project }: { project: ProjectState }) {
   const fetcher = useFetcher<typeof action>();
   const { doubleCheck, getButtonProps } = useDoubleCheck();
   const isDeleting = fetcher.state !== "idle";
@@ -103,7 +103,9 @@ function ProjectRow({ project }: { project: ProjectRecord }) {
   );
 }
 
-export default function ProjectsRoute({ actionData, loaderData, matches }: Route.ComponentProps) {
+export default function ProjectsRoute({ actionData, matches }: Route.ComponentProps) {
+  const projects = useSortedProjects();
+
   return (
     <>
       <title>{getDocumentTitle("Projects")}</title>
@@ -114,9 +116,9 @@ export default function ProjectsRoute({ actionData, loaderData, matches }: Route
         <section className="space-y-6 pt-6">
           <p className="px-6 text-sm uppercase tracking-[0.08em] sm:px-8">Available projects</p>
           {actionData?.error ? <p className="text-base leading-6">{actionData.error}</p> : null}
-          {loaderData.projects.length ? (
+          {projects.length ? (
             <ul className="border-t-2 border-black">
-              {loaderData.projects.map((project: ProjectRecord) => (
+              {projects.map((project) => (
                 <ProjectRow key={project.id} project={project} />
               ))}
             </ul>

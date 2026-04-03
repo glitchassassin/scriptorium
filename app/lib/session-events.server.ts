@@ -16,10 +16,15 @@ import { isRootSession, toSessionSummary } from "~/lib/projects/sidebar";
 import { parseOpencodeEvent, type OpencodeEvent } from "~/lib/opencode/events";
 import { createProjectScopedHeaders, getSharedOpencodeServerUrl } from "~/lib/opencode/shared-runtime.server";
 import {
+  type ProjectChangedEvent,
+  type ProjectRemovedEvent,
   type SessionActivityEvent,
   type SessionDeletedEvent,
   type SessionEvent,
   type SessionEventType,
+  type SessionQuestionAskedEvent,
+  type SessionQuestionRejectedEvent,
+  type SessionQuestionRepliedEvent,
   type SessionReadEvent,
   type SessionSidebarSummary,
   type SessionStatusEvent,
@@ -64,6 +69,9 @@ function getSessionId(event: SessionEvent) {
     case "session.activity":
     case "session.status":
     case "session.deleted":
+    case "session.question.asked":
+    case "session.question.replied":
+    case "session.question.rejected":
       return event.sessionId;
     case "session.summary":
       return event.summary.id;
@@ -145,6 +153,50 @@ function createSessionStatusEvent(projectId: string, event: Extract<OpencodeEven
     sessionId: event.properties.sessionID,
     status: event.properties.status,
   } satisfies SessionStatusEvent;
+}
+
+function createProjectChangedEvent(event: Extract<ProjectRuntimeEvent, { type: "project.changed" }>) {
+  return {
+    type: "project.changed",
+    project: {
+      id: event.project.id,
+      name: event.project.name,
+      directory: event.project.directory,
+    },
+  } satisfies ProjectChangedEvent;
+}
+
+function createProjectRemovedEvent(event: Extract<ProjectRuntimeEvent, { type: "project.removed" }>) {
+  return {
+    type: "project.removed",
+    projectId: event.projectId,
+  } satisfies ProjectRemovedEvent;
+}
+
+function createSessionQuestionEvent(projectId: string, event: Extract<OpencodeEvent, { type: "question.asked" | "question.replied" | "question.rejected" }>) {
+  switch (event.type) {
+    case "question.asked":
+      return {
+        type: "session.question.asked",
+        projectId,
+        requestId: event.properties.id,
+        sessionId: event.properties.sessionID,
+      } satisfies SessionQuestionAskedEvent;
+    case "question.replied":
+      return {
+        type: "session.question.replied",
+        projectId,
+        requestId: event.properties.requestID,
+        sessionId: event.properties.sessionID,
+      } satisfies SessionQuestionRepliedEvent;
+    case "question.rejected":
+      return {
+        type: "session.question.rejected",
+        projectId,
+        requestId: event.properties.requestID,
+        sessionId: event.properties.sessionID,
+      } satisfies SessionQuestionRejectedEvent;
+  }
 }
 
 function getSessionActivityEvent(projectId: string, event: OpencodeEvent) {
@@ -336,10 +388,12 @@ class SessionEventFanInManager {
 
   private async handleRuntimeEvent(event: ProjectRuntimeEvent) {
     if (event.type === "project.removed") {
+      publishSessionEvent(createProjectRemovedEvent(event));
       this.disconnectProject(event.projectId);
       return;
     }
 
+    publishSessionEvent(createProjectChangedEvent(event));
     this.connectProject(event.project.id);
   }
 
@@ -442,6 +496,10 @@ class SessionEventFanInManager {
       result.data.type === "session.created" || result.data.type === "session.updated"
         ? createSessionSummaryEvent(projectId, result.data)
         : null;
+    const questionEvent =
+      result.data.type === "question.asked" || result.data.type === "question.replied" || result.data.type === "question.rejected"
+        ? createSessionQuestionEvent(projectId, result.data)
+        : null;
 
     if (result.data.type === "message.updated") {
       recordOpencodeMessageUsage(projectId, result.data.properties.info);
@@ -469,7 +527,11 @@ class SessionEventFanInManager {
       publishSessionEvent(statusEvent);
     }
 
-      const activityEvent = getSessionActivityEvent(projectId, result.data);
+    if (questionEvent) {
+      publishSessionEvent(questionEvent);
+    }
+
+    const activityEvent = getSessionActivityEvent(projectId, result.data);
 
     if (activityEvent) {
       publishSessionEvent(activityEvent);

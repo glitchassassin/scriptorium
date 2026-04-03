@@ -1,6 +1,7 @@
-import { Outlet } from "react-router";
+import { Outlet, useNavigate } from "react-router";
 
 import { ProjectEventsProvider } from "~/components/events/project-events-provider";
+import { useSessionEvents } from "~/components/events/session-events-provider";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleContext, RouteHandleDefinition } from "~/lib/route-handle";
 
@@ -40,6 +41,19 @@ export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHa
 });
 
 export default function ProjectLayoutRoute({ params }: Route.ComponentProps) {
+  const navigate = useNavigate();
+
+  useSessionEvents(
+    (event) => {
+      if (event.type !== "project.removed" || event.projectId !== params.projectId) {
+        return;
+      }
+
+      navigate("/projects", { replace: true });
+    },
+    { types: ["project.removed"] as const },
+  );
+
   return (
     <ProjectEventsProvider projectIds={[params.projectId]}>
       <Outlet />

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ProjectsProvider,
   getInitialProjects,
+  useSortedProjects,
 } from "~/store/projects-provider";
 import {
   useHasVisibleUnreadProjectSessions,
@@ -20,12 +21,15 @@ vi.mock("~/components/events/session-events-provider", () => ({
 function TestConsumer() {
   const projects = useVisibleSidebarProjects();
   const hasVisibleUnread = useHasVisibleUnreadProjectSessions();
+  const allProjects = useSortedProjects();
 
   return (
     <div>
       <span data-testid="project-count">{String(projects.length)}</span>
       <span data-testid="session-ids">{projects.flatMap((project) => project.sessionIds).join(",")}</span>
       <span data-testid="has-unread">{String(hasVisibleUnread)}</span>
+      <span data-testid="all-project-count">{String(allProjects.length)}</span>
+      <span data-testid="all-project-names">{allProjects.map((project) => project.name).join(",")}</span>
     </div>
   );
 }
@@ -67,6 +71,7 @@ describe("ProjectsProvider", () => {
             {
               id: "project-1",
               name: "Alpha",
+              directory: "/tmp/alpha",
               recentSessions: [initialSessions["session-1"]],
             },
           ])}
@@ -79,6 +84,8 @@ describe("ProjectsProvider", () => {
     expect(screen.getByTestId("project-count")).toHaveTextContent("1");
     expect(screen.getByTestId("session-ids")).toHaveTextContent("session-1");
     expect(screen.getByTestId("has-unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("all-project-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("all-project-names")).toHaveTextContent("Alpha");
 
     if (!sessionEventHandlers.length) {
       throw new Error("Missing session event handler");
@@ -86,6 +93,14 @@ describe("ProjectsProvider", () => {
 
     act(() => {
       for (const sessionEventHandler of sessionEventHandlers) {
+        sessionEventHandler({
+          type: "project.changed",
+          project: {
+            id: "project-2",
+            name: "Beta",
+            directory: "/tmp/beta",
+          },
+        });
         sessionEventHandler({
           type: "session.summary",
           projectId: "project-1",
@@ -101,6 +116,8 @@ describe("ProjectsProvider", () => {
       }
     });
 
+    expect(screen.getByTestId("all-project-count")).toHaveTextContent("2");
+    expect(screen.getByTestId("all-project-names")).toHaveTextContent("Alpha,Beta");
     expect(screen.getByTestId("session-ids")).toHaveTextContent("session-2,session-1");
 
     act(() => {
@@ -125,6 +142,20 @@ describe("ProjectsProvider", () => {
     act(() => {
       for (const sessionEventHandler of sessionEventHandlers) {
         sessionEventHandler({
+          type: "session.question.asked",
+          projectId: "project-2",
+          sessionId: "session-3",
+          requestId: "question-1",
+        });
+      }
+    });
+
+    expect(screen.getByTestId("project-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("session-ids")).toHaveTextContent("session-2,session-1");
+
+    act(() => {
+      for (const sessionEventHandler of sessionEventHandlers) {
+        sessionEventHandler({
           type: "session.deleted",
           projectId: "project-1",
           sessionId: "session-1",
@@ -133,5 +164,17 @@ describe("ProjectsProvider", () => {
     });
 
     expect(screen.getByTestId("session-ids")).toHaveTextContent("session-2");
+
+    act(() => {
+      for (const sessionEventHandler of sessionEventHandlers) {
+        sessionEventHandler({
+          type: "project.removed",
+          projectId: "project-2",
+        });
+      }
+    });
+
+    expect(screen.getByTestId("all-project-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("all-project-names")).toHaveTextContent("Alpha");
   });
 });

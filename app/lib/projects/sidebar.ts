@@ -7,9 +7,10 @@ export const SESSION_UNREAD_GRACE_MS = 500;
 
 export type SidebarSessionRecord = OpencodeSessionSummary & {
   lastReadAt: number | null;
+  pendingQuestionRequestIds?: string[];
 };
 
-export type SidebarProjectRecord = Pick<ProjectRecord, "id" | "name"> & {
+export type SidebarProjectRecord = Pick<ProjectRecord, "id" | "name" | "directory"> & {
   recentSessions: SidebarSessionRecord[];
 };
 
@@ -33,6 +34,12 @@ export function getSessionSortTime(session: OpencodeSessionSummary) {
 }
 
 export function isSessionUnread(session: OpencodeSessionSummary, lastReadAt: number | null) {
+  const pendingQuestionRequestIds = (session as SidebarSessionRecord).pendingQuestionRequestIds;
+
+  if ((pendingQuestionRequestIds?.length ?? 0) > 0) {
+    return true;
+  }
+
   const sortTime = getSessionSortTime(session);
 
   if (sortTime <= 0) {
@@ -46,10 +53,15 @@ export function isSessionUnread(session: OpencodeSessionSummary, lastReadAt: num
   return sortTime - lastReadAt > SESSION_UNREAD_GRACE_MS;
 }
 
-export function withSessionReadState(session: OpencodeSessionSummary, lastReadAt: number | null): SidebarSessionRecord {
+export function withSessionReadState(
+  session: OpencodeSessionSummary,
+  lastReadAt: number | null,
+  pendingQuestionRequestIds: string[] = [],
+): SidebarSessionRecord {
   return {
     ...session,
     lastReadAt,
+    pendingQuestionRequestIds,
   };
 }
 

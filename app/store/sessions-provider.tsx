@@ -41,6 +41,8 @@ type SessionsActionsContextValue = {
 type SessionsAction =
   | { type: "reset"; sessions: SessionsContextValue }
   | { type: "mark-read"; sessionId: string; lastReadAt: number }
+  | { type: "question-asked"; sessionId: string; requestId: string }
+  | { type: "question-resolved"; sessionId: string; requestId: string }
   | { type: "update"; sessionId: string; state: Partial<SidebarSessionRecord> | null };
 
 type SessionStatusesAction =
@@ -93,6 +95,42 @@ function sessionsReducer(current: SessionsContextValue, action: SessionsAction) 
         },
       };
     }
+    case "question-asked": {
+      const previous = current[action.sessionId];
+
+      if (!previous) {
+        return current;
+      }
+
+      const pendingQuestionRequestIds = previous?.pendingQuestionRequestIds ?? [];
+
+      if (pendingQuestionRequestIds.includes(action.requestId)) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [action.sessionId]: {
+          ...previous,
+          pendingQuestionRequestIds: [...pendingQuestionRequestIds, action.requestId],
+        },
+      };
+    }
+    case "question-resolved": {
+      const previous = current[action.sessionId];
+
+      if (!previous?.pendingQuestionRequestIds?.includes(action.requestId)) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [action.sessionId]: {
+          ...previous,
+          pendingQuestionRequestIds: previous.pendingQuestionRequestIds.filter((requestId) => requestId !== action.requestId),
+        },
+      };
+    }
     case "update": {
       const previous = current[action.sessionId];
       const nextPartial = action.state;
@@ -115,6 +153,7 @@ function sessionsReducer(current: SessionsContextValue, action: SessionsAction) 
         title: previous?.title ?? null,
         directory: previous?.directory ?? null,
         createdAt: previous?.createdAt ?? null,
+        pendingQuestionRequestIds: previous?.pendingQuestionRequestIds ?? [],
         ...nextPartial,
         updatedAt: nextUpdatedAt,
         lastReadAt: nextLastReadAt,
@@ -128,6 +167,7 @@ function sessionsReducer(current: SessionsContextValue, action: SessionsAction) 
         && previous?.createdAt === next.createdAt
         && previous?.updatedAt === next.updatedAt
         && previous?.lastReadAt === next.lastReadAt
+        && previous?.pendingQuestionRequestIds?.join(",") === next.pendingQuestionRequestIds?.join(",")
       ) {
         return current;
       }
@@ -275,6 +315,21 @@ export function SessionsProvider({
           status: event.status,
         });
         return;
+      case "session.question.asked":
+        dispatch({
+          type: "question-asked",
+          sessionId: event.sessionId,
+          requestId: event.requestId,
+        });
+        return;
+      case "session.question.replied":
+      case "session.question.rejected":
+        dispatch({
+          type: "question-resolved",
+          sessionId: event.sessionId,
+          requestId: event.requestId,
+        });
+        return;
       case "session.deleted":
         dispatch({ type: "update", sessionId: event.sessionId, state: null });
         dispatchStatuses({ type: "remove", sessionId: event.sessionId });
@@ -296,7 +351,16 @@ export function SessionsProvider({
       }
     }
   }, {
-    types: ["session.read", "session.summary", "session.status", "session.deleted", "session.activity"] as const,
+    types: [
+      "session.read",
+      "session.summary",
+      "session.status",
+      "session.question.asked",
+      "session.question.replied",
+      "session.question.rejected",
+      "session.deleted",
+      "session.activity",
+    ] as const,
   });
 
   return (

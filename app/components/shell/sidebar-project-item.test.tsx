@@ -39,6 +39,7 @@ describe("SidebarProjectItem", () => {
         project={{
           id: "project-1",
           name: "Alpha",
+          directory: "/tmp/alpha",
           sessionIds: ["session-1"],
         }}
       />,
@@ -57,6 +58,7 @@ describe("SidebarProjectItem", () => {
         project={{
           id: "project-1",
           name: "Alpha",
+          directory: "/tmp/alpha",
           sessionIds: ["session-1"],
         }}
       />,
@@ -75,6 +77,7 @@ describe("SidebarProjectItem", () => {
         project={{
           id: "project-1",
           name: "Alpha",
+          directory: "/tmp/alpha",
           sessionIds: ["session-1"],
         }}
       />,
@@ -92,6 +95,7 @@ describe("SidebarProjectItem", () => {
         project={{
           id: "project-1",
           name: "Alpha",
+          directory: "/tmp/alpha",
           sessionIds: ["session-1"],
         }}
       />,

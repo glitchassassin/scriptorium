@@ -8,10 +8,9 @@ import { SessionsProvider } from "~/store/sessions-provider";
 import { AppShell } from "~/components/shell/app-shell";
 import { data } from "react-router";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
-import { getOpencodeSessionStatuses, listRecentSidebarSessions } from "~/lib/projects/opencode.server";
 import { listProjects } from "~/lib/projects/runtime.server";
-import { sortSidebarProjects, withSessionReadState } from "~/lib/projects/sidebar";
-import type { OpencodeSessionStatus } from "~/lib/opencode/events";
+import { sortSidebarProjects } from "~/lib/projects/sidebar";
+import { loadSidebarProjectState } from "~/lib/projects/sidebar.server";
 import { normalizeRouteHandleMatches, resolveRouteHandleValue, type RouteHandleIconAction } from "~/lib/route-handle";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
 import { listSessionReadStatuses } from "~/lib/session-read-status.server";
@@ -40,21 +39,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     readStatuses.map((status) => [status.sessionId, status.lastReadAt]),
   );
   const sidebarProjects = sortSidebarProjects(await time(
-    () => Promise.all(projects.map(async (project) => {
-      const [recentSessions, sessionStatuses] = await Promise.all([
-        listRecentSidebarSessions(project).catch(() => []),
-        getOpencodeSessionStatuses(project).catch(() => ({} as Record<string, OpencodeSessionStatus>)),
-      ]);
-
-      return {
-        id: project.id,
-        name: project.name,
-        recentSessions: recentSessions.map((session) => withSessionReadState(session, readStatusMap.get(session.id) ?? null)),
-        recentSessionStatuses: Object.fromEntries(
-          recentSessions.map((session) => [session.id, sessionStatuses[session.id] ?? IDLE_SESSION_STATUS] as const),
-        ),
-      };
-    })),
+    () => Promise.all(projects.map((project) => loadSidebarProjectState(project, readStatusMap))),
     {
       desc: "list sidebar sessions",
       timings,

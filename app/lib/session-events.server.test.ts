@@ -85,6 +85,7 @@ describe("session events", () => {
 
   it("fans in root session events from running projects", async () => {
     const stream = createEventStream();
+    let onRuntimeEvent: ((event: any) => void) | null = null;
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(stream.stream, {
       headers: {
         "Content-Type": "text/event-stream",
@@ -108,6 +109,10 @@ describe("session events", () => {
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
     });
+    subscribeToProjectRuntimeEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onRuntimeEvent = handler;
+      return () => {};
+    });
 
     const received: Array<{ type: string; value: string | number }> = [];
     const unsubscribe = subscribeToSessionEvents((event) => {
@@ -123,6 +128,19 @@ describe("session events", () => {
           return;
         case "session.deleted":
           received.push({ type: event.type, value: event.sessionId });
+          return;
+        case "session.question.asked":
+        case "session.question.rejected":
+        case "project.changed":
+        case "project.removed":
+          received.push({
+            type: event.type,
+            value: event.type === "project.changed"
+              ? event.project.id
+              : event.type === "project.removed"
+                ? event.projectId
+                : event.requestId,
+          });
       }
     });
 
@@ -167,6 +185,27 @@ describe("session events", () => {
       },
     });
     stream.emit({
+      type: "question.asked",
+      properties: {
+        id: "question-1",
+        sessionID: "session-1",
+        questions: [
+          {
+            question: "Continue?",
+            header: "Continue",
+            options: [{ label: "Yes", description: "Continue" }],
+          },
+        ],
+      },
+    });
+    stream.emit({
+      type: "question.rejected",
+      properties: {
+        sessionID: "session-1",
+        requestID: "question-1",
+      },
+    });
+    stream.emit({
       type: "session.deleted",
       properties: {
         info: {
@@ -178,14 +217,40 @@ describe("session events", () => {
       },
     });
 
+    if (!onRuntimeEvent) {
+      throw new Error("Missing runtime event handler");
+    }
+
+    const runtimeEventHandler = onRuntimeEvent as (event: any) => void;
+
+    runtimeEventHandler({
+      type: "project.changed",
+      project: {
+        id: "project-2",
+        name: "Beta",
+        directory: "/tmp/beta",
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      },
+    });
+    runtimeEventHandler({
+      type: "project.removed",
+      projectId: "project-2",
+    });
+
     await vi.waitFor(() => {
-      expect(received).toEqual([
+      expect(received).toEqual(expect.arrayContaining([
         { type: "session.summary", value: "session-1" },
         { type: "session.activity", value: 15 },
         { type: "session.activity", value: 20 },
         { type: "session.status", value: "busy" },
+        { type: "session.question.asked", value: "question-1" },
+        { type: "session.question.rejected", value: "question-1" },
         { type: "session.deleted", value: "session-1" },
-      ]);
+        { type: "project.changed", value: "project-2" },
+        { type: "project.removed", value: "project-2" },
+      ]));
+      expect(received.filter((event) => event.type === "session.activity")).toHaveLength(3);
     });
 
     unsubscribe();

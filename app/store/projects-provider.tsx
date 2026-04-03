@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useReducer,
   type ReactNode,
 } from "react";
@@ -9,7 +10,7 @@ import {
 import { useSessionEvents } from "~/components/events/session-events-provider";
 import { isRootSession, type SidebarProjectRecord } from "~/lib/projects/sidebar";
 
-export type ProjectState = Pick<SidebarProjectRecord, "id" | "name"> & {
+export type ProjectState = Pick<SidebarProjectRecord, "id" | "name" | "directory"> & {
   sessionIds: string[];
 };
 
@@ -17,6 +18,8 @@ type ProjectsContextValue = Record<string, ProjectState>;
 
 type ProjectsAction =
   | { type: "reset"; projects: ProjectsContextValue }
+  | { type: "remove-project"; projectId: string }
+  | { type: "upsert-project"; project: Pick<ProjectState, "id" | "name" | "directory"> }
   | { type: "add-session"; projectId: string; sessionId: string }
   | { type: "remove-session"; projectId: string; sessionId: string };
 
@@ -30,6 +33,34 @@ function projectsReducer(current: ProjectsContextValue, action: ProjectsAction) 
   switch (action.type) {
     case "reset":
       return action.projects;
+    case "remove-project": {
+      if (!(action.projectId in current)) {
+        return current;
+      }
+
+      const { [action.projectId]: _removed, ...rest } = current;
+      return rest;
+    }
+    case "upsert-project": {
+      const previous = current[action.project.id];
+
+      if (
+        previous?.name === action.project.name
+        && previous?.directory === action.project.directory
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [action.project.id]: {
+          id: action.project.id,
+          name: action.project.name,
+          directory: action.project.directory,
+          sessionIds: previous?.sessionIds ?? [],
+        },
+      };
+    }
     case "add-session": {
       const project = current[action.projectId];
 
@@ -67,12 +98,13 @@ export function getInitialProjects(projects: SidebarProjectRecord[]) {
   return Object.fromEntries(
     sortProjects(projects).map((project) => [
       project.id,
-      {
-        id: project.id,
-        name: project.name,
-        sessionIds: project.recentSessions.map((session) => session.id),
-      } satisfies ProjectState,
-    ] as const),
+        {
+          id: project.id,
+          name: project.name,
+          directory: project.directory,
+          sessionIds: project.recentSessions.map((session) => session.id),
+        } satisfies ProjectState,
+      ] as const),
   ) as ProjectsContextValue;
 }
 
@@ -85,6 +117,15 @@ export function ProjectsProvider({ children, initialProjects }: { children: Reac
 
   useSessionEvents((event) => {
     switch (event.type) {
+      case "project.changed":
+        dispatch({
+          type: "upsert-project",
+          project: event.project,
+        });
+        return;
+      case "project.removed":
+        dispatch({ type: "remove-project", projectId: event.projectId });
+        return;
       case "session.summary":
         if (!isRootSession(event.summary)) {
           return;
@@ -104,7 +145,7 @@ export function ProjectsProvider({ children, initialProjects }: { children: Reac
         });
     }
   }, {
-    types: ["session.summary", "session.deleted"] as const,
+    types: ["project.changed", "project.removed", "session.summary", "session.deleted"] as const,
   });
 
   return <ProjectsContext.Provider value={projects}>{children}</ProjectsContext.Provider>;
@@ -118,4 +159,10 @@ export function useProjects() {
   }
 
   return context;
+}
+
+export function useSortedProjects() {
+  const projects = useProjects();
+
+  return useMemo(() => sortProjects(Object.values(projects)), [projects]);
 }

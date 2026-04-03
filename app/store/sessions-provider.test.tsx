@@ -36,6 +36,12 @@ function TestConsumer() {
   );
 }
 
+function TestUnknownSessionConsumer() {
+  const session = useSession(getSessionStateId("session-2"));
+
+  return <span data-testid="unknown-session">{String(session?.id ?? null)}</span>;
+}
+
 function TestUnreadStatusConsumer({
   onEvent,
 }: {
@@ -262,6 +268,100 @@ describe("SessionsProvider", () => {
 
     expect(screen.getByTestId("unread")).toHaveTextContent("true");
     expect(screen.getByTestId("indicator")).toHaveTextContent("solid");
+  });
+
+  it("keeps sessions unread while a question is pending", () => {
+    let onSessionEvent: ((event: any) => void) | null = null;
+
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
+    });
+
+    renderSessionsProvider(<TestConsumer />);
+
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
+    }
+
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
+
+    act(() => {
+      sessionEventHandler({
+        type: "session.question.asked",
+        projectId: "project-1",
+        sessionId: "session-1",
+        requestId: "question-1",
+      });
+      sessionEventHandler({
+        type: "session.read",
+        sessionId: "session-1",
+        lastReadAt: 10,
+      });
+    });
+
+    expect(screen.getByTestId("read")).toHaveTextContent("10");
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("solid");
+
+    act(() => {
+      sessionEventHandler({
+        type: "session.question.replied",
+        projectId: "project-1",
+        sessionId: "session-1",
+        requestId: "question-1",
+      });
+    });
+
+    expect(screen.getByTestId("unread")).toHaveTextContent("false");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("none");
+  });
+
+  it("hydrates pending questions as unread state", () => {
+    useSessionEventsMock.mockImplementation(() => {});
+
+    render(
+      <SessionsProvider
+        initialSessions={{
+          "session-1": {
+            ...initialSessions["session-1"],
+            lastReadAt: 2,
+            pendingQuestionRequestIds: ["question-1"],
+          },
+        }}
+      >
+        <TestConsumer />
+      </SessionsProvider>,
+    );
+
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("solid");
+  });
+
+  it("ignores question events for unknown sessions", () => {
+    let onSessionEvent: ((event: any) => void) | null = null;
+
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
+    });
+
+    renderSessionsProvider(<TestUnknownSessionConsumer />);
+
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
+    }
+
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
+
+    act(() => {
+      sessionEventHandler({
+        type: "session.question.asked",
+        projectId: "project-1",
+        sessionId: "session-2",
+        requestId: "question-1",
+      });
+    });
+
+    expect(screen.getByTestId("unknown-session")).toHaveTextContent("null");
   });
 
   it("keeps newer activity timestamps when older activity arrives later", () => {

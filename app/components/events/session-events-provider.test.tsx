@@ -242,6 +242,58 @@ describe("useSessionEvents", () => {
     });
   });
 
+  it("delivers project lifecycle events", () => {
+    const onEvent = vi.fn<(event: SessionEvent) => void>();
+
+    render(
+      <SessionEventsProvider>
+        <TestSubscriber onEvent={onEvent} />
+      </SessionEventsProvider>,
+    );
+
+    emitSessionEvent({
+      type: "project.removed",
+      projectId: "project-1",
+    });
+
+    expect(onEvent).toHaveBeenCalledWith({
+      type: "project.removed",
+      projectId: "project-1",
+    });
+  });
+
+  it("matches pending-question events against the session filter", () => {
+    const onEvent = vi.fn<(event: SessionEvent) => void>();
+
+    render(
+      <SessionEventsProvider>
+        <TestSubscriber filter={{ sessionId: "session-1" }} onEvent={onEvent} />
+      </SessionEventsProvider>,
+    );
+
+    emitSessionEvent({
+      type: "session.question.asked",
+      projectId: "project-1",
+      sessionId: "session-2",
+      requestId: "question-1",
+    });
+
+    emitSessionEvent({
+      type: "session.question.rejected",
+      projectId: "project-1",
+      sessionId: "session-1",
+      requestId: "question-1",
+    });
+
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(onEvent).toHaveBeenCalledWith({
+      type: "session.question.rejected",
+      projectId: "project-1",
+      sessionId: "session-1",
+      requestId: "question-1",
+    });
+  });
+
   it("logs invalid payloads and closes the source on unmount", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const view = render(

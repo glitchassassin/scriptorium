@@ -46,6 +46,9 @@ function getSessionId(event: SessionEvent) {
     case "session.activity":
     case "session.status":
     case "session.deleted":
+    case "session.question.asked":
+    case "session.question.replied":
+    case "session.question.rejected":
       return event.sessionId;
     case "session.summary":
       return event.summary.id;
