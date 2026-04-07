@@ -22,7 +22,7 @@ export function MessagePartToolBash({ part }: MessagePartToolBashProps) {
 
   return (
     <div className="border-l-2 border-black pl-2">
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-start gap-1">
         <button
           aria-label={expanded ? "Collapse bash output" : "Expand bash output"}
           className="inline-flex min-h-11 min-w-11 items-center justify-center"
@@ -31,7 +31,7 @@ export function MessagePartToolBash({ part }: MessagePartToolBashProps) {
         >
           <Icon className="size-5" icon={expanded ? "mdi:unfold-less-horizontal" : "mdi:unfold-more-horizontal"} />
         </button>
-        <p className="text-sm leading-6 opacity-60">
+        <p className="min-w-0 break-words pt-2 text-sm leading-6 opacity-60">
           bash: {command || "(no command)"} ({isRunning ? "running" : part.state.status})
         </p>
       </div>

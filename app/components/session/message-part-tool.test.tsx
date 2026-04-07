@@ -46,6 +46,35 @@ describe("MessagePartTool", () => {
     expect(screen.getByText(/^ok$/)).toBeInTheDocument();
   });
 
+  it("allows long bash commands to wrap", () => {
+    const part: OpencodeToolPart = {
+      id: "part-bash-long-command",
+      sessionID: "session-1",
+      messageID: "message-1",
+      type: "tool",
+      callID: "call-bash-long-command",
+      tool: "bash",
+      state: {
+        status: "completed",
+        input: {
+          command:
+            "parseRuntimeCliArgs|renderRuntimeConfigurationHelp|getRuntimeConfigurationDocumentation|renderRuntimeConfigurationMarkdown|collectSchemaDocumentation|buildDocumentationExample",
+        },
+        output: "done",
+        title: "bash",
+        metadata: {},
+        time: { start: 1, end: 2 },
+      },
+    };
+
+    render(<MessagePartTool part={part} />);
+
+    const title = screen.getByText(/bash: parseRuntimeCliArgs\|renderRuntimeConfigurationHelp/i);
+
+    expect(title).toHaveClass("min-w-0", "break-words");
+    expect(title.parentElement).toHaveClass("flex", "min-w-0", "items-start");
+  });
+
   it("renders generic tool diffs when metadata provides a patch", () => {
     const part: OpencodeToolPart = {
       id: "part-2",
@@ -223,5 +252,47 @@ describe("MessagePartTool", () => {
       "/projects/project-1/sessions/session-child",
     );
     expect(screen.getByRole("link", { name: /investigate transcript links/i })).toHaveClass("underline");
+  });
+
+  it("allows long task labels to wrap", () => {
+    const part: OpencodeToolPart = {
+      id: "part-task-long-label",
+      sessionID: "session-1",
+      messageID: "message-1",
+      type: "tool",
+      callID: "call-task-long-label",
+      tool: "task",
+      state: {
+        status: "completed",
+        input: {
+          description:
+            "parseRuntimeCliArgs|renderRuntimeConfigurationHelp|getRuntimeConfigurationDocumentation|renderRuntimeConfigurationMarkdown|collectSchemaDocumentation|buildDocumentationExample",
+          prompt: "Check the transcript rendering flow",
+          subagent_type: "explore",
+        },
+        output: "done",
+        title: "task",
+        metadata: {
+          sessionId: "session-child",
+        },
+        time: { start: 1, end: 2 },
+      },
+    };
+
+    mockUseOptionalProjectIdParam.mockReturnValue("project-1");
+
+    render(
+      <MemoryRouter>
+        <MessagePartTool part={part} />
+      </MemoryRouter>,
+    );
+
+    const link = screen.getByRole("link", {
+      name: /parseRuntimeCliArgs\|renderRuntimeConfigurationHelp/i,
+    });
+    const label = screen.getByText(/parseRuntimeCliArgs\|renderRuntimeConfigurationHelp/i);
+
+    expect(link).toHaveClass("flex", "min-w-0", "items-start");
+    expect(label).toHaveClass("min-w-0", "break-words");
   });
 });

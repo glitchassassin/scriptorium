@@ -30,16 +30,16 @@ export function MessagePartToolTask({ projectId, part }: MessagePartToolTaskProp
       <p className="opacity-60">Task ({part.state.status})</p>
       {id && projectId ? (
         <Link
-          className="inline-flex min-h-11 items-center gap-1 font-bold underline underline-offset-4"
+          className="flex min-h-11 min-w-0 items-start gap-1 font-bold underline underline-offset-4"
           to={`/projects/${projectId}/sessions/${id}`}
         >
-          <span>{label}</span>
-          <Icon className="size-4" icon="mdi:arrow-right" />
+          <span className="min-w-0 break-words">{label}</span>
+          <Icon className="mt-1 size-4 shrink-0" icon="mdi:arrow-right" />
         </Link>
       ) : (
-        <p className="inline-flex min-h-11 items-center gap-1 font-bold">
-          <span>{label}</span>
-          <Icon className="size-4" icon="mdi:arrow-right" />
+        <p className="flex min-h-11 min-w-0 items-start gap-1 font-bold">
+          <span className="min-w-0 break-words">{label}</span>
+          <Icon className="mt-1 size-4 shrink-0" icon="mdi:arrow-right" />
         </p>
       )}
     </div>
