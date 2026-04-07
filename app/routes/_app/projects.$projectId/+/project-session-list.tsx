@@ -1,5 +1,8 @@
-import { Link } from "react-router";
+import { Link, useFetcher } from "react-router";
+import { Icon } from "@iconify/react";
+import "@iconify-json/mdi";
 
+import { useDoubleCheck } from "~/hooks/use-double-check";
 import type { OpencodeSessionSummary } from "~/lib/projects/types";
 
 type ProjectSessionListProps = {
@@ -57,21 +60,53 @@ function buildSessionTree(sessions: OpencodeSessionSummary[]) {
   ];
 }
 
+function SessionRow({ node, projectId, topLevel = false }: { node: SessionNode; projectId: string; topLevel?: boolean }) {
+  const fetcher = useFetcher();
+  const { doubleCheck, getButtonProps } = useDoubleCheck();
+  const isDeleting = fetcher.state !== "idle";
+  const label = sessionLabel(node.session);
+  const buttonLabel = doubleCheck ? `Confirm delete ${label}` : `Delete ${label}`;
+  const icon = doubleCheck ? "mdi:help" : "mdi:trash-can-outline";
+
+  return (
+    <li className={topLevel ? "space-y-2 border-b-2 border-black px-3 py-2" : "space-y-2 py-1"}>
+      <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+        <Link className="block min-w-0 space-y-1" to={`/projects/${projectId}/sessions/${node.session.id}`}>
+          <p className="text-base font-bold">{label}</p>
+          {node.session.updatedAt ? (
+            <p className="text-sm leading-6 opacity-60">
+              Updated {new Date(node.session.updatedAt).toLocaleString()}
+            </p>
+          ) : null}
+        </Link>
+        {topLevel ? (
+          <div className="flex items-center justify-between gap-3 md:justify-end">
+            <fetcher.Form method="post">
+              <input name="intent" type="hidden" value="delete-session" />
+              <input name="sessionId" type="hidden" value={node.session.id} />
+              <button
+                aria-label={buttonLabel}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25"
+                disabled={isDeleting}
+                type="submit"
+                {...getButtonProps()}
+              >
+                <Icon className="size-6" icon={icon} />
+              </button>
+            </fetcher.Form>
+          </div>
+        ) : null}
+      </div>
+      {node.children.length ? <SessionBranch nodes={node.children} projectId={projectId} /> : null}
+    </li>
+  );
+}
+
 function SessionBranch({ projectId, nodes }: { projectId: string; nodes: SessionNode[] }) {
   return (
     <ul className="space-y-2 border-l-2 border-black pl-4">
       {nodes.map((node) => (
-        <li className="space-y-2" key={node.session.id}>
-          <Link className="block space-y-1" to={`/projects/${projectId}/sessions/${node.session.id}`}>
-            <p className="text-base font-bold">{sessionLabel(node.session)}</p>
-            {node.session.updatedAt ? (
-              <p className="text-sm leading-6 opacity-60">
-                Updated {new Date(node.session.updatedAt).toLocaleString()}
-              </p>
-            ) : null}
-          </Link>
-          {node.children.length ? <SessionBranch nodes={node.children} projectId={projectId} /> : null}
-        </li>
+        <SessionRow key={node.session.id} node={node} projectId={projectId} />
       ))}
     </ul>
   );
@@ -87,17 +122,7 @@ export function ProjectSessionList({ projectId, sessions }: ProjectSessionListPr
   return (
     <ul className="border-t-2 border-black">
       {roots.map((node) => (
-        <li className="space-y-2 border-b-2 border-black px-3 py-2" key={node.session.id}>
-          <Link className="block space-y-1" to={`/projects/${projectId}/sessions/${node.session.id}`}>
-            <p className="text-base font-bold">{sessionLabel(node.session)}</p>
-            {node.session.updatedAt ? (
-              <p className="text-sm leading-6 opacity-60">
-                Updated {new Date(node.session.updatedAt).toLocaleString()}
-              </p>
-            ) : null}
-          </Link>
-          {node.children.length ? <SessionBranch nodes={node.children} projectId={projectId} /> : null}
-        </li>
+        <SessionRow key={node.session.id} node={node} projectId={projectId} topLevel />
       ))}
     </ul>
   );

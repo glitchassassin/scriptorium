@@ -9,9 +9,9 @@ import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { getDocumentTitle } from "~/lib/document-title";
 import { getGitStatusSummary } from "~/lib/projects/git.server";
-import { createOpencodeSession, listOpencodeSessions } from "~/lib/projects/opencode.server";
+import { createOpencodeSession, listOpencodeSessions, removeOpencodeSession } from "~/lib/projects/opencode.server";
 import { sortSessions, toSessionSummary } from "~/lib/projects/sidebar";
-import { getProjectOrThrow, removeProject } from "~/lib/projects/runtime.server";
+import { getProjectOrThrow } from "~/lib/projects/runtime.server";
 import type { OpencodeSessionSummary } from "~/lib/projects/types";
 import { opencodeSessionMutationEventSchema } from "~/lib/opencode/events";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
@@ -94,9 +94,19 @@ export async function action({ params, request }: Route.ActionArgs) {
     return redirect(`/projects/${params.projectId}/sessions/${session.id}`);
   }
 
-  await removeProject(params.projectId);
+  if (intent === "delete-session") {
+    const sessionId = String(formData.get("sessionId") || "").trim();
 
-  return redirect("/projects");
+    if (!sessionId) {
+      return data({ error: "Choose a session to delete." }, { status: 400 });
+    }
+
+    const project = await getProjectOrThrow(params.projectId);
+    await removeOpencodeSession(project, sessionId);
+    return data({ error: null });
+  }
+
+  return data({ error: "That action is not supported." }, { status: 400 });
 }
 
 function ProjectOverviewHeader({ directory, git }: { directory: string; git: Route.ComponentProps["loaderData"]["git"] }) {
@@ -180,16 +190,7 @@ export default function ProjectDetailRoute({ loaderData, matches }: Route.Compon
       <Breadcrumbs depth={matches.length}>
         <Breadcrumbs.Item to={`/projects/${project.id}`}>{project.name}</Breadcrumbs.Item>
       </Breadcrumbs>
-      <ScrollableLayout
-          header={<ProjectOverviewHeader directory={project.directory} git={git} />}
-        footer={
-          <Form method="post">
-            <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
-              Remove project
-            </button>
-          </Form>
-        }
-      >
+      <ScrollableLayout header={<ProjectOverviewHeader directory={project.directory} git={git} />}>
         <section className="space-y-8 pt-6 pr-1">
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3 px-6 sm:px-8">

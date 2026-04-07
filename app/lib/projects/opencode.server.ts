@@ -90,6 +90,16 @@ export async function createOpencodeSession(project: ProjectRecord, input?: { ti
   return parseOrThrow(opencodeSessionInfoSchema.safeParse(await readJson(response))) satisfies OpencodeSessionInfo;
 }
 
+export async function removeOpencodeSession(project: ProjectRecord, sessionId: string) {
+  const response = await fetchFromProject(project, `/session/${sessionId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Delete session request failed with ${response.status}`);
+  }
+}
+
 export async function listOpencodeMessagePage(
   project: ProjectRecord,
   sessionId: string,
