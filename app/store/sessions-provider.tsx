@@ -35,11 +35,13 @@ type SessionsEventsContextValue = {
 };
 
 type SessionsActionsContextValue = {
+  hydrateSessionState: (sessions: SessionsContextValue, statuses?: SessionStatusesContextValue) => void;
   markReadOptimistic: (sessionId: string, lastReadAt?: number) => void;
 };
 
 type SessionsAction =
   | { type: "reset"; sessions: SessionsContextValue }
+  | { type: "hydrate"; sessions: SessionsContextValue }
   | { type: "mark-read"; sessionId: string; lastReadAt: number }
   | { type: "question-asked"; sessionId: string; requestId: string }
   | { type: "question-resolved"; sessionId: string; requestId: string }
@@ -47,6 +49,7 @@ type SessionsAction =
 
 type SessionStatusesAction =
   | { type: "reset"; statuses: SessionStatusesContextValue }
+  | { type: "hydrate"; statuses: SessionStatusesContextValue }
   | { type: "remove"; sessionId: string }
   | { type: "update"; sessionId: string; status: OpencodeSessionStatus };
 
@@ -76,10 +79,72 @@ function mergeMonotonicTimestamp(previous: number | null, next: number | null | 
   return Math.max(previous, next);
 }
 
+function mergeSessionRecord(
+  previous: SidebarSessionRecord | undefined,
+  sessionId: string,
+  nextPartial: Partial<SidebarSessionRecord> | null,
+  options?: {
+    preservePendingQuestionRequestIds?: boolean;
+  },
+) {
+  if (nextPartial === null) {
+    return null;
+  }
+
+  const nextUpdatedAt = mergeMonotonicTimestamp(previous?.updatedAt ?? null, nextPartial.updatedAt);
+  const nextLastReadAt = mergeMonotonicTimestamp(previous?.lastReadAt ?? null, nextPartial.lastReadAt);
+
+  return {
+    id: sessionId,
+    parentID: previous?.parentID ?? null,
+    title: previous?.title ?? null,
+    directory: previous?.directory ?? null,
+    createdAt: previous?.createdAt ?? null,
+    ...nextPartial,
+    pendingQuestionRequestIds: options?.preservePendingQuestionRequestIds
+      ? ((nextPartial.pendingQuestionRequestIds?.length ?? 0) > 0
+        ? nextPartial.pendingQuestionRequestIds
+        : previous?.pendingQuestionRequestIds ?? [])
+      : (nextPartial.pendingQuestionRequestIds ?? previous?.pendingQuestionRequestIds ?? []),
+    updatedAt: nextUpdatedAt,
+    lastReadAt: nextLastReadAt,
+  } satisfies SidebarSessionRecord;
+}
+
 function sessionsReducer(current: SessionsContextValue, action: SessionsAction) {
   switch (action.type) {
     case "reset":
       return action.sessions;
+    case "hydrate": {
+      let next = current;
+
+      for (const [sessionId, session] of Object.entries(action.sessions)) {
+        const previous = next[sessionId];
+        const merged = mergeSessionRecord(previous, sessionId, session, { preservePendingQuestionRequestIds: true });
+
+        if (
+          !merged
+          || (
+            previous?.parentID === merged.parentID
+            && previous?.title === merged.title
+            && previous?.directory === merged.directory
+            && previous?.createdAt === merged.createdAt
+            && previous?.updatedAt === merged.updatedAt
+            && previous?.lastReadAt === merged.lastReadAt
+            && previous?.pendingQuestionRequestIds?.join(",") === merged.pendingQuestionRequestIds?.join(",")
+          )
+        ) {
+          continue;
+        }
+
+        next = {
+          ...next,
+          [sessionId]: merged,
+        };
+      }
+
+      return next;
+    }
     case "mark-read": {
       const previous = current[action.sessionId];
 
@@ -133,9 +198,9 @@ function sessionsReducer(current: SessionsContextValue, action: SessionsAction) 
     }
     case "update": {
       const previous = current[action.sessionId];
-      const nextPartial = action.state;
+      const next = mergeSessionRecord(previous, action.sessionId, action.state);
 
-      if (nextPartial === null) {
+      if (next === null) {
         if (!(action.sessionId in current)) {
           return current;
         }
@@ -143,21 +208,6 @@ function sessionsReducer(current: SessionsContextValue, action: SessionsAction) 
         const { [action.sessionId]: _removed, ...rest } = current;
         return rest;
       }
-
-      const nextUpdatedAt = mergeMonotonicTimestamp(previous?.updatedAt ?? null, nextPartial.updatedAt);
-      const nextLastReadAt = mergeMonotonicTimestamp(previous?.lastReadAt ?? null, nextPartial.lastReadAt);
-
-      const next = {
-        id: action.sessionId,
-        parentID: previous?.parentID ?? null,
-        title: previous?.title ?? null,
-        directory: previous?.directory ?? null,
-        createdAt: previous?.createdAt ?? null,
-        pendingQuestionRequestIds: previous?.pendingQuestionRequestIds ?? [],
-        ...nextPartial,
-        updatedAt: nextUpdatedAt,
-        lastReadAt: nextLastReadAt,
-      } satisfies SidebarSessionRecord;
 
       if (
         previous?.parentID === next.parentID
@@ -203,6 +253,22 @@ function sessionStatusesReducer(current: SessionStatusesContextValue, action: Se
         ...action.statuses,
         ...current,
       };
+    case "hydrate": {
+      let next = current;
+
+      for (const [sessionId, status] of Object.entries(action.statuses)) {
+        if (areSessionStatusesEqual(next[sessionId], status)) {
+          continue;
+        }
+
+        next = {
+          ...next,
+          [sessionId]: status,
+        };
+      }
+
+      return next;
+    }
     case "remove": {
       if (!(action.sessionId in current)) {
         return current;
@@ -277,9 +343,16 @@ export function SessionsProvider({
       lastReadAt,
     });
   }, []);
+  const hydrateSessionState = useCallback<SessionsActionsContextValue["hydrateSessionState"]>((nextSessions, nextStatuses = EMPTY_SESSION_STATUSES) => {
+    dispatch({ type: "hydrate", sessions: nextSessions });
+    dispatchStatuses({ type: "hydrate", statuses: nextStatuses });
+  }, []);
 
   const eventsValue = useMemo<SessionsEventsContextValue>(() => ({ subscribe }), [subscribe]);
-  const actionsValue = useMemo<SessionsActionsContextValue>(() => ({ markReadOptimistic }), [markReadOptimistic]);
+  const actionsValue = useMemo<SessionsActionsContextValue>(
+    () => ({ hydrateSessionState, markReadOptimistic }),
+    [hydrateSessionState, markReadOptimistic],
+  );
 
   useSessionEvents((event) => {
     switch (event.type) {
@@ -435,6 +508,21 @@ export function useMarkSessionReadOptimistic() {
   }
 
   return context.markReadOptimistic;
+}
+
+export function useHydrateSessionState(
+  sessions: Record<string, SidebarSessionRecord>,
+  statuses: SessionStatusesContextValue = EMPTY_SESSION_STATUSES,
+) {
+  const context = useContext(SessionsActionsContext);
+
+  if (!context) {
+    throw new Error("useHydrateSessionState must be used within a SessionsProvider.");
+  }
+
+  useEffect(() => {
+    context.hydrateSessionState(sessions, statuses);
+  }, [context, sessions, statuses]);
 }
 
 export function useUnreadStatusEvents(handler: (event: UnreadStatusEvent) => void, filter?: UnreadStatusEventFilter) {

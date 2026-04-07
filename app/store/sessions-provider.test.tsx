@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
 
@@ -6,6 +7,7 @@ import {
   SessionsProvider,
   getSessionStateId,
   type SessionState,
+  useHydrateSessionState,
   useMarkSessionReadOptimistic,
   useSession,
   useSessionSidebarIndicator,
@@ -58,6 +60,32 @@ function TestMarkReadConsumer() {
     <button onClick={() => markReadOptimistic("session-1", 7)} type="button">
       Mark read
     </button>
+  );
+}
+
+function TestHydrateSessionStateConsumer({
+  sessions,
+}: {
+  sessions: Record<string, SessionState>;
+}) {
+  useHydrateSessionState(sessions);
+  return null;
+}
+
+function TestHydrateSessionStateHarness({
+  sessions,
+}: {
+  sessions: Record<string, SessionState>;
+}) {
+  const [version, setVersion] = useState(0);
+
+  return (
+    <>
+      <TestHydrateSessionStateConsumer sessions={{ ...sessions }} key={version} />
+      <button onClick={() => setVersion((current) => current + 1)} type="button">
+        Rehydrate
+      </button>
+    </>
   );
 }
 
@@ -332,6 +360,52 @@ describe("SessionsProvider", () => {
         <TestConsumer />
       </SessionsProvider>,
     );
+
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
+    expect(screen.getByTestId("indicator")).toHaveTextContent("solid");
+  });
+
+  it("does not clear pending questions when hydrating stale route session state", () => {
+    let onSessionEvent: ((event: any) => void) | null = null;
+
+    useSessionEventsMock.mockImplementation((handler: (event: any) => void) => {
+      onSessionEvent = handler;
+    });
+
+    render(
+      <SessionsProvider initialSessions={initialSessions}>
+        <TestConsumer />
+        <TestHydrateSessionStateHarness
+          sessions={{
+            "session-1": {
+              ...initialSessions["session-1"],
+              pendingQuestionRequestIds: [],
+            },
+          }}
+        />
+      </SessionsProvider>,
+    );
+
+    if (!onSessionEvent) {
+      throw new Error("Missing session event handler");
+    }
+
+    const sessionEventHandler: (event: any) => void = onSessionEvent;
+
+    act(() => {
+      sessionEventHandler({
+        type: "session.question.asked",
+        projectId: "project-1",
+        sessionId: "session-1",
+        requestId: "question-1",
+      });
+    });
+
+    expect(screen.getByTestId("unread")).toHaveTextContent("true");
+
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Rehydrate" }));
+    });
 
     expect(screen.getByTestId("unread")).toHaveTextContent("true");
     expect(screen.getByTestId("indicator")).toHaveTextContent("solid");

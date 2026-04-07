@@ -53,6 +53,20 @@ export function isSessionUnread(session: OpencodeSessionSummary, lastReadAt: num
   return sortTime - lastReadAt > SESSION_UNREAD_GRACE_MS;
 }
 
+export function isSessionUnreadByActivity(session: OpencodeSessionSummary, lastReadAt: number | null) {
+  const sortTime = getSessionSortTime(session);
+
+  if (sortTime <= 0) {
+    return false;
+  }
+
+  if (lastReadAt === null) {
+    return true;
+  }
+
+  return sortTime - lastReadAt > SESSION_UNREAD_GRACE_MS;
+}
+
 export function withSessionReadState(
   session: OpencodeSessionSummary,
   lastReadAt: number | null,
