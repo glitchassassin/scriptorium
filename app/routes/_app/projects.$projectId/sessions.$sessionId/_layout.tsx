@@ -9,6 +9,7 @@ import {
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
+import { resolveProjectFileReferences } from "~/lib/projects/files.server";
 import {
   abortOpencodeSession,
   forkOpencodeSession,
@@ -29,6 +30,7 @@ import {
 } from "~/lib/projects/opencode.server";
 import { listRecentModelChoices, resolveSessionModelChoice } from "~/lib/model-usage.server";
 import { parseSlashCommand } from "~/lib/opencode/commands";
+import { resolvePromptMentionInput } from "~/lib/opencode/prompt-mentions";
 import { getProjectOrThrow } from "~/lib/projects/runtime.server";
 import { getUserMessageText } from "~/lib/opencode/message-helpers";
 import type {
@@ -37,7 +39,7 @@ import type {
   OpencodeModelRef,
   OpencodeProvider,
 } from "~/lib/opencode/events";
-import { getInitialAgent, getSelectableAgents } from "~/lib/opencode/agents";
+import { getInitialAgent, getSelectableAgents, getVisibleSubagents } from "~/lib/opencode/agents";
 import type { SessionModelChoice } from "~/lib/opencode/models";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleDefinition } from "~/lib/route-handle";
@@ -231,25 +233,37 @@ export async function action({ params, request }: Route.ActionArgs) {
 
   if (intent === "prompt") {
     const rawText = String(formData.get("text") ?? "");
-    const text = rawText.trim();
-    const commandNames = (await listOpencodeCommands(project)).map((item) => item.name);
+    const [commandNames, subagentNames] = await Promise.all([
+      listOpencodeCommands(project).then((items) => items.map((item) => item.name)),
+      listOpencodeAgents(project).then((items) => getVisibleSubagents(items).map((item) => item.name)),
+    ]);
     const command = parseSlashCommand(rawText, commandNames);
 
     if (command) {
       return submitCommand({ ...command, clearDraft: true });
     }
 
-    if (!text && attachments.length === 0) {
+    const promptInput = resolvePromptMentionInput({
+      defaultAgent: agent,
+      hasFileReference: (value) => Boolean(resolveProjectFileReferences([value], project.directory)[value]),
+      subagents: subagentNames,
+      text: rawText,
+    });
+    const promptText = promptInput.text;
+    const promptBody = promptText.trim();
+    const promptAgent = promptInput.agent;
+
+    if (!promptBody && attachments.length === 0) {
       return data({ error: "Enter a message before sending.", intent, ok: false }, { status: 400 });
     }
     const parts = [
-      ...(text ? [{ type: "text" as const, text: rawText }] : []),
+      ...(promptBody ? [{ type: "text" as const, text: promptText }] : []),
       ...attachments,
     ];
 
     await submitOpencodePrompt(project, sessionId, {
       parts,
-      ...(agent ? { agent } : {}),
+      ...(promptAgent ? { agent: promptAgent } : {}),
       ...(model ? { model } : {}),
       ...(variant ? { variant } : {}),
     });
@@ -327,6 +341,7 @@ type SessionComposerFooterProps = {
   providers: OpencodeProvider[];
   recentModels: SessionModelChoice[];
   sessionId: string;
+  subagents: OpencodeAgent[];
 };
 
 function SessionLayoutBreadcrumbs({
@@ -363,6 +378,7 @@ function SessionComposerFooter({
   providers,
   recentModels,
   sessionId,
+  subagents,
 }: SessionComposerFooterProps) {
   const status = useSessionStatus();
   const { clearSessionError, sessionError } = useSessionErrorState();
@@ -382,6 +398,7 @@ function SessionComposerFooter({
       recentModels={recentModels}
       sessionError={sessionError}
       sessionId={sessionId}
+      subagents={subagents}
     />
   );
 }
@@ -406,6 +423,7 @@ export default function ProjectSessionLayoutRoute({ loaderData, matches }: Route
   const [searchParams] = useSearchParams();
   const prefilledPrompt = searchParams.get("prompt") ?? "";
   const agents = useMemo<OpencodeAgent[]>(() => getSelectableAgents(initialAgents), [initialAgents]);
+  const subagents = useMemo<OpencodeAgent[]>(() => getVisibleSubagents(initialAgents), [initialAgents]);
   const commands = useMemo<OpencodeCommandInfo[]>(() => initialCommands, [initialCommands]);
   const providers = useMemo<OpencodeProvider[]>(() => initialProviders, [initialProviders]);
   const defaultAgent = useMemo<string | null>(() => getInitialAgent(initialMessages, initialAgents), [initialMessages, initialAgents]);
@@ -456,6 +474,7 @@ export default function ProjectSessionLayoutRoute({ loaderData, matches }: Route
             providers={providers}
             recentModels={recentModels}
             sessionId={session.id}
+            subagents={subagents}
           />
         }
       >

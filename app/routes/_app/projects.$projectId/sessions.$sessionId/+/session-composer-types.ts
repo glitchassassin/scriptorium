@@ -1,11 +1,11 @@
 import type { RefObject } from "react";
 
 import type { ModelMetadata, SessionModelChoice } from "~/lib/opencode/models";
-import type { OpencodeCommandInfo, OpencodeModelRef } from "~/lib/opencode/events";
+import type { OpencodeAgent, OpencodeCommandInfo, OpencodeModelRef } from "~/lib/opencode/events";
 import type { DraftImage } from "./session-composer-draft";
 
-export type ComposerTray = "commands" | "model" | null;
-export type VisibleTray = "commands-description" | "commands-list" | "images" | "model" | null;
+export type ComposerTray = "commands" | "model" | "subagents" | null;
+export type VisibleTray = "commands-description" | "commands-list" | "images" | "model" | "subagents-description" | "subagents-list" | null;
 
 export type SessionComposerModelGroup = {
   providerID: string;
@@ -46,6 +46,8 @@ export type SessionComposerController = {
   recentModels: SessionComposerRecentModel[];
   selectedAgent: string | null;
   selectedModel: OpencodeModelRef | null;
+  subagentDescription: string | null;
+  subagents: OpencodeAgent[];
   variantOptions: string[];
   visibleTray: VisibleTray;
   onAbort: () => void;
@@ -59,6 +61,8 @@ export type SessionComposerController = {
   onModelToggle: () => void;
   onProviderToggle: (providerID: string) => void;
   onRemoveImage: (id: string) => Promise<void>;
+  onSubagent: (subagentName: string) => void;
+  onSubagentsToggle: () => void;
   onSubmit: () => void;
   onUpdateSelection: (target?: HTMLTextAreaElement | null) => void;
   onVariantCycle: () => void;

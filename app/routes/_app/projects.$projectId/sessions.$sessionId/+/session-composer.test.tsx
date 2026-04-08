@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { OpencodeProvider } from "~/lib/opencode/events";
+import type { OpencodeAgent, OpencodeProvider } from "~/lib/opencode/events";
 
 const useFetcherMock = vi.fn();
 
@@ -47,6 +47,11 @@ const abortFetcher: MockFetcher = {
 
 const DEFAULT_COMMANDS = [
   { description: "Review changes [commit|branch|pr], defaults to uncommitted", name: "review" },
+];
+
+const DEFAULT_SUBAGENTS: OpencodeAgent[] = [
+  { description: "Explore the repo and report back", mode: "subagent", name: "explore" },
+  { description: "Review a localized change", mode: "subagent", name: "reviewer" },
 ];
 
 const DEFAULT_MODEL = { modelID: "gpt-5", providerID: "openai" };
@@ -99,6 +104,7 @@ function renderSessionComposer(props?: Partial<ComponentProps<typeof SessionComp
       providers={DEFAULT_PROVIDERS}
       sessionError={null}
       sessionId="session-component"
+      subagents={DEFAULT_SUBAGENTS}
       {...props}
     />,
   );
@@ -396,6 +402,88 @@ describe("useSessionComposerDraft", () => {
 
     expect(await screen.findByText("Review changes [commit|branch|pr], defaults to uncommitted")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Insert /review" })).not.toBeInTheDocument();
+  });
+
+  it("replaces composer text when selecting a subagent from the tray", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Ignore me" } });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle subagents tray" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insert @explore" }));
+
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue("@explore "));
+  });
+
+  it("shows the selected subagent description after inserting from the tray", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle subagents tray" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insert @explore" }));
+
+    expect(await screen.findByText("Explore the repo and report back")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert @explore" })).not.toBeInTheDocument();
+  });
+
+  it("shows the subagent description when the composer starts with a valid subagent mention", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "@explore find files" } });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle subagents tray" }));
+
+    expect(screen.getByText("Explore the repo and report back")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert @explore" })).not.toBeInTheDocument();
+  });
+
+  it("shows the subagent list when the composer has an invalid subagent mention", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "@unknown thing" } });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle subagents tray" }));
+
+    expect(screen.getByRole("button", { name: "Insert @explore" })).toBeInTheDocument();
+    expect(screen.queryByText("Explore the repo and report back")).not.toBeInTheDocument();
+  });
+
+  it("shows only subagents in the robot tray", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle subagents tray" }));
+
+    expect(screen.getByRole("button", { name: "Insert @explore" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Insert @reviewer" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert @draft" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Insert @review" })).not.toBeInTheDocument();
+  });
+
+  it("closes the subagents tray after sending a prompt while it is open", async () => {
+    renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Hello" } });
+
+    const subagentsButton = screen.getByRole("button", { name: "Toggle subagents tray" });
+
+    fireEvent.click(subagentsButton);
+
+    expect(screen.getByRole("button", { name: "Insert @explore" })).toBeInTheDocument();
+    expect(subagentsButton).toHaveClass("bg-black", "text-white");
+
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(promptFetcher.submit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("button", { name: "Insert @explore" })).not.toBeInTheDocument();
+    expect(subagentsButton).not.toHaveClass("bg-black");
   });
 
   it("keeps attach and send enabled while a command is pending", async () => {

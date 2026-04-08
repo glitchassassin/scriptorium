@@ -18,6 +18,12 @@ function activeCommandsButtonClass(visibleTray: VisibleTray) {
     : "bg-white text-black";
 }
 
+function activeSubagentsButtonClass(visibleTray: VisibleTray) {
+  return visibleTray === "subagents-description" || visibleTray === "subagents-list"
+    ? "bg-black text-white"
+    : "bg-white text-black";
+}
+
 export function SessionComposerControls({
   agents,
   currentVariant,
@@ -29,10 +35,12 @@ export function SessionComposerControls({
   onCycleAgent,
   onModelToggle,
   onSubmit,
+  onSubagentsToggle,
   onVariantCycle,
   providers,
   selectedAgent,
   selectedModel,
+  subagents,
   variantOptions,
   visibleTray,
 }: {
@@ -46,10 +54,12 @@ export function SessionComposerControls({
   onCycleAgent: () => void;
   onModelToggle: () => void;
   onSubmit: () => void;
+  onSubagentsToggle: () => void;
   onVariantCycle: () => void;
   providers: OpencodeProvider[];
   selectedAgent: string | null;
   selectedModel: { providerID: string; modelID: string } | null;
+  subagents: { name: string }[];
   variantOptions: string[];
   visibleTray: VisibleTray;
 }) {
@@ -95,6 +105,19 @@ export function SessionComposerControls({
           )}
           disabled={false}
           onClick={onCommandsToggle}
+          onPointerDown={(event) => event.preventDefault()}
+          type="button"
+        >
+          <Icon className="size-6" icon="mdi:hexagon-multiple" />
+        </button>
+        <button
+          aria-label="Toggle subagents tray"
+          className={cn(
+            "inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-25",
+            activeSubagentsButtonClass(visibleTray),
+          )}
+          disabled={!subagents.length}
+          onClick={onSubagentsToggle}
           onPointerDown={(event) => event.preventDefault()}
           type="button"
         >

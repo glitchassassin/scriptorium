@@ -1,7 +1,12 @@
 import safeArea from "~/styles/safe-area.module.css";
-import type { OpencodeCommandInfo, OpencodeModelRef, OpencodeProvider } from "~/lib/opencode/events";
+import type { OpencodeAgent, OpencodeCommandInfo, OpencodeModelRef, OpencodeProvider } from "~/lib/opencode/events";
 import type { SessionModelChoice } from "~/lib/opencode/models";
-import { SessionComposerCommandDescriptionTray, SessionComposerCommandListTray } from "./session-composer-command-tray";
+import {
+  SessionComposerCommandDescriptionTray,
+  SessionComposerCommandListTray,
+  SessionComposerSubagentDescriptionTray,
+  SessionComposerSubagentListTray,
+} from "./session-composer-command-tray";
 import { SessionComposerControls } from "./session-composer-controls";
 import { SessionComposerImagesTray } from "./session-composer-images-tray";
 import { SessionComposerInput } from "./session-composer-input";
@@ -23,6 +28,7 @@ type SessionComposerProps = {
   recentModels?: SessionModelChoice[];
   sessionError: string | null;
   sessionId: string;
+  subagents?: OpencodeAgent[];
 };
 
 export function SessionComposer({
@@ -39,6 +45,7 @@ export function SessionComposer({
   recentModels = [],
   sessionError,
   sessionId,
+  subagents = [],
 }: SessionComposerProps) {
   const controller = useSessionComposerController({
     agents,
@@ -52,6 +59,7 @@ export function SessionComposer({
     providers,
     recentModels,
     sessionId,
+    subagents,
   });
 
   return (
@@ -78,6 +86,18 @@ export function SessionComposer({
 
       {controller.visibleTray === "commands-description" && controller.commandDescription ? (
         <SessionComposerCommandDescriptionTray commandDescription={controller.commandDescription} />
+      ) : null}
+
+      {controller.visibleTray === "subagents-list" ? (
+        <SessionComposerSubagentListTray
+          isDisabled={isBusy || controller.isCommandPending}
+          onSubagent={controller.onSubagent}
+          subagents={controller.subagents}
+        />
+      ) : null}
+
+      {controller.visibleTray === "subagents-description" && controller.subagentDescription ? (
+        <SessionComposerSubagentDescriptionTray subagentDescription={controller.subagentDescription} />
       ) : null}
 
       {controller.visibleTray === "model" ? (
@@ -120,10 +140,12 @@ export function SessionComposer({
               onCycleAgent={controller.onCycleAgent}
               onModelToggle={controller.onModelToggle}
               onSubmit={controller.onSubmit}
+              onSubagentsToggle={controller.onSubagentsToggle}
               onVariantCycle={controller.onVariantCycle}
               providers={providers}
               selectedAgent={controller.selectedAgent}
               selectedModel={controller.selectedModel}
+              subagents={controller.subagents}
               variantOptions={controller.variantOptions}
               visibleTray={controller.visibleTray}
             />

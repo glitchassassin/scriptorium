@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
 import { parseSlashCommand } from "~/lib/opencode/commands";
-import type { OpencodeCommandInfo, OpencodeModelRef, OpencodeProvider } from "~/lib/opencode/events";
+import type { OpencodeAgent, OpencodeCommandInfo, OpencodeModelRef, OpencodeProvider } from "~/lib/opencode/events";
 import { getModelMetadata, getModelVariants, type SessionModelChoice } from "~/lib/opencode/models";
+import { parseSubagentMention } from "~/lib/opencode/subagents";
 import { useSessionComposerDraft } from "./session-composer-draft";
-import type { SessionComposerController, VisibleTray } from "./session-composer-types";
+import type { ComposerTray, SessionComposerController, VisibleTray } from "./session-composer-types";
 
 type UseSessionComposerControllerOptions = {
   agents: string[];
@@ -19,6 +20,7 @@ type UseSessionComposerControllerOptions = {
   providers: OpencodeProvider[];
   recentModels: SessionModelChoice[];
   sessionId: string;
+  subagents: OpencodeAgent[];
 };
 
 function getImageFiles(items: FileList | File[]) {
@@ -37,12 +39,13 @@ export function useSessionComposerController({
   providers,
   recentModels,
   sessionId,
+  subagents,
 }: UseSessionComposerControllerOptions): SessionComposerController {
   const promptFetcher = useFetcher();
   const commandFetcher = useFetcher();
   const abortFetcher = useFetcher();
   const lastHandledPromptDataRef = useRef<unknown>(null);
-  const [activeTray, setActiveTray] = useState<VisibleTray | "commands" | null>(null);
+  const [activeTray, setActiveTray] = useState<ComposerTray>(null);
   const [modelSearch, setModelSearch] = useState("");
   const [collapsedProviderIDs, setCollapsedProviderIDs] = useState<Set<string>>(() => new Set());
   const {
@@ -123,7 +126,9 @@ export function useSessionComposerController({
   }, [agents, setSelectedAgent]);
 
   const commandNames = useMemo(() => commands.map((command) => command.name), [commands]);
+  const subagentNames = useMemo(() => subagents.map((subagent) => subagent.name), [subagents]);
   const parsedSlashCommand = useMemo(() => parseSlashCommand(composerText, commandNames), [commandNames, composerText]);
+  const parsedSubagent = useMemo(() => parseSubagentMention(composerText, subagentNames), [composerText, subagentNames]);
   const matchedCommand = useMemo(() => {
     if (!parsedSlashCommand) {
       return null;
@@ -131,6 +136,13 @@ export function useSessionComposerController({
 
     return commands.find((command) => command.name === parsedSlashCommand.command) ?? null;
   }, [commands, parsedSlashCommand]);
+  const matchedSubagent = useMemo(() => {
+    if (!parsedSubagent) {
+      return null;
+    }
+
+    return subagents.find((subagent) => subagent.name === parsedSubagent.subagent) ?? null;
+  }, [parsedSubagent, subagents]);
 
   const variantOptions = useMemo(() => selectedModel ? getModelVariants(selectedModel, providers) : [], [providers, selectedModel]);
   const currentVariant = selectedVariant && variantOptions.includes(selectedVariant) ? selectedVariant : null;
@@ -208,7 +220,7 @@ export function useSessionComposerController({
   }, [modelSearch, providers, recentModels]);
 
   const submitPrompt = useCallback(() => {
-    setActiveTray((current) => current === "commands" ? null : current);
+    setActiveTray((current) => current === "commands" || current === "subagents" ? null : current);
 
     const formData = new FormData();
     formData.set("agent", selectedAgent ?? "");
@@ -241,6 +253,10 @@ export function useSessionComposerController({
 
   const toggleCommandsTray = useCallback(() => {
     setActiveTray((current) => current === "commands" ? null : "commands");
+  }, []);
+
+  const toggleSubagentsTray = useCallback(() => {
+    setActiveTray((current) => current === "subagents" ? null : "subagents");
   }, []);
 
   const toggleModelTray = useCallback(() => {
@@ -298,6 +314,23 @@ export function useSessionComposerController({
     });
   }, [composerInputRef, setComposerText, updateComposerSelection]);
 
+  const populateSubagent = useCallback((subagentName: string) => {
+    const nextText = `@${subagentName} `;
+    setComposerText(nextText);
+
+    window.requestAnimationFrame(() => {
+      const input = composerInputRef.current;
+
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      input.setSelectionRange(nextText.length, nextText.length);
+      updateComposerSelection(input);
+    });
+  }, [composerInputRef, setComposerText, updateComposerSelection]);
+
   const selectModel = useCallback((model: OpencodeModelRef, variant?: string | null) => {
     applySelectedModel(model, variant);
     setActiveTray(null);
@@ -316,6 +349,10 @@ export function useSessionComposerController({
       ? matchedCommand?.description
         ? "commands-description"
         : "commands-list"
+      : activeTray === "subagents"
+        ? matchedSubagent?.description
+          ? "subagents-description"
+          : "subagents-list"
       : images.length
         ? "images"
         : null;
@@ -341,6 +378,8 @@ export function useSessionComposerController({
     recentModels: recentItems,
     selectedAgent,
     selectedModel,
+    subagentDescription: matchedSubagent?.description ?? null,
+    subagents,
     variantOptions,
     visibleTray,
     onAbort: submitAbort,
@@ -354,6 +393,8 @@ export function useSessionComposerController({
     onModelToggle: toggleModelTray,
     onProviderToggle: toggleProvider,
     onRemoveImage: removeImage,
+    onSubagent: populateSubagent,
+    onSubagentsToggle: toggleSubagentsTray,
     onSubmit: submitPrompt,
     onUpdateSelection: updateComposerSelection,
     onVariantCycle: cycleVariant,

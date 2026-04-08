@@ -1,9 +1,14 @@
 import type { OpencodeAgent, OpencodeMessageWithParts } from "~/lib/opencode/events";
 
 const isSelectable = (agent: OpencodeAgent) => agent.mode !== "subagent" && agent.hidden !== true;
+const isVisibleSubagent = (agent: OpencodeAgent) => agent.mode === "subagent" && agent.hidden !== true;
 
 export function getSelectableAgents(agents: OpencodeAgent[]): OpencodeAgent[] {
   return agents.filter(isSelectable);
+}
+
+export function getVisibleSubagents(agents: OpencodeAgent[]): OpencodeAgent[] {
+  return agents.filter(isVisibleSubagent);
 }
 
 export function getNextAgent(current: string | null, agents: OpencodeAgent[]): string | null {
