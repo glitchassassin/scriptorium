@@ -14,7 +14,7 @@ import {
 } from "~/lib/projects/runtime.server";
 import { isRootSession, toSessionSummary } from "~/lib/projects/sidebar";
 import { parseOpencodeEvent, type OpencodeEvent } from "~/lib/opencode/events";
-import { createProjectScopedHeaders, getSharedOpencodeServerUrl } from "~/lib/opencode/shared-runtime.server";
+import { createProjectScopedHeaders, getRunningSharedOpencodeServerUrl } from "~/lib/opencode/shared-runtime.server";
 import {
   type ProjectChangedEvent,
   type ProjectRemovedEvent,
@@ -428,7 +428,14 @@ class SessionEventFanInManager {
           return;
         }
 
-        const response = await fetch(`${await getSharedOpencodeServerUrl()}/event`, {
+        const baseUrl = getRunningSharedOpencodeServerUrl();
+
+        if (!baseUrl) {
+          await wait(500, controller.signal);
+          continue;
+        }
+
+        const response = await fetch(`${baseUrl}/event`, {
           headers: createProjectScopedHeaders(project.directory, {
             Accept: "text/event-stream",
           }),

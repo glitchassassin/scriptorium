@@ -1,10 +1,14 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 
-import { getRuntimeConfiguration } from "~/lib/runtime-config/cache.server";
+import { getRuntimeConfiguration } from "../runtime-config/cache.server.ts";
 
 const STOP_TIMEOUT_MS = 5000;
 const START_TIMEOUT_MS = 15000;
+const VERSION_TIMEOUT_MS = 5000;
+const VERSION_CACHE_TTL_MS = 30_000;
 const LISTEN_PATTERN = /opencode server listening on http:\/\/[^:]+:(\d+)/;
+
+let versionCache: { bin: string; expiresAt: number; value: string } | null = null;
 
 function getOpencodeServeEnv() {
   const env = { ...process.env };
@@ -27,6 +31,47 @@ type SpawnOpencodeServeOptions = {
 
 function getOpencodeBinary() {
   return getRuntimeConfiguration().config.opencode.bin;
+}
+
+export function readOpencodeVersion() {
+  const bin = getOpencodeBinary();
+  const now = Date.now();
+
+  if (versionCache && versionCache.bin === bin && versionCache.expiresAt > now) {
+    return versionCache.value;
+  }
+
+  const result = spawnSync(bin, ["--version"], {
+    encoding: "utf8",
+    env: getOpencodeServeEnv(),
+    timeout: VERSION_TIMEOUT_MS,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(`Opencode version command failed with ${result.status ?? "unknown"}.`);
+  }
+
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
+
+  if (!output) {
+    throw new Error("Opencode version command produced no output.");
+  }
+
+  versionCache = {
+    bin,
+    expiresAt: now + VERSION_CACHE_TTL_MS,
+    value: output,
+  };
+
+  return output;
+}
+
+export function invalidateOpencodeVersionCache() {
+  versionCache = null;
 }
 
 export function spawnOpencodeServeProcess(options: SpawnOpencodeServeOptions): ManagedOpencodeServeProcess {

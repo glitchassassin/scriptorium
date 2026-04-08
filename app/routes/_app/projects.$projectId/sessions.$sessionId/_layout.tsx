@@ -6,9 +6,12 @@ import {
   useSearchParams,
 } from "react-router";
 
+import { OpencodeStoppedState } from "~/components/opencode/opencode-stopped-state";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
+import { getDocumentTitle } from "~/lib/document-title";
+import { getSharedOpencodeRuntimeStatus, startSharedOpencodeServer } from "~/lib/opencode/shared-runtime.server";
 import { resolveProjectFileReferences } from "~/lib/projects/files.server";
 import {
   abortOpencodeSession,
@@ -60,12 +63,20 @@ import type { Route } from "./+types/_layout";
 import { SESSION_MESSAGE_PAGE_SIZE } from "~/lib/opencode/message-page";
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
-  leadingIconAction: ({ params }) => {
+  leadingIconAction: ({ data, params }) => {
+    if (data.state === "stopped") {
+      return undefined;
+    }
+
     const projectId = params.projectId ?? "";
 
     return getNewSessionIconNavAction(projectId);
   },
-  iconNavActions: ({ params }) => {
+  iconNavActions: ({ data, params }) => {
+    if (data.state === "stopped") {
+      return [];
+    }
+
     const projectId = params.projectId ?? "";
     const sessionId = params.sessionId ?? "";
 
@@ -89,6 +100,28 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     timings,
     type: "project",
   });
+  const opencode = await time(() => getSharedOpencodeRuntimeStatus(), {
+    desc: "get opencode status",
+    timings,
+    type: "opencode",
+  });
+
+  if (opencode.mode === "managed" && !opencode.isRunning) {
+    return data(
+      {
+        opencode,
+        project,
+        sessionId,
+        state: "stopped" as const,
+      },
+      {
+        headers: {
+          "Server-Timing": timings.toString(),
+        },
+      },
+    );
+  }
+
   const [messagePage, permissions, questions, session, statuses, agents, commands, providerCatalog, config] = await Promise.all([
     time(() => listOpencodeMessagePage(project, sessionId, { limit: SESSION_MESSAGE_PAGE_SIZE }), {
       desc: "list recent session history",
@@ -166,6 +199,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   return data(
     {
+      opencode,
       initialDefaultModel: defaultChoice?.model ?? null,
       initialDefaultVariant: defaultChoice?.variant ?? null,
       initialHistoryCursor: messagePage.nextCursor,
@@ -180,6 +214,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       project,
       parentSession,
       session,
+      state: "ready" as const,
     },
     {
       headers: {
@@ -196,11 +231,26 @@ export function headers(args: Route.HeadersArgs) {
 export async function action({ params, request }: Route.ActionArgs) {
   await requireAuthenticatedPasskey(request);
 
+  const formData = await request.formData();
+  const intent = String(formData.get("intent") ?? "").trim();
+  const opencode = await getSharedOpencodeRuntimeStatus();
+
+  if (intent === "start-opencode") {
+    if (opencode.mode === "external") {
+      return data({ error: "OpenCode is managed externally.", intent, ok: false }, { status: 409 });
+    }
+
+    await startSharedOpencodeServer();
+    return data({ error: null, intent, ok: true });
+  }
+
+  if (opencode.mode === "managed" && !opencode.isRunning) {
+    return data({ error: "Start OpenCode before using this session.", intent, ok: false }, { status: 409 });
+  }
+
   const projectId = params.projectId;
   const sessionId = params.sessionId;
   const project = await getProjectOrThrow(projectId);
-  const formData = await request.formData();
-  const intent = String(formData.get("intent") ?? "").trim();
   const files = formData
     .getAll("attachments")
     .filter((value): value is File => value instanceof File && value.size > 0)
@@ -405,6 +455,26 @@ function SessionComposerFooter({
 }
 
 export default function ProjectSessionLayoutRoute({ loaderData, matches }: Route.ComponentProps) {
+  if (loaderData.state === "stopped") {
+    return (
+      <>
+        <title>{getDocumentTitle("Session", loaderData.project.name)}</title>
+        <Breadcrumbs depth={matches.length}>
+          <Breadcrumbs.Item to={`/projects/${loaderData.project.id}`}>{loaderData.project.name}</Breadcrumbs.Item>
+          <Breadcrumbs.Item>{getSessionName({ id: loaderData.sessionId })}</Breadcrumbs.Item>
+        </Breadcrumbs>
+        <ScrollableLayout>
+          <section className="space-y-6 pt-6">
+            <OpencodeStoppedState
+              action={`/projects/${loaderData.project.id}/sessions/${loaderData.sessionId}`}
+              detail="Start OpenCode to load this session and resume work."
+            />
+          </section>
+        </ScrollableLayout>
+      </>
+    );
+  }
+
   const {
     initialAgents,
     initialCommands,

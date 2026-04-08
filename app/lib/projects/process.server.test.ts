@@ -4,14 +4,16 @@ import { EventEmitter } from "node:events";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { spawnOpencodeServeProcess } from "~/lib/projects/process.server";
+import { invalidateOpencodeVersionCache, readOpencodeVersion, spawnOpencodeServeProcess } from "~/lib/projects/process.server";
 
-const { spawnMock } = vi.hoisted(() => ({
+const { spawnMock, spawnSyncMock } = vi.hoisted(() => ({
   spawnMock: vi.fn(),
+  spawnSyncMock: vi.fn(),
 }));
 
 vi.mock("node:child_process", () => ({
   spawn: spawnMock,
+  spawnSync: spawnSyncMock,
 }));
 
 vi.mock("~/lib/runtime-config/cache.server", () => ({
@@ -43,6 +45,7 @@ function createMockChildProcess() {
 afterEach(() => {
   delete process.env.NODE_ENV;
   delete process.env.SCRIPTORIUM_TEST_FLAG;
+  invalidateOpencodeVersionCache();
   vi.clearAllMocks();
 });
 
@@ -78,5 +81,47 @@ describe("spawnOpencodeServeProcess", () => {
     child.stdout.emit("data", "opencode server listening on http://127.0.0.1:4321");
 
     await expect(managed.ready).resolves.toBe(4321);
+  });
+});
+
+describe("readOpencodeVersion", () => {
+  it("reads the CLI version without forwarding NODE_ENV", () => {
+    process.env.NODE_ENV = "production";
+    process.env.SCRIPTORIUM_TEST_FLAG = "preserved";
+    spawnSyncMock.mockReturnValue({
+      error: undefined,
+      status: 0,
+      stdout: "1.4.0\n",
+      stderr: "",
+    });
+
+    expect(readOpencodeVersion()).toBe("1.4.0");
+    expect(spawnSyncMock).toHaveBeenCalledWith(
+      "opencode",
+      ["--version"],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          SCRIPTORIUM_TEST_FLAG: "preserved",
+        }),
+        timeout: 5000,
+      }),
+    );
+
+    const spawnOptions = spawnSyncMock.mock.calls[0]?.[2];
+
+    expect(spawnOptions?.env.NODE_ENV).toBeUndefined();
+  });
+
+  it("caches the CLI version between reads", () => {
+    spawnSyncMock.mockReturnValue({
+      error: undefined,
+      status: 0,
+      stdout: "1.4.0\n",
+      stderr: "",
+    });
+
+    expect(readOpencodeVersion()).toBe("1.4.0");
+    expect(readOpencodeVersion()).toBe("1.4.0");
+    expect(spawnSyncMock).toHaveBeenCalledTimes(1);
   });
 });

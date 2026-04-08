@@ -5,6 +5,10 @@ import { getOrm } from "~/lib/db.server";
 import { passkeys } from "~/lib/db/schema";
 
 type PasskeyRow = typeof passkeys.$inferSelect;
+const ACTIVE_PASSKEY_COUNT_CACHE_TTL_MS = 30_000;
+
+let activePasskeyCountCache: { expiresAt: number; value: number } | null = null;
+const passkeyCache = new Map<string, PasskeyRecord | null>();
 
 function mapPasskey(row: PasskeyRow): PasskeyRecord {
   return {
@@ -24,6 +28,12 @@ function mapPasskey(row: PasskeyRow): PasskeyRecord {
 }
 
 export function countActivePasskeys() {
+  const cached = activePasskeyCountCache;
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
   const db = getOrm();
   const row = db
     .select({ count: sql<number>`count(*)` })
@@ -31,7 +41,14 @@ export function countActivePasskeys() {
     .where(eq(passkeys.status, "active"))
     .get();
 
-  return row?.count ?? 0;
+  const value = row?.count ?? 0;
+
+  activePasskeyCountCache = {
+    expiresAt: Date.now() + ACTIVE_PASSKEY_COUNT_CACHE_TTL_MS,
+    value,
+  };
+
+  return value;
 }
 
 export function listNonRevokedPasskeys() {
@@ -59,9 +76,16 @@ export function listActivePasskeys() {
 }
 
 export function getPasskeyById(id: string) {
+  if (passkeyCache.has(id)) {
+    return passkeyCache.get(id) ?? null;
+  }
+
   const db = getOrm();
   const row = db.select().from(passkeys).where(eq(passkeys.id, id)).get();
-  return row ? mapPasskey(row) : null;
+  const value = row ? mapPasskey(row) : null;
+
+  passkeyCache.set(id, value);
+  return value;
 }
 
 export function getPasskeyByCredentialId(id: string) {
@@ -96,6 +120,9 @@ export function createPendingPasskey(input: {
     revokedAt: null,
   }).run();
 
+  activePasskeyCountCache = null;
+  passkeyCache.delete(input.id);
+
   return getPasskeyById(input.id);
 }
 
@@ -109,12 +136,16 @@ export function activatePasskey(id: string) {
     .where(and(eq(passkeys.id, id), eq(passkeys.status, "pending")))
     .run();
 
+  activePasskeyCountCache = null;
+  passkeyCache.delete(id);
+
   return getPasskeyById(id);
 }
 
 export function updatePasskeyCounter(id: string, counter: number) {
   const db = getOrm();
   db.update(passkeys).set({ counter }).where(eq(passkeys.id, id)).run();
+  passkeyCache.delete(id);
 }
 
 export function revokePasskey(id: string) {
@@ -125,4 +156,7 @@ export function revokePasskey(id: string) {
     .set({ status: "revoked", revokedAt: now })
     .where(and(eq(passkeys.id, id), ne(passkeys.status, "revoked")))
     .run();
+
+  activePasskeyCountCache = null;
+  passkeyCache.delete(id);
 }

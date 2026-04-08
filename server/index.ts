@@ -10,6 +10,7 @@ import type { ServerBuild } from "react-router";
 import { createRequestHandler } from "@react-router/express";
 
 import { getOrm } from "../app/lib/db.server.ts";
+import { startSharedOpencodeServer } from "../app/lib/opencode/shared-runtime.server.ts";
 import { initializeRuntimeConfiguration } from "../app/lib/runtime-config/cache.server.ts";
 import {
   parseRuntimeCliArgs,
@@ -87,6 +88,17 @@ function logServerAddresses(host: string, port: number) {
   }
 
   process.stdout.write(`[scriptorium] http://${host}:${port}\n`);
+}
+
+async function startOpencode() {
+  try {
+    // Boot the managed runtime early, but keep the web app available so users
+    // can recover from OpenCode startup failures through the stopped-state UI.
+    await startSharedOpencodeServer();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`[scriptorium] OpenCode failed to start: ${message}\n`);
+  }
 }
 
 async function createApp(runtime: RuntimeConfiguration, packageRoot: string) {
@@ -174,6 +186,7 @@ export async function main(args = process.argv.slice(2)) {
     env: process.env,
   });
   getOrm();
+  await startOpencode();
   const packageRoot = findPackageRoot();
   const app = await createApp(runtime, packageRoot);
   const host = runtime.config.server.host;

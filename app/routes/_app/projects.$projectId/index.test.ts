@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const requireAuthenticatedPasskeyMock = vi.fn();
 const getProjectOrThrowMock = vi.fn();
+const getSharedOpencodeRuntimeStatusMock = vi.fn();
 const listOpencodeSessionsMock = vi.fn();
 const listOpencodeQuestionRequestsMock = vi.fn();
 const markSessionReadMock = vi.fn();
 const listSessionReadStatusesMock = vi.fn();
+const startSharedOpencodeServerMock = vi.fn();
 
 vi.mock("~/lib/auth/guards.server", () => ({
   requireAuthenticatedPasskey: (...args: unknown[]) => requireAuthenticatedPasskeyMock(...args),
@@ -15,6 +17,11 @@ vi.mock("~/lib/auth/guards.server", () => ({
 
 vi.mock("~/lib/projects/runtime.server", () => ({
   getProjectOrThrow: (...args: unknown[]) => getProjectOrThrowMock(...args),
+}));
+
+vi.mock("~/lib/opencode/shared-runtime.server", () => ({
+  getSharedOpencodeRuntimeStatus: (...args: unknown[]) => getSharedOpencodeRuntimeStatusMock(...args),
+  startSharedOpencodeServer: (...args: unknown[]) => startSharedOpencodeServerMock(...args),
 }));
 
 vi.mock("~/lib/projects/opencode.server", () => ({
@@ -36,10 +43,12 @@ describe("project detail action", () => {
   beforeEach(() => {
     requireAuthenticatedPasskeyMock.mockReset();
     getProjectOrThrowMock.mockReset();
+    getSharedOpencodeRuntimeStatusMock.mockReset();
     listOpencodeSessionsMock.mockReset();
     listOpencodeQuestionRequestsMock.mockReset();
     markSessionReadMock.mockReset();
     listSessionReadStatusesMock.mockReset();
+    startSharedOpencodeServerMock.mockReset();
 
     requireAuthenticatedPasskeyMock.mockResolvedValue(undefined);
     getProjectOrThrowMock.mockResolvedValue({
@@ -49,6 +58,32 @@ describe("project detail action", () => {
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
     });
+    getSharedOpencodeRuntimeStatusMock.mockResolvedValue({
+      activeSince: 1_000_000,
+      error: null,
+      installedVersion: "1.4.0",
+      isRunning: true,
+      mode: "managed",
+      restartRequired: false,
+      runningVersion: "1.4.0",
+      serverUrl: "http://127.0.0.1:4100",
+    });
+    startSharedOpencodeServerMock.mockResolvedValue("http://127.0.0.1:4100");
+  });
+
+  it("starts OpenCode when requested", async () => {
+    const formData = new FormData();
+    formData.set("intent", "start-opencode");
+
+    const response = await action({
+      params: { projectId: "project-1" },
+      request: new Request("http://localhost/projects/project-1", { method: "POST", body: formData }),
+      context: {},
+    } as never);
+
+    expect(response).not.toBeInstanceOf(Response);
+    expect(response).toMatchObject({ data: { error: null }, init: null });
+    expect(startSharedOpencodeServerMock).toHaveBeenCalledTimes(1);
   });
 
   it("marks only unread parent sessions as read", async () => {

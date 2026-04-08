@@ -19,6 +19,7 @@ type AppShellProps = {
   breadcrumbs: AppBreadcrumb[];
   leadingIconAction?: RouteHandleIconAction;
   iconNavActions: RouteHandleIconAction[];
+  showSettingsUnreadBadge: boolean;
 };
 
 function HeaderIconAction({ action }: { action: RouteHandleIconAction }) {
@@ -47,7 +48,7 @@ function HeaderIconAction({ action }: { action: RouteHandleIconAction }) {
   );
 }
 
-export function AppShell({ breadcrumbs, leadingIconAction, iconNavActions }: AppShellProps) {
+export function AppShell({ breadcrumbs, leadingIconAction, iconNavActions, showSettingsUnreadBadge }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const hasUnreadSidebarSessions = useHasVisibleUnreadProjectSessions();
   const location = useLocation();
@@ -112,10 +113,11 @@ export function AppShell({ breadcrumbs, leadingIconAction, iconNavActions }: App
               </div>
               <div className="mt-auto space-y-2 border-t-2 border-black">
                 <NavLink
-                  className="inline-flex min-h-11 w-full items-center justify-center px-3 py-2 text-base"
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 px-3 py-2 text-base"
                   to="/settings"
                 >
-                  Settings
+                  <span>Settings</span>
+                  {showSettingsUnreadBadge ? <UnreadBadge /> : null}
                 </NavLink>
                 <Form action="/logout" method="post">
                   <button

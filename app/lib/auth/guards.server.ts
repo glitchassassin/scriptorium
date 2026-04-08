@@ -20,7 +20,17 @@ function getRequestHostname(request: Request) {
 
 export function isPasskeyAuthRequired(request: Request) {
   const hostname = getRequestHostname(request);
-  return hostname !== "localhost";
+  const normalized = hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
+
+  return normalized !== "localhost" && normalized !== "127.0.0.1" && normalized !== "::1";
+}
+
+function getLocalBypassAuthState(): AuthState {
+  return {
+    activePasskeyCount: 0,
+    isAuthenticated: false,
+    session: null,
+  };
 }
 
 export async function getAuthState(request: Request): Promise<AuthState> {
@@ -35,11 +45,11 @@ export async function getAuthState(request: Request): Promise<AuthState> {
 }
 
 export async function requireAuthenticatedPasskey(request: Request) {
-  const authState = await getAuthState(request);
-
   if (!isPasskeyAuthRequired(request)) {
-    return { authState, isLocalBypass: true as const, passkey: null };
+    return { authState: getLocalBypassAuthState(), isLocalBypass: true as const, passkey: null };
   }
+
+  const authState = await getAuthState(request);
 
   if (authState.activePasskeyCount === 0) {
     throw redirect("/register");

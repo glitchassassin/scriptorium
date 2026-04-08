@@ -3,11 +3,13 @@ import { data, Form, redirect, useFetcher } from "react-router";
 import { Icon } from "@iconify/react";
 import "@iconify-json/mdi";
 
+import { OpencodeStoppedState } from "~/components/opencode/opencode-stopped-state";
 import { useProjectEvents } from "~/components/events/project-events-provider";
 import { Breadcrumbs } from "~/components/shell/breadcrumbs";
 import { ScrollableLayout } from "~/components/shell/scrollable-layout";
 import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { getDocumentTitle } from "~/lib/document-title";
+import { getSharedOpencodeRuntimeStatus, startSharedOpencodeServer } from "~/lib/opencode/shared-runtime.server";
 import { getGitStatusSummary } from "~/lib/projects/git.server";
 import {
   createOpencodeSession,
@@ -86,6 +88,29 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     timings,
     type: "git",
   });
+  const opencode = await time(() => getSharedOpencodeRuntimeStatus(), {
+    desc: "get opencode status",
+    timings,
+    type: "opencode",
+  });
+
+  if (opencode.mode === "managed" && !opencode.isRunning) {
+    return data(
+      {
+        git,
+        opencode,
+        project,
+        recentSessions: [],
+        recentSessionStatuses: {},
+        sessionError: null,
+      },
+      {
+        headers: {
+          "Server-Timing": timings.toString(),
+        },
+      },
+    );
+  }
 
   try {
     const [sessions, readStatuses, questions, sessionStatuses] = await Promise.all([
@@ -115,6 +140,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     return data(
       {
         git,
+        opencode,
         project,
         recentSessions: sessionsWithReadState,
         recentSessionStatuses: sessionStatuses,
@@ -128,11 +154,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     );
   } catch (error) {
     return data(
-      {
-        git,
-        project,
-        recentSessions: [],
-        recentSessionStatuses: {},
+        {
+          git,
+          opencode,
+          project,
+          recentSessions: [],
+          recentSessionStatuses: {},
         sessionError: error instanceof Error ? error.message : "Failed to load sessions.",
       },
       {
@@ -153,6 +180,21 @@ export async function action({ params, request }: Route.ActionArgs) {
 
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "").trim();
+  const opencode = await getSharedOpencodeRuntimeStatus();
+  const stopped = opencode.mode === "managed" && !opencode.isRunning;
+
+  if (intent === "start-opencode") {
+    if (opencode.mode === "external") {
+      return data({ error: "OpenCode is managed externally." }, { status: 409 });
+    }
+
+    await startSharedOpencodeServer();
+    return data({ error: null });
+  }
+
+  if (stopped) {
+    return data({ error: "Start OpenCode before using this project." }, { status: 409 });
+  }
 
   if (intent === "create-session") {
     const project = await getProjectOrThrow(params.projectId);
@@ -233,7 +275,51 @@ function ProjectOverviewHeader({ directory, git }: { directory: string; git: Rou
 }
 
 export default function ProjectDetailRoute({ loaderData, matches }: Route.ComponentProps) {
-  const { git, project, recentSessions, recentSessionStatuses, sessionError } = loaderData;
+  const { git, opencode, project, recentSessions, recentSessionStatuses, sessionError } = loaderData;
+
+  return (
+    <>
+      <title>{getDocumentTitle(getProjectName(project.name))}</title>
+      <Breadcrumbs depth={matches.length}>
+        <Breadcrumbs.Item to={`/projects/${project.id}`}>{project.name}</Breadcrumbs.Item>
+      </Breadcrumbs>
+      <ScrollableLayout header={<ProjectOverviewHeader directory={project.directory} git={git} />}>
+        <section className="space-y-8 pt-6 pr-1">
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3 px-6 sm:px-8">
+              <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
+            </div>
+            {opencode.mode === "managed" && !opencode.isRunning ? (
+              <OpencodeStoppedState
+                action={`/projects/${project.id}`}
+                detail="Start OpenCode to load sessions and create new work in this project."
+              />
+            ) : (
+              <ProjectSessionsSection
+                projectId={project.id}
+                recentSessions={recentSessions}
+                recentSessionStatuses={recentSessionStatuses}
+                sessionError={sessionError}
+              />
+            )}
+          </section>
+        </section>
+      </ScrollableLayout>
+    </>
+  );
+}
+
+function ProjectSessionsSection({
+  projectId,
+  recentSessions,
+  recentSessionStatuses,
+  sessionError,
+}: {
+  projectId: string;
+  recentSessions: SidebarSessionRecord[];
+  recentSessionStatuses: Route.ComponentProps["loaderData"]["recentSessionStatuses"];
+  sessionError: string | null;
+}) {
   const [sessions, setSessions] = useState<SidebarSessionRecord[]>(() => sortSessions(recentSessions));
   const sessionEventTypes = useMemo(
     () => ["session.created", "session.updated", "session.deleted"] as const,
@@ -257,7 +343,7 @@ export default function ProjectDetailRoute({ loaderData, matches }: Route.Compon
 
   useEffect(() => {
     setSessions(sortSessions(recentSessions));
-  }, [recentSessions, project.id]);
+  }, [projectId, recentSessions]);
 
   useProjectEvents(
     (event) => {
@@ -284,42 +370,32 @@ export default function ProjectDetailRoute({ loaderData, matches }: Route.Compon
         return sortSessions(nextSessions);
       });
     },
-    { projectId: project.id, types: sessionEventTypes },
+    { projectId, types: sessionEventTypes },
   );
 
   return (
     <>
-      <title>{getDocumentTitle(getProjectName(project.name))}</title>
-      <Breadcrumbs depth={matches.length}>
-        <Breadcrumbs.Item to={`/projects/${project.id}`}>{project.name}</Breadcrumbs.Item>
-      </Breadcrumbs>
-      <ScrollableLayout header={<ProjectOverviewHeader directory={project.directory} git={git} />}>
-        <section className="space-y-8 pt-6 pr-1">
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3 px-6 sm:px-8">
-              <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
-              <div className="flex items-center gap-3">
-                {unreadRootSessionCount > 0 ? (
-                  <markAllReadFetcher.Form method="post">
-                    <input name="intent" type="hidden" value="mark-all-read" />
-                    <button className="min-h-11 border-2 border-black px-3 py-2 text-base disabled:opacity-25" disabled={markAllReadFetcher.state !== "idle"} type="submit">
-                      Mark all as read
-                    </button>
-                  </markAllReadFetcher.Form>
-                ) : null}
-                <Form method="post">
-                  <input name="intent" type="hidden" value="create-session" />
-                  <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
-                    New session
-                  </button>
-                </Form>
-              </div>
-            </div>
-            {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
-            <ProjectSessionList projectId={project.id} sessions={sessions} initialSessionStatuses={recentSessionStatuses} />
-          </section>
-        </section>
-      </ScrollableLayout>
+      <div className="flex items-center justify-between gap-3 px-6 sm:px-8">
+        <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
+        <div className="flex items-center gap-3">
+          {unreadRootSessionCount > 0 ? (
+            <markAllReadFetcher.Form method="post">
+              <input name="intent" type="hidden" value="mark-all-read" />
+              <button className="min-h-11 border-2 border-black px-3 py-2 text-base disabled:opacity-25" disabled={markAllReadFetcher.state !== "idle"} type="submit">
+                Mark all as read
+              </button>
+            </markAllReadFetcher.Form>
+          ) : null}
+          <Form method="post">
+            <input name="intent" type="hidden" value="create-session" />
+            <button className="min-h-11 bg-black px-3 py-2 text-base text-white" type="submit">
+              New session
+            </button>
+          </Form>
+        </div>
+      </div>
+      {sessionError ? <p className="text-base leading-6">{sessionError}</p> : null}
+      <ProjectSessionList projectId={projectId} sessions={sessions} initialSessionStatuses={recentSessionStatuses} />
     </>
   );
 }

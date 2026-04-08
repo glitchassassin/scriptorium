@@ -20,7 +20,7 @@ import type {
   OpencodeSessionSummary,
 } from "~/lib/projects/types";
 import { filterRecentSessions, isRootSession } from "~/lib/projects/sidebar";
-import { createProjectScopedHeaders, getSharedOpencodeServerUrl } from "~/lib/opencode/shared-runtime.server";
+import { createProjectScopedHeaders, getRequiredRunningSharedOpencodeServerUrl } from "~/lib/opencode/shared-runtime.server";
 
 import type {
   OpencodeMessageWithParts,
@@ -37,7 +37,7 @@ import type {
 } from "~/lib/opencode/events";
 
 async function fetchFromProject(project: ProjectRecord, path: string, init?: RequestInit) {
-  const baseUrl = await getSharedOpencodeServerUrl();
+  const baseUrl = getRequiredRunningSharedOpencodeServerUrl();
 
   return fetch(`${baseUrl}${path}`, {
     ...init,

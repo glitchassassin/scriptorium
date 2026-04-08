@@ -15,8 +15,7 @@ import "./app.css";
 import safeArea from "~/styles/safe-area.module.css";
 import { ServiceWorkerRegistration } from "~/components/pwa/service-worker-registration";
 import { APP_NAME } from "~/lib/document-title";
-import { ensureStarted } from "~/lib/projects/runtime.server";
-import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
+import { getServerTimingHeaders } from "~/lib/server-timing.server";
 
 export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/manifest.webmanifest" },
@@ -28,19 +27,7 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export async function loader() {
-  const timings = makeTimings("root loader");
-
-  await time(() => ensureStarted(), {
-    desc: "ensure shared project runtime started",
-    timings,
-    type: "runtime",
-  });
-
-  return data(null, {
-    headers: {
-      "Server-Timing": timings.toString(),
-    },
-  });
+  return data(null);
 }
 
 export function headers(args: Route.HeadersArgs) {

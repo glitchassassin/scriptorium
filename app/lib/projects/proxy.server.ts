@@ -1,5 +1,9 @@
 import { getProjectOrThrow } from "~/lib/projects/runtime.server";
-import { createProjectScopedHeaders, getSharedOpencodeServerUrl } from "~/lib/opencode/shared-runtime.server";
+import {
+  OpencodeNotRunningError,
+  createProjectScopedHeaders,
+  getRequiredRunningSharedOpencodeServerUrl,
+} from "~/lib/opencode/shared-runtime.server";
 
 function getProxyResponseHeaders(upstream: Response) {
   const headers = new Headers(upstream.headers);
@@ -14,7 +18,18 @@ function getProxyResponseHeaders(upstream: Response) {
 
 export async function proxyProjectRequest(request: Request, projectId: string, splat: string | undefined) {
   const project = await getProjectOrThrow(projectId);
-  const baseUrl = await getSharedOpencodeServerUrl();
+  let baseUrl = "";
+
+  try {
+    baseUrl = getRequiredRunningSharedOpencodeServerUrl();
+  } catch (error) {
+    if (error instanceof OpencodeNotRunningError) {
+      throw new Response(error.message, { status: 503 });
+    }
+
+    throw error;
+  }
+
   const url = new URL(request.url);
   const path = splat ? `/${splat}` : "/";
   const target = `${baseUrl}${path}${url.search}`;

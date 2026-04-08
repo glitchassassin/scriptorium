@@ -471,6 +471,37 @@ const serverHeartbeatEventSchema = z.object({
   properties: z.object({}),
 });
 
+const serverInstanceDisposedEventSchema = z.object({
+  type: z.literal("server.instance.disposed"),
+  properties: z.object({
+    directory: z.string(),
+  }),
+});
+
+const globalDisposedEventSchema = z.object({
+  type: z.literal("global.disposed"),
+  properties: z.object({}).passthrough(),
+});
+
+const projectUpdatedEventSchema = z.object({
+  type: z.literal("project.updated"),
+  properties: z.object({}).passthrough(),
+});
+
+const installationUpdatedEventSchema = z.object({
+  type: z.literal("installation.updated"),
+  properties: z.object({
+    version: z.string(),
+  }),
+});
+
+const installationUpdateAvailableEventSchema = z.object({
+  type: z.literal("installation.update-available"),
+  properties: z.object({
+    version: z.string(),
+  }),
+});
+
 export const opencodeSessionCreatedEventSchema = z.object({
   type: z.literal("session.created"),
   properties: z.object({
@@ -602,6 +633,11 @@ export const opencodeSessionMutationEventSchema = z.union([
 export const opencodeKnownEventSchema = z.union([
   serverConnectedEventSchema,
   serverHeartbeatEventSchema,
+  serverInstanceDisposedEventSchema,
+  globalDisposedEventSchema,
+  projectUpdatedEventSchema,
+  installationUpdatedEventSchema,
+  installationUpdateAvailableEventSchema,
   opencodeSessionMutationEventSchema,
   opencodeSessionStatusEventSchema,
   opencodeSessionErrorEventSchema,
@@ -626,6 +662,11 @@ export const opencodeEventEnvelopeSchema = z.object({
 const opencodeEventSchemas = {
   "server.connected": serverConnectedEventSchema,
   "server.heartbeat": serverHeartbeatEventSchema,
+  "server.instance.disposed": serverInstanceDisposedEventSchema,
+  "global.disposed": globalDisposedEventSchema,
+  "project.updated": projectUpdatedEventSchema,
+  "installation.updated": installationUpdatedEventSchema,
+  "installation.update-available": installationUpdateAvailableEventSchema,
   "session.created": opencodeSessionCreatedEventSchema,
   "session.updated": opencodeSessionUpdatedEventSchema,
   "session.deleted": opencodeSessionDeletedEventSchema,
@@ -669,6 +710,37 @@ export type OpencodeEventParseResult =
   | OpencodeEventParseUnknown
   | OpencodeEventParseInvalid;
 
+const opencodeGlobalEventEnvelopeSchema = z.object({
+  directory: z.string().nullable().optional(),
+  payload: z.unknown(),
+});
+
+type OpencodeGlobalEventParseSuccess = {
+  kind: "known";
+  data: OpencodeGlobalEvent;
+  eventType: OpencodeKnownEventType;
+};
+
+type OpencodeGlobalEventParseUnknown = {
+  kind: "unknown";
+  data: {
+    directory: string | null;
+    payload: z.infer<typeof opencodeEventEnvelopeSchema>;
+  };
+  eventType: string;
+};
+
+type OpencodeGlobalEventParseInvalid = {
+  kind: "invalid";
+  eventType: string | null;
+  error: z.ZodError;
+};
+
+export type OpencodeGlobalEventParseResult =
+  | OpencodeGlobalEventParseSuccess
+  | OpencodeGlobalEventParseUnknown
+  | OpencodeGlobalEventParseInvalid;
+
 export function parseOpencodeEvent(value: unknown): OpencodeEventParseResult {
   const envelope = opencodeEventEnvelopeSchema.safeParse(value);
 
@@ -707,8 +779,50 @@ export function parseOpencodeEvent(value: unknown): OpencodeEventParseResult {
   };
 }
 
+export function parseOpencodeGlobalEvent(value: unknown): OpencodeGlobalEventParseResult {
+  const envelope = opencodeGlobalEventEnvelopeSchema.safeParse(value);
+
+  if (!envelope.success) {
+    return {
+      kind: "invalid",
+      eventType: null,
+      error: envelope.error,
+    };
+  }
+
+  const payload = parseOpencodeEvent(envelope.data.payload);
+
+  if (payload.kind === "invalid") {
+    return payload;
+  }
+
+  if (payload.kind === "unknown") {
+    return {
+      kind: "unknown",
+      data: {
+        directory: envelope.data.directory ?? null,
+        payload: payload.data,
+      },
+      eventType: payload.eventType,
+    };
+  }
+
+  return {
+    kind: "known",
+    data: {
+      directory: envelope.data.directory ?? null,
+      payload: payload.data,
+    },
+    eventType: payload.eventType,
+  };
+}
+
 export type OpencodeEvent = OpencodeKnownEvent;
 export type OpencodeKnownEvent = z.infer<typeof opencodeKnownEventSchema>;
+export type OpencodeGlobalEvent = {
+  directory: string | null;
+  payload: OpencodeKnownEvent;
+};
 export type OpencodeAgent = z.infer<typeof opencodeAgentSchema>;
 export type OpencodeCommandInput = z.infer<typeof opencodeCommandInputSchema>;
 export type OpencodeCommandInfo = z.infer<typeof opencodeCommandInfoSchema>;

@@ -12,6 +12,14 @@ vi.mock("react-router", () => ({
   useNavigate: () => navigateMock,
 }));
 
+vi.mock("~/lib/auth/guards.server", () => ({
+  requireAuthenticatedPasskey: vi.fn(),
+}));
+
+vi.mock("~/lib/opencode/shared-runtime.server", () => ({
+  getSharedOpencodeRuntimeStatus: vi.fn(),
+}));
+
 vi.mock("~/components/events/project-events-provider", () => ({
   ProjectEventsProvider: ({ children }: { children: ReactNode }) => children,
 }));
@@ -28,7 +36,22 @@ describe("ProjectLayoutRoute", () => {
       onSessionEvent = handler;
     });
 
-    render(<ProjectLayoutRoute {...({ matches: [], params: { projectId: "project-1" } } as any)} />);
+    render(<ProjectLayoutRoute {...({
+      loaderData: {
+        runtime: {
+          activeSince: null,
+          error: null,
+          installedVersion: "1.4.0",
+          isRunning: true,
+          mode: "managed",
+          restartRequired: false,
+          runningVersion: "1.4.0",
+          serverUrl: "http://127.0.0.1:4100",
+        },
+      },
+      matches: [],
+      params: { projectId: "project-1" },
+    } as any)} />);
 
     if (!onSessionEvent) {
       throw new Error("Missing session event handler");

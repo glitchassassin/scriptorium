@@ -15,10 +15,51 @@ import type { OpencodeSessionStatus, OpencodeQuestionRequest } from "~/lib/openc
 import type { OpencodeSessionSummary, ProjectRecord } from "~/lib/projects/types";
 
 const IDLE_SESSION_STATUS = { type: "idle" } as const satisfies OpencodeSessionStatus;
+const SIDEBAR_CACHE_TTL_MS = 5_000;
+
+type CachedSidebarData = {
+  expiresAt: number;
+  value: {
+    questions: OpencodeQuestionRequest[];
+    recentSessions: OpencodeSessionSummary[];
+    sessionStatuses: Record<string, OpencodeSessionStatus>;
+  };
+};
+
+const sidebarDataCache = new Map<string, CachedSidebarData>();
 
 export type SidebarProjectState = SidebarProjectRecord & {
   recentSessionStatuses: Record<string, OpencodeSessionStatus>;
 };
+
+async function loadSidebarData(project: ProjectRecord) {
+  // The app shell reloads sidebar data often, so keep a short-lived snapshot
+  // per project instead of refetching several OpenCode endpoints every time.
+  const now = Date.now();
+  const cached = sidebarDataCache.get(project.id);
+
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
+  const [questions, recentSessions, sessionStatuses] = await Promise.all([
+    listOpencodeQuestionRequests(project).catch(() => []),
+    listRecentSidebarSessions(project).catch(() => []),
+    getOpencodeSessionStatuses(project).catch(() => ({} as Record<string, OpencodeSessionStatus>)),
+  ]);
+  const value = {
+    questions,
+    recentSessions,
+    sessionStatuses,
+  };
+
+  sidebarDataCache.set(project.id, {
+    expiresAt: now + SIDEBAR_CACHE_TTL_MS,
+    value,
+  });
+
+  return value;
+}
 
 function collectPendingQuestionRequestIdsBySession(questions: OpencodeQuestionRequest[]) {
   const pendingQuestionRequestIdsBySession = new Map<string, string[]>();
@@ -48,11 +89,7 @@ export async function loadSidebarProjectState(
   project: ProjectRecord,
   readStatusMap: ReadonlyMap<string, number | null>,
 ) {
-  const [recentSessions, sessionStatuses, questions] = await Promise.all([
-    listRecentSidebarSessions(project).catch(() => []),
-    getOpencodeSessionStatuses(project).catch(() => ({} as Record<string, OpencodeSessionStatus>)),
-    listOpencodeQuestionRequests(project).catch(() => []),
-  ]);
+  const { questions, recentSessions, sessionStatuses } = await loadSidebarData(project);
   const pendingQuestionRequestIdsBySession = collectPendingQuestionRequestIdsBySession(questions);
   const sidebarSessionsById = new Map<string, OpencodeSessionSummary>(recentSessions.map((session) => [session.id, session]));
   const pendingQuestionSessionIds = [...pendingQuestionRequestIdsBySession.keys()].filter((sessionId) => !sidebarSessionsById.has(sessionId));

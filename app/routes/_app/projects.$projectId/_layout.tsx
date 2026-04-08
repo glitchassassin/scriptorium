@@ -1,7 +1,9 @@
 import { Outlet, useNavigate } from "react-router";
 
+import { requireAuthenticatedPasskey } from "~/lib/auth/guards.server";
 import { ProjectEventsProvider } from "~/components/events/project-events-provider";
 import { useSessionEvents } from "~/components/events/session-events-provider";
+import { getSharedOpencodeRuntimeStatus } from "~/lib/opencode/shared-runtime.server";
 import { defineRouteHandle } from "~/lib/route-handle";
 import type { RouteHandleContext, RouteHandleDefinition } from "~/lib/route-handle";
 
@@ -10,6 +12,10 @@ import { getNewSessionIconNavAction } from "./+/project-route";
 
 export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHandle<Route.ComponentProps>({
   leadingIconAction: (ctx: RouteHandleContext<Route.ComponentProps>) => {
+    if (ctx.data.runtime.mode === "managed" && !ctx.data.runtime.isRunning) {
+      return undefined;
+    }
+
     const projectId = ctx.params.projectId ?? "";
 
     return getNewSessionIconNavAction(projectId);
@@ -40,7 +46,15 @@ export const handle: RouteHandleDefinition<Route.ComponentProps> = defineRouteHa
   },
 });
 
-export default function ProjectLayoutRoute({ params }: Route.ComponentProps) {
+export async function loader({ request }: Route.LoaderArgs) {
+  await requireAuthenticatedPasskey(request);
+
+  return {
+    runtime: await getSharedOpencodeRuntimeStatus(),
+  };
+}
+
+export default function ProjectLayoutRoute({ loaderData, params }: Route.ComponentProps) {
   const navigate = useNavigate();
 
   useSessionEvents(
@@ -55,8 +69,12 @@ export default function ProjectLayoutRoute({ params }: Route.ComponentProps) {
   );
 
   return (
-    <ProjectEventsProvider projectIds={[params.projectId]}>
-      <Outlet />
-    </ProjectEventsProvider>
+    loaderData.runtime.mode === "managed" && !loaderData.runtime.isRunning
+      ? <Outlet />
+      : (
+        <ProjectEventsProvider projectIds={[params.projectId]}>
+          <Outlet />
+        </ProjectEventsProvider>
+      )
   );
 }

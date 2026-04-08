@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "~/components/shell/app-shell";
@@ -61,6 +61,7 @@ describe("AppShell", () => {
             fields: { intent: "create-session" },
           }}
           iconNavActions={getSessionIconNavActions("project-1", "session-1")}
+          showSettingsUnreadBadge={false}
         />,
       );
 
@@ -85,17 +86,18 @@ describe("AppShell", () => {
     useHasVisibleUnreadProjectSessionsMock.mockReturnValue(false);
 
     render(
-      <AppShell
-        breadcrumbs={[{ content: "Workspace" }]}
-        leadingIconAction={undefined}
-        iconNavActions={[{
-          icon: "mdi:message-plus-outline",
+        <AppShell
+          breadcrumbs={[{ content: "Workspace" }]}
+          leadingIconAction={undefined}
+          iconNavActions={[{
+            icon: "mdi:message-plus-outline",
           label: "New session",
           action: "/projects/project-1?index",
-          method: "post",
-          fields: { intent: "create-session" },
-        }]}
-      />,
+            method: "post",
+            fields: { intent: "create-session" },
+          }]}
+          showSettingsUnreadBadge={false}
+        />,
     );
 
     const button = screen.getByRole("button", { name: "New session" });
@@ -115,6 +117,7 @@ describe("AppShell", () => {
         breadcrumbs={[{ content: "Workspace" }]}
         leadingIconAction={undefined}
         iconNavActions={[]}
+        showSettingsUnreadBadge={false}
       />,
     );
 
@@ -130,9 +133,28 @@ describe("AppShell", () => {
         breadcrumbs={[{ content: "Workspace" }]}
         leadingIconAction={undefined}
         iconNavActions={[]}
+        showSettingsUnreadBadge={false}
       />,
     );
 
     expect(screen.getByRole("button", { name: "Toggle navigation" }).querySelector('[data-testid="unread-badge"]')).toBeNull();
+  });
+
+  it("shows an unread indicator on the settings link when OpenCode needs a restart", () => {
+    useLocationMock.mockReturnValue({ pathname: "/projects/project-1" });
+    useHasVisibleUnreadProjectSessionsMock.mockReturnValue(false);
+
+    render(
+      <AppShell
+        breadcrumbs={[{ content: "Workspace" }]}
+        leadingIconAction={undefined}
+        iconNavActions={[]}
+        showSettingsUnreadBadge={true}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle navigation" }));
+
+    expect(screen.getByRole("link", { name: /settings/i }).querySelector('[data-testid="unread-badge"]')).not.toBeNull();
   });
 });
