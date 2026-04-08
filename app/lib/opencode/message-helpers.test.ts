@@ -33,10 +33,9 @@ const userMessageWithDiffs = (id: string, files: string[]): OpencodeMessageWithP
     summary: {
       diffs: files.map((file, index) => ({
         additions: 1,
-        after: `after ${file}`,
-        before: `before ${file}`,
         deletions: 1,
         file,
+        patch: `@@ -1 +1 @@\n-before ${file}\n+after ${file}`,
         ...(index === 0 ? { status: "modified" as const } : {}),
       })),
     },

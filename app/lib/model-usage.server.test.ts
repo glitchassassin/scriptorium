@@ -87,11 +87,11 @@ function createUserMessage(input: {
       model: {
         modelID: input.modelID,
         providerID: input.providerID,
+        ...(input.variant ? { variant: input.variant } : {}),
       },
       role: "user",
       sessionID: input.sessionID ?? "session-1",
       time: { created: input.created },
-      variant: input.variant,
     },
     parts: [],
   };

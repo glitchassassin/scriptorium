@@ -175,8 +175,11 @@ export function getMessageInfoModelChoice(info: OpencodeMessageInfo): Timestampe
     }
 
     return {
-      model: info.model,
-      variant: info.variant ?? null,
+      model: {
+        modelID: info.model.modelID,
+        providerID: info.model.providerID,
+      },
+      variant: info.model.variant ?? info.variant ?? null,
       usedAt: info.time.created,
     } satisfies TimestampedSessionModelChoice;
   }

@@ -21,6 +21,7 @@ import {
   type SessionReviewMode,
 } from "~/lib/review";
 import { getServerTimingHeaders, makeTimings, time } from "~/lib/server-timing.server";
+import { parseUnifiedDiffHunks } from "~/lib/files/diff";
 
 function notFound(): never {
   throw new Response("Not Found", { status: 404 });
@@ -34,13 +35,35 @@ export function parseSessionReviewModeOrThrow(mode: string | undefined): Session
   notFound();
 }
 
-function toSnapshotStatus(diff: OpencodeFileDiff): FileTreeStatus {
+export function toSnapshotStatus(diff: OpencodeFileDiff): FileTreeStatus {
   if (diff.status === "added") {
     return "A";
   }
 
   if (diff.status === "deleted") {
     return "D";
+  }
+
+  if ("patch" in diff) {
+    if (/^new file mode /m.test(diff.patch)) {
+      return "A";
+    }
+
+    if (/^deleted file mode /m.test(diff.patch)) {
+      return "D";
+    }
+
+    const hunks = parseUnifiedDiffHunks(diff.patch);
+
+    if (hunks.length > 0 && hunks.every((hunk) => hunk.oldCount === 0 && hunk.newCount > 0)) {
+      return "A";
+    }
+
+    if (hunks.length > 0 && hunks.every((hunk) => hunk.newCount === 0 && hunk.oldCount > 0)) {
+      return "D";
+    }
+
+    return "M";
   }
 
   if (!diff.before.length && diff.after.length) {
@@ -106,11 +129,34 @@ function readStoredDiff(before: string, after: string) {
   }
 }
 
-function toStoredSelection(diff: OpencodeFileDiff): ReviewFileSelection {
+function readPatchedContent(patch: string, side: "old" | "new") {
+  const hunks = parseUnifiedDiffHunks(patch);
+  const lines: string[] = [];
+
+  for (const hunk of hunks) {
+    for (const line of hunk.lines) {
+      const index = side === "old" ? line.oldLine : line.newLine;
+
+      if (index === null) {
+        continue;
+      }
+
+      lines[index - 1] = line.content;
+    }
+  }
+
+  return lines.join("\n");
+}
+
+export function toStoredSelection(diff: OpencodeFileDiff): ReviewFileSelection {
   const status = toSnapshotStatus(diff);
   const diffSide = status === "D" ? "old" : "new";
-  const content = diffSide === "old" ? diff.before : diff.after;
-  const diffContent = readStoredDiff(diff.before, diff.after);
+  const content = "patch" in diff
+    ? readPatchedContent(diff.patch, diffSide)
+    : diffSide === "old"
+      ? diff.before
+      : diff.after;
+  const diffContent = "patch" in diff ? diff.patch : readStoredDiff(diff.before, diff.after);
 
   if (!diffContent) {
     return {

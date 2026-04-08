@@ -131,8 +131,7 @@ describe("parseOpencodeEvent", () => {
         diff: [
           {
             file: "src/app.ts",
-            before: "old",
-            after: "new",
+            patch: "@@ -1 +1 @@\n-old\n+new",
             additions: 1,
             deletions: 1,
             status: "modified",
@@ -152,5 +151,6 @@ describe("parseOpencodeEvent", () => {
     }
 
     expect(result.data.properties.diff[0]?.file).toBe("src/app.ts");
+    expect(result.data.properties.diff[0]).toHaveProperty("patch");
   });
 });

@@ -101,6 +101,10 @@ const opencodeModelRefSchema = z.object({
   modelID: z.string(),
 });
 
+const opencodeUserModelRefSchema = opencodeModelRefSchema.extend({
+  variant: z.string().optional(),
+});
+
 const opencodeModelCatalogEntrySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -122,14 +126,23 @@ export const opencodeConfigSchema = z.object({
   model: z.string().optional(),
 }).passthrough();
 
-export const opencodeFileDiffSchema = z.object({
+const opencodeFileDiffBaseSchema = z.object({
   file: z.string(),
-  before: z.string(),
-  after: z.string(),
   additions: z.number(),
   deletions: z.number(),
   status: z.enum(["added", "deleted", "modified"]).optional(),
 });
+
+const opencodePatchFileDiffSchema = opencodeFileDiffBaseSchema.extend({
+  patch: z.string(),
+});
+
+const opencodeLegacyFileDiffSchema = opencodeFileDiffBaseSchema.extend({
+  before: z.string(),
+  after: z.string(),
+});
+
+export const opencodeFileDiffSchema = z.union([opencodePatchFileDiffSchema, opencodeLegacyFileDiffSchema]);
 
 const opencodeUserMessageSummarySchema = z.object({
   title: z.string().optional(),
@@ -150,7 +163,7 @@ export const opencodeUserMessageSchema = z.object({
     created: z.number(),
   }),
   agent: z.string().optional(),
-  model: opencodeModelRefSchema.optional(),
+  model: opencodeUserModelRefSchema.optional(),
   format: z.unknown().optional(),
   summary: opencodeUserMessageSummarySchema.optional(),
   system: z.string().optional(),
