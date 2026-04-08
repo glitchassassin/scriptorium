@@ -30,7 +30,7 @@ type StoredAttachmentRecord = StoredDraftAttachment & {
   sessionId: string;
 };
 
-export type DraftImage = {
+export type DraftAttachment = {
   file: File;
   id: string;
   preview: string;
@@ -50,8 +50,8 @@ const SESSION_COMPOSER_ATTACHMENTS_STORE = "attachments";
 
 const EMPTY_SELECTION: ComposerSelection = { start: 0, end: 0 };
 
-function isImage(file: File) {
-  return file.type.startsWith("image/");
+function isAttachment(file: File) {
+  return file.type.startsWith("image/") || file.type === "application/pdf";
 }
 
 function createAttachmentId() {
@@ -59,10 +59,10 @@ function createAttachmentId() {
     return crypto.randomUUID();
   }
 
-  return `image-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `attachment-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function createDraftImage(file: File, id: string): DraftImage {
+function createDraftAttachment(file: File, id: string): DraftAttachment {
   return {
     file,
     id,
@@ -70,8 +70,8 @@ function createDraftImage(file: File, id: string): DraftImage {
   };
 }
 
-function revokeDraftImages(images: DraftImage[]) {
-  images.forEach((image) => URL.revokeObjectURL(image.preview));
+function revokeDraftAttachments(attachments: DraftAttachment[]) {
+  attachments.forEach((attachment) => URL.revokeObjectURL(attachment.preview));
 }
 
 export function getSessionComposerStorageKey(sessionId: string) {
@@ -91,13 +91,13 @@ function getStoredModel(value: unknown): OpencodeModelRef | null {
     : null;
 }
 
-function getStoredDraftAttachment(image: DraftImage): StoredDraftAttachment {
+function getStoredDraftAttachment(attachment: DraftAttachment): StoredDraftAttachment {
   return {
-    id: image.id,
-    lastModified: image.file.lastModified,
-    name: image.file.name,
-    size: image.file.size,
-    type: image.file.type,
+    id: attachment.id,
+    lastModified: attachment.file.lastModified,
+    name: attachment.file.name,
+    size: attachment.file.size,
+    type: attachment.file.type,
   };
 }
 
@@ -244,7 +244,7 @@ export async function clearStoredSessionComposerDraft(sessionId: string) {
   });
 }
 
-async function loadStoredImages(sessionId: string, attachments: StoredDraftAttachment[]) {
+async function loadStoredAttachments(sessionId: string, attachments: StoredDraftAttachment[]) {
   const restored = await Promise.all(attachments.map(async (attachment) => {
     const record = await getStoredAttachment(sessionId, attachment.id);
 
@@ -257,35 +257,35 @@ async function loadStoredImages(sessionId: string, attachments: StoredDraftAttac
       type: record.type,
     });
 
-    return createDraftImage(file, record.id);
+    return createDraftAttachment(file, record.id);
   }));
 
-  return restored.filter((image): image is DraftImage => image !== null);
+  return restored.filter((attachment): attachment is DraftAttachment => attachment !== null);
 }
 
 export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVariant, prefilledPrompt, sessionId }: UseSessionComposerDraftOptions) {
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const selectionRef = useRef<ComposerSelection>(EMPTY_SELECTION);
-  const imagesRef = useRef<DraftImage[]>([]);
+  const attachmentsRef = useRef<DraftAttachment[]>([]);
   const hydratedRef = useRef(false);
   const restoreIdRef = useRef(0);
   const focusAfterRestoreRef = useRef(false);
 
   const [composerText, setComposerText] = useState("");
-  const [images, setImages] = useState<DraftImage[]>([]);
+  const [attachments, setAttachments] = useState<DraftAttachment[]>([]);
   const [isRestoringAttachments, setIsRestoringAttachments] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(defaultAgent);
   const [selectedModel, setSelectedModel] = useState<OpencodeModelRef | null>(null);
   const [variants, setVariants] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    imagesRef.current = images;
-  }, [images]);
+    attachmentsRef.current = attachments;
+  }, [attachments]);
 
   useEffect(
     () => () => {
-      revokeDraftImages(imagesRef.current);
+      revokeDraftAttachments(attachmentsRef.current);
     },
     [],
   );
@@ -296,9 +296,9 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
     hydratedRef.current = false;
     focusAfterRestoreRef.current = false;
 
-    revokeDraftImages(imagesRef.current);
-    imagesRef.current = [];
-    setImages([]);
+    revokeDraftAttachments(attachmentsRef.current);
+    attachmentsRef.current = [];
+    setAttachments([]);
     setIsRestoringAttachments(true);
 
     const storedDraft = readStoredDraft(sessionId);
@@ -319,14 +319,14 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
     setVariants(nextVariants);
     focusAfterRestoreRef.current = !storedDraft?.text && Boolean(prefilledPrompt);
 
-    void loadStoredImages(sessionId, storedDraft?.attachments ?? []).then((restoredImages) => {
+    void loadStoredAttachments(sessionId, storedDraft?.attachments ?? []).then((restoredAttachments) => {
       if (restoreIdRef.current !== restoreId) {
-        revokeDraftImages(restoredImages);
+        revokeDraftAttachments(restoredAttachments);
         return;
       }
 
-      imagesRef.current = restoredImages;
-      setImages(restoredImages);
+      attachmentsRef.current = restoredAttachments;
+      setAttachments(restoredAttachments);
       hydratedRef.current = true;
       setIsRestoringAttachments(false);
     });
@@ -358,14 +358,14 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
     }
 
     writeStoredDraft(sessionId, {
-      attachments: images.map(getStoredDraftAttachment),
+      attachments: attachments.map(getStoredDraftAttachment),
       selectedModel,
       selectedAgent,
       selection: selectionRef.current,
       text: composerText,
       variants,
     });
-  }, [composerText, images, selectedAgent, selectedModel, sessionId, variants]);
+  }, [attachments, composerText, selectedAgent, selectedModel, sessionId, variants]);
 
   const updateComposerSelection = useCallback((target?: HTMLTextAreaElement | null) => {
     const input = target ?? composerInputRef.current;
@@ -381,7 +381,7 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
 
     if (hydratedRef.current) {
       writeStoredDraft(sessionId, {
-        attachments: imagesRef.current.map(getStoredDraftAttachment),
+        attachments: attachmentsRef.current.map(getStoredDraftAttachment),
         selectedModel,
         selectedAgent,
         selection: selectionRef.current,
@@ -426,14 +426,14 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
     });
   }, []);
 
-  const addImages = useCallback(async (items: FileList | File[]) => {
-    const files = Array.from(items).filter(isImage);
+  const addAttachments = useCallback(async (items: FileList | File[]) => {
+    const files = Array.from(items).filter(isAttachment);
 
     if (files.length === 0) {
       return;
     }
 
-    const nextImages = await Promise.all(files.map(async (file) => {
+    const nextAttachments = await Promise.all(files.map(async (file) => {
       const id = createAttachmentId();
 
       await putStoredAttachment({
@@ -446,31 +446,31 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
         type: file.type,
       });
 
-      return createDraftImage(file, id);
+      return createDraftAttachment(file, id);
     }));
 
-    setImages((current) => [...current, ...nextImages]);
+    setAttachments((current) => [...current, ...nextAttachments]);
   }, [sessionId]);
 
-  const removeImage = useCallback(async (id: string) => {
-    let removedImage: DraftImage | undefined;
+  const removeAttachment = useCallback(async (id: string) => {
+    let removedAttachment: DraftAttachment | undefined;
 
-    setImages((current) => {
-      removedImage = current.find((image) => image.id === id);
-      return current.filter((image) => image.id !== id);
+    setAttachments((current) => {
+      removedAttachment = current.find((attachment) => attachment.id === id);
+      return current.filter((attachment) => attachment.id !== id);
     });
 
-    if (removedImage) {
-      URL.revokeObjectURL(removedImage.preview);
+    if (removedAttachment) {
+      URL.revokeObjectURL(removedAttachment.preview);
     }
 
     await deleteStoredAttachment(sessionId, id);
   }, [sessionId]);
 
   const clearDraftContent = useCallback(async () => {
-    revokeDraftImages(imagesRef.current);
-    imagesRef.current = [];
-    setImages([]);
+    revokeDraftAttachments(attachmentsRef.current);
+    attachmentsRef.current = [];
+    setAttachments([]);
     setComposerText("");
     selectionRef.current = EMPTY_SELECTION;
 
@@ -527,16 +527,16 @@ export function useSessionComposerDraft({ defaultAgent, defaultModel, defaultVar
   }, []);
 
   return {
-    addImages,
+    addAttachments,
     applySelectedModel,
     clearDraftContent,
     composerInputRef,
     composerText,
-    imageInputRef,
-    images,
+    attachmentInputRef,
+    attachments,
     insertComposerReference,
     isRestoringAttachments,
-    removeImage,
+    removeAttachment,
     selectedAgent,
     selectedModel,
     selectedVariant,

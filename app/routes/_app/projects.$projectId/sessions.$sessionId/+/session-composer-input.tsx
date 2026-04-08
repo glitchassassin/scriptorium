@@ -2,42 +2,42 @@ import { Icon } from "@iconify/react";
 import type { RefObject } from "react";
 
 type SessionComposerInputProps = {
+  attachmentInputRef: RefObject<HTMLInputElement | null>;
   composerInputRef: RefObject<HTMLTextAreaElement | null>;
   composerText: string;
-  imageInputRef: RefObject<HTMLInputElement | null>;
   isPromptPending: boolean;
-  onAddImages: (items: FileList | File[]) => Promise<void>;
+  onAddAttachments: (items: FileList | File[]) => Promise<void>;
   onComposerTextChange: (value: string) => void;
   onUpdateSelection: (target?: HTMLTextAreaElement | null) => void;
 };
 
-function getImageFiles(items: FileList | File[]) {
-  return Array.from(items).filter((file) => file.type.startsWith("image/"));
+function getAttachmentFiles(items: FileList | File[]) {
+  return Array.from(items).filter((file) => file.type.startsWith("image/") || file.type === "application/pdf");
 }
 
 export function SessionComposerInput({
+  attachmentInputRef,
   composerInputRef,
   composerText,
-  imageInputRef,
   isPromptPending,
-  onAddImages,
+  onAddAttachments,
   onComposerTextChange,
   onUpdateSelection,
 }: SessionComposerInputProps) {
   return (
     <div className="relative min-w-0">
       <input
-        accept="image/*"
+        accept="image/*,application/pdf"
         className="hidden"
         multiple
         onChange={(event) => {
           if (event.currentTarget.files) {
-            void onAddImages(event.currentTarget.files);
+            void onAddAttachments(event.currentTarget.files);
           }
 
           event.currentTarget.value = "";
         }}
-        ref={imageInputRef}
+        ref={attachmentInputRef}
         type="file"
       />
       <textarea
@@ -50,44 +50,44 @@ export function SessionComposerInput({
         }}
         onClick={(event) => onUpdateSelection(event.currentTarget)}
         onDragOver={(event) => {
-          if (Array.from(event.dataTransfer?.files ?? []).some((file) => file.type.startsWith("image/"))) {
+          if (getAttachmentFiles(event.dataTransfer?.files ?? []).length > 0) {
             event.preventDefault();
           }
         }}
         onDrop={(event) => {
-          const files = getImageFiles(event.dataTransfer.files ?? []);
+          const files = getAttachmentFiles(event.dataTransfer.files ?? []);
 
           if (files.length === 0) {
             return;
           }
 
           event.preventDefault();
-          void onAddImages(files);
+          void onAddAttachments(files);
         }}
         onKeyUp={(event) => onUpdateSelection(event.currentTarget)}
         onPaste={(event) => {
-          const files = getImageFiles(event.clipboardData.files ?? []);
+          const files = getAttachmentFiles(event.clipboardData.files ?? []);
 
           if (files.length === 0) {
             return;
           }
 
           event.preventDefault();
-          void onAddImages(files);
+          void onAddAttachments(files);
         }}
         onSelect={(event) => onUpdateSelection(event.currentTarget)}
-        placeholder="Send a message, paste an image, or attach one"
+        placeholder="Send a message, paste an image or PDF, or attach one"
         ref={composerInputRef}
         value={composerText}
       />
       <button
-        aria-label="Attach image"
+        aria-label="Attach file"
         className="absolute bottom-3 right-3 inline-flex min-h-11 min-w-11 items-center justify-center bg-white disabled:opacity-25"
         disabled={isPromptPending}
-        onClick={() => imageInputRef.current?.click()}
+        onClick={() => attachmentInputRef.current?.click()}
         type="button"
       >
-        <Icon className="size-6" icon="mdi:image-plus" />
+        <Icon className="size-6" icon="mdi:paperclip" />
       </button>
     </div>
   );

@@ -1,29 +1,39 @@
 import { Icon } from "@iconify/react";
 
 import { ComposerHorizontalTray, ComposerTrayFrame } from "~/components/ui/composer-trays";
-import type { DraftImage } from "./session-composer-draft";
+import type { DraftAttachment } from "./session-composer-draft";
+
+function isImage(type: string) {
+  return type.startsWith("image/");
+}
 
 export function SessionComposerImagesTray({
-  images,
-  onRemoveImage,
+  attachments,
+  onRemoveAttachment,
 }: {
-  images: DraftImage[];
-  onRemoveImage: (id: string) => Promise<void>;
+  attachments: DraftAttachment[];
+  onRemoveAttachment: (id: string) => Promise<void>;
 }) {
-  if (!images.length) {
+  if (!attachments.length) {
     return null;
   }
 
   return (
     <ComposerTrayFrame>
       <ComposerHorizontalTray>
-        {images.map((image) => (
-          <div aria-label={image.file.name} className="relative size-20 overflow-hidden border-2 border-black bg-white" key={image.id}>
-            <img alt={image.file.name} className="size-full object-cover" src={image.preview} />
+        {attachments.map((attachment) => (
+          <div aria-label={attachment.file.name} className="relative size-20 overflow-hidden border-2 border-black bg-white" key={attachment.id}>
+            {isImage(attachment.file.type)
+              ? <img alt={attachment.file.name} className="size-full object-cover" src={attachment.preview} />
+              : (
+                <div className="flex size-full items-center justify-center p-2 text-center text-xs font-bold leading-4">
+                  <span className="line-clamp-3 break-words">{attachment.file.name}</span>
+                </div>
+              )}
             <button
-              aria-label={`Remove ${image.file.name}`}
+              aria-label={`Remove ${attachment.file.name}`}
               className="absolute right-1 top-1 inline-flex size-6 items-center justify-center border-2 border-black bg-white"
-              onClick={() => void onRemoveImage(image.id)}
+              onClick={() => void onRemoveAttachment(attachment.id)}
               type="button"
             >
               <Icon className="size-4" icon="mdi:close" />

@@ -2,7 +2,7 @@ import type { RefObject } from "react";
 
 import type { ModelMetadata, SessionModelChoice } from "~/lib/opencode/models";
 import type { OpencodeAgent, OpencodeCommandInfo, OpencodeModelRef } from "~/lib/opencode/events";
-import type { DraftImage } from "./session-composer-draft";
+import type { DraftAttachment } from "./session-composer-draft";
 
 export type ComposerTray = "commands" | "model" | "subagents" | null;
 export type VisibleTray = "commands-description" | "commands-list" | "images" | "model" | "subagents-description" | "subagents-list" | null;
@@ -31,11 +31,11 @@ export type SessionComposerController = {
   commandDescription: string | null;
   commandError: string | null;
   commands: OpencodeCommandInfo[];
+  attachmentInputRef: RefObject<HTMLInputElement | null>;
+  attachments: DraftAttachment[];
   composerInputRef: RefObject<HTMLTextAreaElement | null>;
   composerText: string;
   currentVariant: string | null;
-  imageInputRef: RefObject<HTMLInputElement | null>;
-  images: DraftImage[];
   isAbortPending: boolean;
   isCommandPending: boolean;
   isPromptPending: boolean;
@@ -50,8 +50,8 @@ export type SessionComposerController = {
   subagents: OpencodeAgent[];
   variantOptions: string[];
   visibleTray: VisibleTray;
+  onAddAttachments: (items: FileList | File[]) => Promise<void>;
   onAbort: () => void;
-  onAddImages: (items: FileList | File[]) => Promise<void>;
   onCommand: (commandName: string) => void;
   onCommandsToggle: () => void;
   onComposerTextChange: (value: string) => void;
@@ -60,7 +60,7 @@ export type SessionComposerController = {
   onModelSelect: (model: OpencodeModelRef, variant?: string | null) => void;
   onModelToggle: () => void;
   onProviderToggle: (providerID: string) => void;
-  onRemoveImage: (id: string) => Promise<void>;
+  onRemoveAttachment: (id: string) => Promise<void>;
   onSubagent: (subagentName: string) => void;
   onSubagentsToggle: () => void;
   onSubmit: () => void;

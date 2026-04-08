@@ -73,7 +73,7 @@ export function SessionComposer({
       />
 
       {controller.visibleTray === "images" ? (
-        <SessionComposerImagesTray images={controller.images} onRemoveImage={controller.onRemoveImage} />
+        <SessionComposerImagesTray attachments={controller.attachments} onRemoveAttachment={controller.onRemoveAttachment} />
       ) : null}
 
       {controller.visibleTray === "commands-list" ? (
@@ -120,11 +120,11 @@ export function SessionComposer({
         }}>
           <div className="space-y-2">
             <SessionComposerInput
+              attachmentInputRef={controller.attachmentInputRef}
               composerInputRef={controller.composerInputRef}
               composerText={controller.composerText}
-              imageInputRef={controller.imageInputRef}
               isPromptPending={controller.isPromptPending}
-              onAddImages={controller.onAddImages}
+              onAddAttachments={controller.onAddAttachments}
               onComposerTextChange={controller.onComposerTextChange}
               onUpdateSelection={controller.onUpdateSelection}
             />

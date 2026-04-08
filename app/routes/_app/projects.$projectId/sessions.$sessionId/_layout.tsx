@@ -203,7 +203,8 @@ export async function action({ params, request }: Route.ActionArgs) {
   const intent = String(formData.get("intent") ?? "").trim();
   const files = formData
     .getAll("attachments")
-    .filter((value): value is File => value instanceof File && value.size > 0 && value.type.startsWith("image/"));
+    .filter((value): value is File => value instanceof File && value.size > 0)
+    .filter((file) => file.type.startsWith("image/") || file.type === "application/pdf");
   const attachments = await Promise.all(
     files.map(async (file) => ({
       type: "file" as const,

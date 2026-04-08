@@ -149,13 +149,16 @@ function ComposerDraftHarness({
       <button onClick={() => draft.setSelectedVariant("high")} type="button">
         Set high
       </button>
-      <button onClick={() => void draft.addImages([new File(["image"], "diagram.png", { type: "image/png" })])} type="button">
+      <button onClick={() => void draft.addAttachments([new File(["image"], "diagram.png", { type: "image/png" })])} type="button">
         Add image
+      </button>
+      <button onClick={() => void draft.addAttachments([new File(["pdf"], "spec.pdf", { type: "application/pdf" })])} type="button">
+        Add pdf
       </button>
       <button onClick={() => void draft.clearDraftContent()} type="button">
         Clear draft
       </button>
-      {draft.images.map((image) => <img alt={image.file.name} key={image.id} src={image.preview} />)}
+      {draft.attachments.map((attachment) => <div key={attachment.id}>{attachment.file.name}</div>)}
     </div>
   );
 }
@@ -191,11 +194,11 @@ function getSubmittedFormData(fetcher: MockFetcher, index = 0) {
   return call?.[0] as FormData;
 }
 
-function getImageInput(container: HTMLElement) {
+function getAttachmentInput(container: HTMLElement) {
   const input = container.querySelector('input[type="file"]');
 
   if (!(input instanceof HTMLInputElement)) {
-    throw new Error("Expected image input");
+    throw new Error("Expected attachment input");
   }
 
   return input;
@@ -210,7 +213,7 @@ describe("useSessionComposerDraft", () => {
     fireEvent.change(screen.getByLabelText("Composer"), { target: { value: "Draft message" } });
     fireEvent.click(screen.getByRole("button", { name: "Set review" }));
     fireEvent.click(screen.getByRole("button", { name: "Add image" }));
-    await screen.findByAltText("diagram.png");
+    await screen.findByText("diagram.png");
 
     firstRender.unmount();
 
@@ -219,7 +222,7 @@ describe("useSessionComposerDraft", () => {
     await waitForRestore();
     expect(screen.getByLabelText("Composer")).toHaveValue("Draft message");
     expect(screen.getByTestId("selected-agent")).toHaveTextContent("review");
-    expect(screen.getByAltText("diagram.png")).toBeInTheDocument();
+    expect(screen.getByText("diagram.png")).toBeInTheDocument();
 
     await clearStoredSessionComposerDraft(sessionId);
   });
@@ -281,12 +284,12 @@ describe("useSessionComposerDraft", () => {
     await waitForRestore();
     fireEvent.change(screen.getByLabelText("Composer"), { target: { value: "To be cleared" } });
     fireEvent.click(screen.getByRole("button", { name: "Add image" }));
-    await screen.findByAltText("diagram.png");
+    await screen.findByText("diagram.png");
     fireEvent.click(screen.getByRole("button", { name: "Clear draft" }));
 
     await waitFor(() => {
       expect(screen.getByLabelText("Composer")).toHaveValue("");
-      expect(screen.queryByAltText("diagram.png")).not.toBeInTheDocument();
+      expect(screen.queryByText("diagram.png")).not.toBeInTheDocument();
     });
 
     firstRender.unmount();
@@ -294,7 +297,7 @@ describe("useSessionComposerDraft", () => {
     render(<ComposerDraftHarness sessionId={sessionId} />);
     await waitForRestore();
     expect(screen.getByLabelText("Composer")).toHaveValue("");
-    expect(screen.queryByAltText("diagram.png")).not.toBeInTheDocument();
+    expect(screen.queryByText("diagram.png")).not.toBeInTheDocument();
 
     await clearStoredSessionComposerDraft(sessionId);
   });
@@ -511,9 +514,9 @@ describe("useSessionComposerDraft", () => {
     fireEvent.click(screen.getByRole("button", { name: "Toggle commands tray" }));
 
     expect(screen.getByRole("button", { name: "Insert /review" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Attach image" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Attach file" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
-    expect(getImageInput(view.container)).toBeInTheDocument();
+    expect(getAttachmentInput(view.container)).toBeInTheDocument();
   });
 
   it("keeps command insertion enabled while a prompt submission is pending", async () => {
@@ -914,7 +917,7 @@ describe("useSessionComposerDraft", () => {
     expect(screen.getByRole("button", { name: "Use OpenAI GPT 5" })).toBeInTheDocument();
   });
 
-  it("shows images in the default tray and closes it when all images are removed", async () => {
+  it("shows attachments in the default tray and closes it when all attachments are removed", async () => {
     const view = render(
       <SessionComposer
         agents={["draft", "review"]}
@@ -934,7 +937,7 @@ describe("useSessionComposerDraft", () => {
 
     await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
 
-    fireEvent.change(getImageInput(view.container), {
+    fireEvent.change(getAttachmentInput(view.container), {
       target: {
         files: [new File(["image"], "diagram.png", { type: "image/png" })],
       },
@@ -948,7 +951,7 @@ describe("useSessionComposerDraft", () => {
     await waitFor(() => expect(screen.queryByAltText("diagram.png")).not.toBeInTheDocument());
   });
 
-  it("keeps the image tray behind explicit trays", async () => {
+  it("keeps the attachment tray behind explicit trays", async () => {
     const view = render(
       <SessionComposer
         agents={["draft", "review"]}
@@ -968,7 +971,7 @@ describe("useSessionComposerDraft", () => {
 
     await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
 
-    fireEvent.change(getImageInput(view.container), {
+    fireEvent.change(getAttachmentInput(view.container), {
       target: {
         files: [new File(["image"], "diagram.png", { type: "image/png" })],
       },
@@ -980,6 +983,29 @@ describe("useSessionComposerDraft", () => {
 
     expect(screen.getByRole("button", { name: "Insert /review" })).toBeInTheDocument();
     expect(screen.queryByAltText("diagram.png")).not.toBeInTheDocument();
+  });
+
+  it("accepts PDFs as attachments", async () => {
+    const view = renderSessionComposer();
+
+    await waitFor(() => expect(screen.queryByText("Restoring attachments...")).not.toBeInTheDocument());
+
+    fireEvent.change(getAttachmentInput(view.container), {
+      target: {
+        files: [new File(["pdf"], "spec.pdf", { type: "application/pdf" })],
+      },
+    });
+
+    expect(await screen.findByLabelText("spec.pdf")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Hello" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(promptFetcher.submit).toHaveBeenCalledTimes(1));
+    const file = getSubmittedFormData(promptFetcher).getAll("attachments")[0];
+    expect(file).toBeInstanceOf(File);
+    expect((file as File).name).toBe("spec.pdf");
+    expect((file as File).type).toBe("application/pdf");
   });
 
   it("resets explicit tray state when the session changes", async () => {

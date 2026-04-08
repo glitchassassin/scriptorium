@@ -23,8 +23,8 @@ type UseSessionComposerControllerOptions = {
   subagents: OpencodeAgent[];
 };
 
-function getImageFiles(items: FileList | File[]) {
-  return Array.from(items).filter((file) => file.type.startsWith("image/"));
+function getAttachmentFiles(items: FileList | File[]) {
+  return Array.from(items).filter((file) => file.type.startsWith("image/") || file.type === "application/pdf");
 }
 
 export function useSessionComposerController({
@@ -49,15 +49,15 @@ export function useSessionComposerController({
   const [modelSearch, setModelSearch] = useState("");
   const [collapsedProviderIDs, setCollapsedProviderIDs] = useState<Set<string>>(() => new Set());
   const {
-    addImages,
+    addAttachments,
+    attachmentInputRef,
+    attachments,
     clearDraftContent,
     composerInputRef,
     composerText,
-    imageInputRef,
-    images,
     insertComposerReference,
     isRestoringAttachments,
-    removeImage,
+    removeAttachment,
     selectedAgent,
     selectedModel,
     selectedVariant,
@@ -227,7 +227,7 @@ export function useSessionComposerController({
     formData.set("modelProviderID", selectedModel?.providerID ?? "");
     formData.set("modelID", selectedModel?.modelID ?? "");
     formData.set("variant", currentVariant ?? "");
-    images.forEach((image) => formData.append("attachments", image.file, image.file.name));
+    attachments.forEach((attachment) => formData.append("attachments", attachment.file, attachment.file.name));
 
     if (parsedSlashCommand) {
       onClearSessionError();
@@ -243,7 +243,7 @@ export function useSessionComposerController({
     formData.set("intent", "prompt");
     formData.set("text", composerText);
     promptFetcher.submit(formData, { encType: "multipart/form-data", method: "post" });
-  }, [clearDraftContent, commandFetcher, composerText, currentVariant, images, onClearSessionError, parsedSlashCommand, promptFetcher, selectedAgent, selectedModel]);
+  }, [attachments, clearDraftContent, commandFetcher, composerText, currentVariant, onClearSessionError, parsedSlashCommand, promptFetcher, selectedAgent, selectedModel]);
 
   const submitAbort = useCallback(() => {
     const formData = new FormData();
@@ -353,11 +353,13 @@ export function useSessionComposerController({
         ? matchedSubagent?.description
           ? "subagents-description"
           : "subagents-list"
-      : images.length
+      : attachments.length
         ? "images"
         : null;
 
   return {
+    attachmentInputRef,
+    attachments,
     abortError,
     collapsedProviderIDs,
     commandDescription: matchedCommand?.description ?? null,
@@ -366,8 +368,6 @@ export function useSessionComposerController({
     composerInputRef,
     composerText,
     currentVariant,
-    imageInputRef,
-    images,
     isAbortPending: abortFetcher.state !== "idle",
     isCommandPending: commandFetcher.state !== "idle",
     isPromptPending: promptFetcher.state !== "idle",
@@ -383,7 +383,7 @@ export function useSessionComposerController({
     variantOptions,
     visibleTray,
     onAbort: submitAbort,
-    onAddImages: (items) => addImages(getImageFiles(items)),
+    onAddAttachments: (items) => addAttachments(getAttachmentFiles(items)),
     onCommand: populateCommand,
     onCommandsToggle: toggleCommandsTray,
     onComposerTextChange: setComposerText,
@@ -392,7 +392,7 @@ export function useSessionComposerController({
     onModelSelect: selectModel,
     onModelToggle: toggleModelTray,
     onProviderToggle: toggleProvider,
-    onRemoveImage: removeImage,
+    onRemoveAttachment: removeAttachment,
     onSubagent: populateSubagent,
     onSubagentsToggle: toggleSubagentsTray,
     onSubmit: submitPrompt,
