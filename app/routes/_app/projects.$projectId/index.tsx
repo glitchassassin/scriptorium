@@ -375,8 +375,7 @@ function ProjectSessionsSection({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 px-6 sm:px-8">
-        <p className="text-sm uppercase tracking-[0.08em]">Recent sessions</p>
+      <div className="flex items-center justify-end gap-3 px-6 sm:px-8">
         <div className="flex items-center gap-3">
           {unreadRootSessionCount > 0 ? (
             <markAllReadFetcher.Form method="post">
